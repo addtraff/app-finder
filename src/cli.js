@@ -208,6 +208,9 @@ async function main() {
           scope: args.scope, limit: args.limit ? Number(args.limit) : null,
           force: !!args.force, useBrowser: args.browser !== 'no',
           headless: args.headless === true || args.headless === 'yes',
+          sequential: args.sequential === true || args.sequential === 'yes',
+          domains: args.domains || null, apps: args.apps || null,
+          skipMeta: args['skip-meta'] === true || args['skip-meta'] === 'yes',
         });
       }
       break;
@@ -367,6 +370,7 @@ async function main() {
   node src/cli.js import-policy  --file e7.csv  пакетное подтверждение policy_ok (модуль E7)
   node src/cli.js import-planner --file kp.csv  выгрузка Keyword Planner (E1)
   node src/cli.js import-trends  --file gt.csv  выгрузка Google Trends (E2)
+  node src/cli.js stage check-ads --geo US [--limit 90] [--sequential] [--domains a.com,b.com]
   node src/cli.js record-ads --source meta --app <id> --found 1
   node src/cli.js record-ads --source google --domain example.com --found 0
 

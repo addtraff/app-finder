@@ -122,9 +122,21 @@ CREATE TABLE IF NOT EXISTS raw_similar (
 );
 
 -- K7: рекламные библиотеки. Пусто = "не проверено", не "органика".
+-- Единица запроса — домен рекламодателя, а не приложение: у одного разработчика
+-- шесть приложений это один запрос. Успешно проверенный домен не переспрашивается,
+-- строки с ошибкой (status <> 'ok') остаются в очереди.
 CREATE TABLE IF NOT EXISTS raw_ads_google (
   developer_domain TEXT, checked_at TEXT, creatives_found INTEGER, count INTEGER, note TEXT,
+  status TEXT, advertiser_id TEXT, raw_json TEXT,
   PRIMARY KEY (developer_domain, checked_at)
+);
+
+-- Ответ RPC разбирается целиком: все скалярные поля с их путями, как есть.
+-- Ключи у Google числовые и недокументированные — здесь ничего не интерпретируется,
+-- разметка делается офлайн по накопленным данным.
+CREATE TABLE IF NOT EXISTS raw_ads_google_field (
+  developer_domain TEXT, checked_at TEXT, path TEXT, value TEXT,
+  PRIMARY KEY (developer_domain, checked_at, path)
 );
 CREATE TABLE IF NOT EXISTS raw_ads_meta (
   app_id TEXT, query TEXT, checked_at TEXT, found_by_package_id INTEGER, ad_count INTEGER, note TEXT,
@@ -327,6 +339,9 @@ const MIGRATIONS = [
   ['metrics_niche_geo', 'top10_turnover_7d', 'REAL'],  // C3
   ['metrics_niche_geo', 'top10_turnover_14d', 'REAL'],
   ['metrics_niche_geo', 'partial_window', 'INTEGER'],
+  ['raw_ads_google', 'status', 'TEXT'],
+  ['raw_ads_google', 'advertiser_id', 'TEXT'],
+  ['raw_ads_google', 'raw_json', 'TEXT'],
 ];
 
 function migrate(d) {
