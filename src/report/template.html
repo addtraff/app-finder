@@ -1,0 +1,1348 @@
+<title>Play Market Radar</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #F2F4F1;
+    --surface: #FFFFFF;
+    --surface-2: #E9EDE8;
+    --line: #D3DAD2;
+    --line-strong: #AEB9AC;
+    --ink: #171C18;
+    --ink-2: #4B554E;
+    --ink-3: #78847D;
+    --accent: #12695C;
+    --accent-soft: #DBEAE6;
+    --warn: #9E6216;
+    --warn-soft: #F2E6D0;
+    --bad: #94382B;
+    --bad-soft: #F0DBD6;
+    --good: #2E6F45;
+    --good-soft: #DCE9DF;
+    --cool: #3D5A80;
+    --cool-soft: #DDE4EE;
+
+    --f-display: "IBM Plex Sans Condensed", "Arial Narrow", Helvetica, sans-serif;
+    --f-body: "IBM Plex Sans", -apple-system, "Segoe UI", Roboto, sans-serif;
+    --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+    --rule: 1px solid var(--line);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0E120F; --surface: #151A16; --surface-2: #1C231E;
+      --line: #2A332C; --line-strong: #414D44;
+      --ink: #E8EDE9; --ink-2: #A9B4AC; --ink-3: #7B867F;
+      --accent: #4FC8AE; --accent-soft: #143029;
+      --warn: #D9A24F; --warn-soft: #33280F;
+      --bad: #D97565; --bad-soft: #331A15;
+      --good: #6BB183; --good-soft: #17291C;
+      --cool: #8FADD4; --cool-soft: #18222F;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0E120F; --surface: #151A16; --surface-2: #1C231E;
+    --line: #2A332C; --line-strong: #414D44;
+    --ink: #E8EDE9; --ink-2: #A9B4AC; --ink-3: #7B867F;
+    --accent: #4FC8AE; --accent-soft: #143029;
+    --warn: #D9A24F; --warn-soft: #33280F;
+    --bad: #D97565; --bad-soft: #331A15;
+    --good: #6BB183; --good-soft: #17291C;
+    --cool: #8FADD4; --cool-soft: #18222F;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: var(--f-body); font-size: 14px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 0 24px 96px; }
+
+  /* ---------- masthead ---------- */
+  .masthead { border-bottom: 2px solid var(--ink); padding: 34px 0 16px; }
+  .masthead-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  h1 { font-family: var(--f-display); font-weight: 700; font-size: 44px; letter-spacing: -0.015em; margin: 0; line-height: 1; text-wrap: balance; }
+  .subtitle { color: var(--ink-2); margin: 8px 0 0; max-width: 62ch; }
+  .runinfo { font-family: var(--f-mono); font-size: 12px; color: var(--ink-2); text-align: right; line-height: 1.9; }
+  .runinfo b { color: var(--ink); font-weight: 500; }
+
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+  .chip {
+    font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.03em;
+    padding: 4px 9px; border: 1px solid var(--line-strong); color: var(--ink-2);
+    background: var(--surface); border-radius: 2px;
+  }
+  .chip.ok { border-color: var(--good); color: var(--good); background: var(--good-soft); }
+  .chip.warn { border-color: var(--warn); color: var(--warn); background: var(--warn-soft); }
+  .chip.bad { border-color: var(--bad); color: var(--bad); background: var(--bad-soft); }
+
+  .readouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(126px, 1fr)); border-bottom: var(--rule); }
+  .readout { padding: 18px 16px 18px 0; border-right: var(--rule); }
+  .readout:last-child { border-right: 0; }
+  .readout .n { font-family: var(--f-mono); font-size: 25px; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 1.1; display: block; }
+  .readout .l { font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 6px; display: block; }
+  .readout .s { font-family: var(--f-mono); font-size: 11px; color: var(--ink-2); margin-top: 3px; display: block; }
+
+  nav {
+    position: sticky; top: 0; z-index: 30; background: var(--ground);
+    border-bottom: var(--rule); display: flex; gap: 2px; flex-wrap: wrap; padding: 8px 0; margin-bottom: 30px;
+  }
+  nav a { font-family: var(--f-mono); font-size: 11.5px; text-decoration: none; color: var(--ink-2); padding: 5px 10px; border-radius: 2px; }
+  nav a:hover { background: var(--surface-2); color: var(--ink); }
+  nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  section { margin-bottom: 54px; scroll-margin-top: 58px; }
+  .sec-head { display: flex; align-items: baseline; gap: 14px; border-bottom: 2px solid var(--ink); padding-bottom: 7px; }
+  .eyebrow { font-family: var(--f-mono); font-size: 11px; color: var(--accent); letter-spacing: 0.09em; text-transform: uppercase; }
+  h2 { font-family: var(--f-display); font-weight: 600; font-size: 23px; margin: 0; letter-spacing: -0.01em; }
+  h3 { font-family: var(--f-display); font-weight: 600; font-size: 16px; margin: 0 0 10px; letter-spacing: -0.005em; }
+  .sec-count { margin-left: auto; font-family: var(--f-mono); font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .note { color: var(--ink-2); font-size: 13px; margin: 12px 0 18px; max-width: 78ch; }
+  code { font-family: var(--f-mono); font-size: 0.92em; background: var(--surface-2); padding: 1px 4px; border-radius: 2px; }
+
+  /* ---------- состояние сбора ---------- */
+  .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1px; background: var(--line); border: var(--rule); margin-top: 18px; }
+  .status-card { background: var(--surface); padding: 16px 18px; }
+  .status-card .geo { font-family: var(--f-display); font-size: 20px; font-weight: 700; }
+  .pill { font-family: var(--f-mono); font-size: 11px; padding: 3px 8px; border-radius: 2px; border: 1px solid; white-space: nowrap; }
+  .pill.done { color: var(--good); border-color: var(--good); background: var(--good-soft); }
+  .pill.run { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }
+  .pill.low { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); }
+  .pill.idle { color: var(--ink-3); border-color: var(--line-strong); background: var(--surface-2); }
+  .status-why { color: var(--ink-2); font-size: 12.5px; margin: 8px 0 0; }
+  .status-num { font-family: var(--f-mono); font-size: 12px; color: var(--ink-2); margin-top: 10px; font-variant-numeric: tabular-nums; }
+
+  .rail { display: flex; align-items: stretch; border: var(--rule); background: var(--surface); overflow-x: auto; }
+  .rail-stop { flex: 1 1 0; min-width: 150px; padding: 14px 14px 16px; border-right: var(--rule); }
+  .rail-stop:last-child { border-right: 0; }
+  .rail-stop .d { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); letter-spacing: 0.05em; text-transform: uppercase; }
+  .rail-stop .t { font-family: var(--f-display); font-size: 17px; font-weight: 600; margin-top: 2px; }
+  .rail-stop .m { font-size: 11.5px; color: var(--ink-2); margin-top: 6px; line-height: 1.45; }
+  .rail-stop .eta { font-family: var(--f-mono); font-size: 11px; margin-top: 8px; }
+  .rail-stop.on { background: var(--accent-soft); }
+  .rail-stop.on .t, .rail-stop.on .eta { color: var(--accent); }
+  .rail-stop.off .eta { color: var(--ink-3); }
+  .rail-bar { height: 4px; background: var(--surface-2); margin-bottom: 12px; }
+  .rail-bar i { display: block; height: 100%; background: var(--accent); }
+
+  .tasks { border: var(--rule); background: var(--surface); }
+  .task { display: grid; grid-template-columns: 54px 1fr auto; gap: 12px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+  .task:last-child { border-bottom: 0; }
+  .task.zero { opacity: 0.55; }
+  .task .cnt { font-family: var(--f-mono); font-size: 17px; font-variant-numeric: tabular-nums; text-align: right; }
+  .task.zero .cnt { color: var(--good); }
+  .task .cmd { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); background: var(--surface-2); padding: 3px 7px; border-radius: 2px; white-space: nowrap; }
+
+  .next-run { display: flex; gap: 26px; flex-wrap: wrap; border: var(--rule); background: var(--surface); padding: 16px 18px; }
+  .next-run > div { min-width: 152px; }
+  .next-run dt { font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.05em; }
+  .next-run dd { margin: 3px 0 0; font-family: var(--f-mono); font-size: 15px; font-variant-numeric: tabular-nums; }
+  .next-run .small { display: block; font-size: 11px; color: var(--ink-3); }
+
+  /* ---------- план ---------- */
+  .cal { display: grid; grid-template-columns: repeat(10, 1fr); gap: 1px; background: var(--line); border: var(--rule); }
+  .cal-day { background: var(--surface); padding: 8px 8px 10px; min-height: 80px; }
+  .cal-day.today { background: var(--accent-soft); }
+  .cal-day.weekend { background: var(--surface-2); }
+  .cal-day .dn { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); display: flex; justify-content: space-between; }
+  .cal-day .dn b { color: var(--ink); font-weight: 500; }
+  .marks { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 6px; }
+  .mark { font-family: var(--f-mono); font-size: 9.5px; padding: 1px 4px; border-radius: 2px; line-height: 1.5; }
+  .mark.full { background: var(--accent); color: var(--ground); }
+  .mark.light { background: var(--cool-soft); color: var(--cool); border: 1px solid var(--cool); }
+  .mark.k7 { background: var(--warn-soft); color: var(--warn); border: 1px solid var(--warn); }
+  .mark.month { background: var(--bad-soft); color: var(--bad); border: 1px solid var(--bad); }
+  .cal-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; font-family: var(--f-mono); font-size: 11.5px; color: var(--ink-2); align-items: center; }
+
+  /* ---------- кросс-гео матрица ---------- */
+  .matrix td:first-child, .matrix th:first-child {
+    position: sticky; left: 0; z-index: 2; background: var(--surface); border-right: 1px solid var(--line-strong);
+  }
+  .matrix thead th:first-child { z-index: 3; background: var(--surface-2); }
+  .matrix td { text-align: right; font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .matrix td:first-child { text-align: left; font-family: var(--f-body); }
+  .matrix .empty { color: var(--ink-3); }
+  .matrix .ref { outline: 1px solid var(--accent); outline-offset: -1px; }
+
+  /* ---------- геопереключатель ---------- */
+  .geo-switch { display: flex; flex-wrap: wrap; gap: 4px; margin: 18px 0 4px; }
+  .geo-btn {
+    font-family: var(--f-mono); font-size: 12px; padding: 6px 11px; cursor: pointer;
+    border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink-2); border-radius: 2px;
+  }
+  .geo-btn[aria-pressed="true"] { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+  .geo-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .geo-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* ---------- таблицы ---------- */
+  .tbl-wrap { overflow-x: auto; border: var(--rule); background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  thead th {
+    position: sticky; top: 0; background: var(--surface-2); text-align: left;
+    font-family: var(--f-mono); font-weight: 500; font-size: 11px; letter-spacing: 0.04em;
+    text-transform: uppercase; color: var(--ink-2); padding: 9px 10px; white-space: nowrap;
+    border-bottom: 1px solid var(--line-strong); cursor: pointer; user-select: none;
+  }
+  thead th:hover { color: var(--ink); }
+  thead th[data-sorted]::after { content: " ▾"; color: var(--accent); }
+  thead th[data-sorted="asc"]::after { content: " ▴"; color: var(--accent); }
+  tbody td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: var(--surface-2); }
+  .num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  .mono { font-family: var(--f-mono); font-size: 11.5px; color: var(--ink-2); }
+  .ttl { font-weight: 500; }
+  .sub { color: var(--ink-3); font-size: 11.5px; font-family: var(--f-mono); display: block; margin-top: 2px; }
+  a.app { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--line-strong); }
+  a.app:hover { border-color: var(--accent); color: var(--accent); }
+  tr.dim td { opacity: 0.5; }
+
+  .bar { display: block; height: 5px; background: var(--surface-2); margin-top: 5px; width: 100%; min-width: 56px; }
+  .bar i { display: block; height: 100%; background: var(--accent); }
+
+  .tag { font-family: var(--f-mono); font-size: 10.5px; padding: 2px 6px; border-radius: 2px; white-space: nowrap; border: 1px solid transparent; }
+  .tag.none { background: var(--surface-2); color: var(--ink-3); }
+  .tag.money { background: var(--good-soft); color: var(--good); border-color: var(--good); }
+  .tag.ads { background: var(--warn-soft); color: var(--warn); border-color: var(--warn); }
+  .tag.broken, .tag.trust { background: var(--bad-soft); color: var(--bad); border-color: var(--bad); }
+  .tag.missing { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+  .lvl { font-family: var(--f-mono); font-size: 11px; font-weight: 500; }
+  .lvl.A { color: var(--accent); }
+  .lvl.B { color: var(--ink); }
+  .lvl.C { color: var(--ink-3); }
+
+  .toolbar { display: flex; gap: 8px; align-items: center; margin: 16px 0 12px; flex-wrap: wrap; }
+  .toolbar input {
+    font-family: var(--f-mono); font-size: 12px; padding: 6px 9px;
+    border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); border-radius: 2px; min-width: 230px;
+  }
+  .toolbar input:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .fchip {
+    font-family: var(--f-mono); font-size: 11.5px; padding: 5px 9px; cursor: pointer;
+    border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink-2); border-radius: 2px;
+  }
+  .fchip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .fchip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .hint { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); margin-left: auto; }
+
+  /* ---------- воронка ---------- */
+  .funnel-bar { display: flex; height: 40px; border: var(--rule); overflow: hidden; margin: 18px 0 10px; }
+  .funnel-seg { min-width: 2px; display: flex; align-items: center; justify-content: center; }
+  .funnel-seg span { font-family: var(--f-mono); font-size: 11px; color: var(--ink); background: var(--surface); padding: 1px 5px; border-radius: 2px; font-variant-numeric: tabular-nums; }
+  .funnel-legend { display: flex; flex-wrap: wrap; gap: 14px; font-family: var(--f-mono); font-size: 11.5px; color: var(--ink-2); }
+  .funnel-legend i { width: 10px; height: 10px; display: inline-block; margin-right: 5px; vertical-align: -1px; }
+
+  /* ---------- ниши ---------- */
+  details.niche { border-bottom: 1px solid var(--line); }
+  details.niche:last-of-type { border-bottom: 0; }
+  details.niche > summary { display: grid; grid-template-columns: 1fr 96px 92px 84px 84px 84px 70px; gap: 10px; padding: 10px; cursor: pointer; align-items: center; list-style: none; }
+  details.niche > summary::-webkit-details-marker { display: none; }
+  details.niche > summary:hover, details.niche[open] > summary { background: var(--surface-2); }
+  .niche-head { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .niche-kw { font-family: var(--f-display); font-size: 16px; font-weight: 600; }
+  .niche-core { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .niche-body { padding: 4px 10px 18px; }
+  .grid-head { display: grid; grid-template-columns: 1fr 96px 92px 84px 84px 84px 70px; gap: 10px; padding: 9px 10px; background: var(--surface-2); border-bottom: 1px solid var(--line-strong); font-family: var(--f-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-2); }
+  .grid-head span:not(:first-child) { text-align: right; }
+  .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr)); gap: 0 20px; margin: 8px 0 16px; }
+  .kv > div { border-top: 1px solid var(--line); padding: 7px 0; }
+  .kv dt { font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.05em; }
+  .kv dd { margin: 2px 0 0; font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+
+  /* ---------- раскрывающаяся строка «прошли воронку» ---------- */
+  .expand-btn {
+    font-family: var(--f-mono); font-size: 12px; width: 22px; height: 22px; line-height: 20px;
+    text-align: center; border: 1px solid var(--line-strong); background: var(--surface);
+    color: var(--ink-2); border-radius: 2px; cursor: pointer; padding: 0;
+  }
+  .expand-btn:hover { background: var(--surface-2); color: var(--ink); }
+  .expand-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  tr.detail-row td { background: var(--surface-2); padding: 14px 18px 20px; }
+  .detail-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
+  .detail-group h4 {
+    font-family: var(--f-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--accent); margin: 0 0 6px; border-bottom: 1px solid var(--line-strong); padding-bottom: 4px;
+  }
+  .detail-group .kv { grid-template-columns: 1fr 1fr; gap: 0 14px; margin: 0; }
+  .detail-group .kv > div { padding: 5px 0; }
+
+  .gaps { border: var(--rule); background: var(--surface); margin: 0; padding: 0; }
+  .gaps li { padding: 11px 16px; border-bottom: 1px solid var(--line); list-style: none; }
+  .gaps li:last-child { border-bottom: 0; }
+  .gaps b { font-family: var(--f-mono); font-size: 12px; font-weight: 500; color: var(--warn); }
+
+  footer { border-top: 2px solid var(--ink); padding-top: 16px; color: var(--ink-3); font-size: 12px; font-family: var(--f-mono); }
+
+  @media (max-width: 1000px) { .cal { grid-template-columns: repeat(5, 1fr); } }
+  @media (max-width: 860px) {
+    h1 { font-size: 32px; }
+    .runinfo { text-align: left; }
+    .cal { grid-template-columns: repeat(3, 1fr); }
+    details.niche > summary, .grid-head { grid-template-columns: 1fr 84px 76px; }
+    details.niche > summary > :nth-child(n+4), .grid-head > :nth-child(n+4) { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="masthead-top">
+      <div>
+        <h1>Play Radar</h1>
+        <p class="subtitle">Обход Google Play, воронка отсева, ниши и очередь на ручную проверку.
+          Инструмент измеряет, не решает — решение за аналитиком.</p>
+      </div>
+      <div class="runinfo" id="runinfo"></div>
+    </div>
+    <div class="chips" id="chips"></div>
+  </header>
+
+  <div class="readouts" id="readouts"></div>
+
+  <nav>
+    <a href="#status">Состояние сбора</a>
+    <a href="#plan">План на месяц</a>
+    <a href="#geos">Все гео</a>
+    <a href="#cross">Кросс-гео</a>
+    <a href="#geo">Разрез по гео</a>
+    <a href="#passed">Прошли воронку</a>
+    <a href="#k7">Очередь K7</a>
+    <a href="#events">События</a>
+    <a href="#gaps">Чего нет в данных</a>
+  </nav>
+
+  <section id="status">
+    <div class="sec-head">
+      <span class="eyebrow">K0 · текущие задачи</span>
+      <h2>Состояние сбора</h2>
+      <span class="sec-count" id="status-count"></span>
+    </div>
+    <p class="note">Готовность дня считается по правилу последнего полного дня: если снимок содержит
+      меньше 60 % строк от вчерашнего, день помечается <code>partial</code> и расчётный слой берёт вчерашний.
+      Больше 10 % пустых ответов на стадии — <code>suspect</code>.</p>
+    <div class="status-grid" id="status-grid"></div>
+
+    <h3 style="margin-top:30px">Следующий сбор</h3>
+    <div class="next-run" id="next-run"></div>
+
+    <h3 style="margin-top:30px">Зрелость данных <span class="mono" id="rail-geo"></span></h3>
+    <p class="note">Метрики включаются по мере накопления истории: часть считается с первого снимка,
+      остальные — когда наберётся ряд. Ступени и их наполнение заданы в <code>config/schedule.json</code>.</p>
+    <div class="rail" id="rail"></div>
+
+    <h3 style="margin-top:30px">Осталось добрать сегодня <span class="mono" id="tasks-geo"></span></h3>
+    <p class="note">Условия те же, по которым стадии выбирают себе задачи, — список не декоративный:
+      команда справа доберёт ровно эту очередь. Ноль означает, что стадия за сегодня закрыта.</p>
+    <div class="tasks" id="tasks"></div>
+  </section>
+
+  <section id="plan">
+    <div class="sec-head">
+      <span class="eyebrow">ТЗ 5</span>
+      <h2>План на месяц</h2>
+      <span class="sec-count" id="plan-count"></span>
+    </div>
+    <p class="note">Обновление — ежедневно по всем активным гео, каждое в свой час UTC.
+      Полный обход по гео — раз в цикл, облегчённый (D1 + D2 по существующему ядру) — раз в неделю.
+      План выводится из <code>config/schedule.json</code> той же функцией, которой пользуется
+      <code>node src/cli.js plan</code>, поэтому нарисованное и реальное расписание совпадают.</p>
+    <div class="cal" id="cal"></div>
+    <div class="cal-legend">
+      <span><span class="mark full">US</span> полный обход гео</span>
+      <span><span class="mark light">D1+D2</span> облегчённый обход</span>
+      <span><span class="mark k7">K7</span> проверка рекламных библиотек</span>
+      <span><span class="mark month">10.6</span> месячная задача</span>
+      <span>серый фон — выходной; ежедневное обновление идёт каждый день</span>
+    </div>
+    <div class="next-run" id="cadence" style="margin-top:20px"></div>
+    <h3 style="margin-top:30px">Реже, чем раз в месяц</h3>
+    <div class="tbl-wrap">
+      <table id="quarterly-table">
+        <thead><tr><th data-k="title">Задача</th><th data-k="cadence">Периодичность</th><th data-k="note">Что даёт</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="geos">
+    <div class="sec-head">
+      <span class="eyebrow">слой F</span>
+      <h2>Все гео</h2>
+      <span class="sec-count" id="geos-count"></span>
+    </div>
+    <p class="note">Референс — US, неотключаем: все относительные метрики слоя F считаются к нему.
+      Гео без данных включаются флагом <code>active</code> в <code>config/geos.json</code>;
+      обход по гео без семени на его языке не запускается.</p>
+    <div class="toolbar">
+      <button class="fchip" id="geos-only-active" aria-pressed="false" type="button">только активные</button>
+      <span class="hint" id="geos-hint"></span>
+    </div>
+    <div class="tbl-wrap">
+      <table id="geos-table">
+        <thead><tr>
+          <th data-k="geo">Гео</th>
+          <th data-k="tier" class="num">тир</th>
+          <th data-k="hl">hl</th>
+          <th data-k="currency">валюта</th>
+          <th data-k="has_data">статус</th>
+          <th data-k="last_snapshot">снимок</th>
+          <th data-k="apps" class="num">найдено</th>
+          <th data-k="cards" class="num">карточек<br>сегодня</th>
+          <th data-k="keywords" class="num">ключей</th>
+          <th data-k="niches" class="num">ниш</th>
+          <th data-k="door_median" class="num">door<br>медиана</th>
+          <th data-k="passed" class="num">прошло<br>воронку</th>
+          <th data-k="ecpm_rel_us" class="num">eCPM<br>к US</th>
+          <th data-k="geo_arbitrage" class="num">арбитраж</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="cross">
+    <div class="sec-head">
+      <span class="eyebrow">слой F · кросс-гео</span>
+      <h2>Одна ниша во всех гео</h2>
+      <span class="sec-count" id="cross-count"></span>
+    </div>
+    <p class="note">Ниши сопоставляются по <code>concept</code> — языконезависимому ключу семени,
+      потому что головной ключ в каждом гео на своём языке: <code>document scanner</code> в US
+      и <code>dokumente scannen</code> в DE — одна ниша. В ячейке — <code>door</code>, ширина входа.
+      Чем светлее ячейка, тем дешевле вход относительно того же концепта в других гео.
+      Схема арбитража: берём механику, доказанную в US, и ставим её туда, где door в разы ниже
+      при сопоставимых деньгах.</p>
+    <div class="tbl-wrap">
+      <table class="matrix" id="cross-table">
+        <thead><tr id="cross-head"></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <h3 style="margin-top:30px">Где вход дешевле, чем в референсе</h3>
+    <p class="note"><code>geo_arbitrage = wall_ratio × demand_ratio × money_ratio</code>.
+      Смысл: 20 % спроса при 10 % конкуренции и 30 % денег выгоднее, чем 100 % спроса при стене
+      в миллионы установок. <code>money_ratio</code> берётся из справочника доходности гео —
+      он заполняется вручную и сейчас содержит приоры, а не измеренные значения.</p>
+    <div class="tbl-wrap">
+      <table id="arb-table">
+        <thead><tr>
+          <th data-k="concept">Ниша</th>
+          <th data-k="geo">Гео</th>
+          <th data-k="head">Ключ в этом гео</th>
+          <th data-k="door" class="num">door</th>
+          <th data-k="ref_door" class="num">door в референсе</th>
+          <th data-k="door_ratio" class="num">во сколько уже</th>
+          <th data-k="wall_ratio" class="num">wall_ratio</th>
+          <th data-k="demand_ratio" class="num">demand_ratio</th>
+          <th data-k="money_ratio" class="num">money_ratio</th>
+          <th data-k="geo_arbitrage" class="num">арбитраж</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="geo">
+    <div class="sec-head">
+      <span class="eyebrow">разрез</span>
+      <h2>Гео</h2>
+      <span class="sec-count" id="geo-count"></span>
+    </div>
+    <div class="geo-switch" id="geo-switch"></div>
+    <p class="note" id="geo-note"></p>
+
+    <h3 style="margin-top:26px">Воронка отсева</h3>
+    <p class="note">Ничего не удаляется: отсеянное остаётся в реестре с причиной и датой.
+      Топ-20 выдачи, не прошедшие воронку, уходят в фон (уровень C), а не в отвал — door, стена
+      и оборот топ-10 считаются по составу выдачи целиком.</p>
+    <div class="funnel-bar" id="funnel-bar"></div>
+    <div class="funnel-legend" id="funnel-legend"></div>
+    <div class="tbl-wrap" style="margin-top:18px">
+      <table id="funnel-table">
+        <thead><tr>
+          <th data-k="reason">Причина</th>
+          <th data-k="group">Группа</th>
+          <th data-k="stage" class="num">Этап</th>
+          <th data-k="count" class="num">Приложений</th>
+          <th data-k="pct" class="num">Доля</th>
+          <th data-k="what">Что это значит</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <h3 style="margin-top:30px">Ниши и ширина входа</h3>
+    <p class="note"><code>door</code> — медиана по ключам ядра от минимальных установок в топ-10.
+      Самый слабый в топ-10 — тот, чьё место занимает новичок, поэтому именно door, а не стена авторитета,
+      отвечает на вопрос «сколько стоит вход». Метрика движется на шкале недель.</p>
+    <div class="tbl-wrap">
+      <div class="grid-head">
+        <span>Ниша · головной ключ</span><span>door</span><span>best door</span>
+        <span>слабых</span><span>новых 18м</span><span>лидер</span><span>ключей</span>
+      </div>
+      <div id="niche-list"></div>
+    </div>
+
+    <h3 style="margin-top:30px">Квантили — источник всех порогов</h3>
+    <p class="note">Абсолютные числа в конфиге запрещены. «Слабый топ» — нижняя треть ниши в этом гео,
+      а не абсолютное 4.3. Исключения, разрешённые методикой: рейтинг выше 4.9 при 10K+ оценок
+      и порог монетизации ≈ 20 $ с допуском на курс.</p>
+    <div class="tbl-wrap">
+      <table id="q-table">
+        <thead><tr>
+          <th data-k="metric">Метрика</th>
+          <th data-k="p01" class="num">p01</th><th data-k="p10" class="num">p10</th>
+          <th data-k="p25" class="num">p25</th><th data-k="p50" class="num">p50</th>
+          <th data-k="p75" class="num">p75</th><th data-k="p90" class="num">p90</th>
+          <th data-k="p95" class="num">p95</th><th data-k="p99" class="num">p99</th>
+          <th data-k="n" class="num">n</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <h3 style="margin-top:30px">Ядро семантики</h3>
+    <p class="note">Ключ, всплывающий с трёх и более префиксов, — устойчивый спрос, а не артефакт
+      одного написания. Навигационные запросы в ядро не входят и в door не участвуют.</p>
+    <div class="tbl-wrap">
+      <table id="kw-table">
+        <thead><tr>
+          <th data-k="keyword">Ключ</th>
+          <th data-k="source">Источник</th>
+          <th data-k="suggest_score" class="num">вес подсказок</th>
+          <th data-k="suggest_depth" class="num">глубина</th>
+          <th data-k="apps" class="num">приложений в топ-50</th>
+          <th data-k="is_brand">тип</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="passed">
+    <div class="sec-head">
+      <span class="eyebrow">этап 3</span>
+      <h2>Прошли воронку</h2>
+      <span class="sec-count" id="passed-count"></span>
+    </div>
+    <p class="note">Полный список выживших по выбранному гео, а не только верх очереди.
+      Ранжирование по <code>prescore</code> — аддитивной гипотезе из шести компонент; веса круглые
+      и не валидированы, сырьё хранится, чтобы пересчитать задним числом.
+      <code>copy_score_gp</code> осмыслен только при verification_level = «полностью», поэтому у
+      непроверенных он пуст, а не «предварительно хороший». Список отсортирован так, как требует
+      правка C1: сначала прошедшие описательный автогейт политик, внутри — по prescore.
+      Автогейт не заменяет ручной <code>policy_ok</code> и в скор не входит — он лишь поднимает наверх
+      тех, у кого нет рискованных разрешений и регулируемой категории.</p>
+    <div class="toolbar">
+      <input id="p-filter" type="search" placeholder="фильтр: название, пакет, ниша, разработчик" aria-label="Фильтр">
+      <button class="fchip" data-f="money" aria-pressed="false" type="button">жалобы на деньги</button>
+      <button class="fchip" data-f="abandoned" aria-pressed="false" type="button">заброшенные</button>
+      <button class="fchip" data-f="iap" aria-pressed="false" type="button">есть IAP</button>
+      <button class="fchip" data-f="gap" aria-pressed="false" type="button">index gap &gt; 0,3</button>
+      <button class="fchip" data-f="small" aria-pressed="false" type="button">до p50 по установкам</button>
+      <button class="fchip" data-f="autopolicy" aria-pressed="false" type="button">прошли автогейт политик</button>
+      <span class="hint" id="p-hint"></span>
+    </div>
+    <div class="tbl-wrap">
+      <table id="passed-table">
+        <thead><tr>
+          <th></th>
+          <th data-k="title">Приложение</th>
+          <th data-k="prescore" class="num">prescore</th>
+          <th data-k="components">компоненты</th>
+          <th data-k="installs" class="num">установки</th>
+          <th data-k="score" class="num">рейтинг</th>
+          <th data-k="age_months" class="num">возраст,<br>мес</th>
+          <th data-k="days_since_update" class="num">дней без<br>апдейта</th>
+          <th data-k="niche_door" class="num">door<br>ниши</th>
+          <th data-k="index_gap" class="num">index<br>gap</th>
+          <th data-k="pain_dominant">жалоба</th>
+          <th data-k="monetization_type">монетизация</th>
+          <th data-k="policy_auto_ok">автогейт<br>политик</th>
+          <th data-k="verification_level">проверка</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="k7">
+    <div class="sec-head">
+      <span class="eyebrow">K7</span>
+      <h2>Очередь на проверку рекламы</h2>
+      <span class="sec-count" id="k7-count"></span>
+    </div>
+    <p class="note">Порядок задан ТЗ: сначала приложения с приростом установок больше 10 % за сутки
+      при базе от 50K, затем по <code>copy_score_provisional</code>, затем остальные.
+      Домен разработчика — это то, что вводится в Ads Transparency; название ровно в два слова —
+      то, что ищется в Meta Ad Library (поиск работает как AND, четыре слова не матчат,
+      package id даёт ноль).</p>
+    <div class="tbl-wrap">
+      <table id="k7-table">
+        <thead><tr>
+          <th data-k="title">Приложение</th>
+          <th data-k="domain">домен для Ads Transparency</th>
+          <th data-k="meta_query">запрос в Meta</th>
+          <th data-k="watch_level">уровень</th>
+          <th data-k="installs" class="num">установки</th>
+          <th data-k="installs_growth_1d" class="num">прирост<br>за сутки</th>
+          <th data-k="copy_score_provisional" class="num">copy_score<br>предварит.</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="events">
+    <div class="sec-head">
+      <span class="eyebrow">ТЗ 12</span>
+      <h2>События</h2>
+      <span class="sec-count" id="ev-count"></span>
+    </div>
+    <div class="tbl-wrap">
+      <table id="ev-table">
+        <thead><tr>
+          <th data-k="snapshot_date">Дата</th>
+          <th data-k="geo">Гео</th>
+          <th data-k="kind">Событие</th>
+          <th data-k="title">Приложение</th>
+          <th data-k="detail">Детали</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="gaps">
+    <div class="sec-head">
+      <span class="eyebrow">границы</span>
+      <h2>Чего нет в данных</h2>
+    </div>
+    <p class="note">Пусто — это не ноль. Ниже метрики ТЗ, которых Play не отдаёт публично либо которые
+      требуют шага, не выполненного на этом прогоне. Они собираются как описательные и в скор не входят.</p>
+    <ul class="gaps" id="gaps-list"></ul>
+  </section>
+
+  <footer id="footer"></footer>
+</div>
+
+<script id="radar-data" type="application/json">__RADAR_DATA__</script>
+<script>
+(function () {
+  var D = JSON.parse(document.getElementById('radar-data').textContent);
+  var el = function (id) { return document.getElementById(id); };
+  var state = { geo: D.meta.selected_geo, filters: {}, onlyActive: false };
+
+  function fmt(n, digits) {
+    if (n === null || n === undefined || n === '' || (typeof n === 'number' && !isFinite(n))) return '—';
+    if (typeof n !== 'number') return String(n);
+    if (digits !== undefined) return n.toFixed(digits);
+    if (Math.abs(n) >= 1e9) return (n / 1e9).toFixed(2) + ' млрд';
+    if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(1) + ' млн';
+    if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(n >= 1e5 ? 0 : 1) + ' тыс';
+    return String(Math.round(n * 100) / 100);
+  }
+  function pct(n, digits) {
+    if (n === null || n === undefined || !isFinite(n)) return '—';
+    return (n * 100).toFixed(digits === undefined ? 0 : digits) + '%';
+  }
+  function esc(s) {
+    return String(s === null || s === undefined ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function domainOf(url) {
+    if (!url) return null;
+    try { return new URL(url.indexOf('http') === 0 ? url : 'http://' + url).hostname.replace(/^www\./, '').toLowerCase(); }
+    catch (e) { return null; }
+  }
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function renderTable(id, rows, rowFn) {
+    var t = el(id);
+    if (!t) return;
+    t.tBodies[0].innerHTML = rows.map(rowFn).join('');
+    t._rows = rows; t._rowFn = rowFn;
+  }
+
+  // ---------------- masthead ----------------
+  el('runinfo').innerHTML =
+    '<div>снимок <b>' + esc(D.meta.date) + '</b></div>' +
+    '<div>гео с данными <b>' + D.counts.geos_with_data + '</b> из ' + D.counts.geos_active +
+      ' активных · ' + D.counts.geos_total + ' в реестре</div>' +
+    '<div>референс ' + esc(D.meta.reference_geo) + ' · ядро ' + esc(D.meta.core_version || '—') + '</div>' +
+    '<div>классификатор ' + esc(D.meta.classifier_version) + ' · база ' + fmt(D.meta.db_size_mb, 1) + ' МБ</div>';
+
+  var chips = [];
+  chips.push(D.status.some(function (s) { return s.partial; })
+    ? '<span class="chip warn">есть гео с днём partial</span>'
+    : '<span class="chip ok">все активные гео — полный день</span>');
+  chips.push('<span class="chip">приложений в реестре ' + D.counts.apps_total + '</span>');
+  chips.push('<span class="chip">наблюдение A/B ' + (D.counts.level_a + D.counts.level_b) + '</span>');
+  chips.push(D.counts.verified_full === 0
+    ? '<span class="chip bad">verification_level = «полностью» ни у одного приложения → copy_score_gp пуст</span>'
+    : '<span class="chip ok">проверено полностью: ' + D.counts.verified_full + '</span>');
+  if (D.counts.ads_checked === 0) {
+    chips.push('<span class="chip warn">K7 не выполнен: реклама «не проверено», organic = 0,35</span>');
+  }
+  el('chips').innerHTML = chips.join('');
+
+  el('readouts').innerHTML = [
+    { n: D.counts.keywords, l: 'ключей', s: 'по ' + D.counts.geos_with_data + ' гео' },
+    { n: D.counts.apps_total, l: 'в реестре', s: D.counts.level_none + ' ещё без оценки' },
+    { n: D.counts.level_a + D.counts.level_b, l: 'A/B наблюдение', s: 'C ' + D.counts.level_c + ' · D ' + D.counts.level_d },
+    { n: D.counts.passed, l: 'прошло воронку', s: 'из ' + D.counts.screened },
+    { n: D.counts.niches, l: 'ниш', s: 'по всем гео' },
+    { n: D.counts.reviews, l: 'отзывов', s: D.counts.reviews_labeled + ' размечено' },
+    { n: D.counts.events, l: 'событий', s: 'за всё время' }
+  ].map(function (r) {
+    return '<div class="readout"><span class="n">' + fmt(r.n) + '</span>' +
+      '<span class="l">' + r.l + '</span><span class="s">' + esc(r.s) + '</span></div>';
+  }).join('');
+
+  // ---------------- состояние сбора ----------------
+  var PILL = { 'собрано': 'done', 'собирается': 'run', 'недостаточно': 'low', 'нет данных': 'idle' };
+  el('status-count').textContent = D.status.length + ' активных гео';
+  el('status-grid').innerHTML = D.status.map(function (s) {
+    var left = s.pending.reduce(function (a, p) { return a + (p.count > 0 ? 1 : 0); }, 0);
+    return '<div class="status-card">' +
+      '<div style="display:flex;align-items:center;gap:10px;justify-content:space-between">' +
+        '<span class="geo">' + esc(s.geo) + '</span>' +
+        '<span class="pill ' + (PILL[s.readiness] || 'idle') + '">' + esc(s.readiness) + '</span></div>' +
+      '<p class="status-why">' + esc(s.why) + '</p>' +
+      '<div class="status-num">карточек сегодня ' + s.rows_today +
+        (s.rows_prev != null ? ' · вчера ' + s.rows_prev : ' · вчерашнего снимка нет') +
+        ' · стадий с остатком ' + left + '</div></div>';
+  }).join('');
+
+  (function () {
+    var now = new Date();
+    var rows = D.status.map(function (s) {
+      var g = D.geoIndex.filter(function (x) { return x.geo === s.geo; })[0] || { start_hour_utc: 0 };
+      var next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), g.start_hour_utc, 10));
+      if (next <= now) next = new Date(next.getTime() + 86400000);
+      return {
+        geo: s.geo, next: next, hour: g.start_hour_utc,
+        inH: Math.floor((next - now) / 3600000),
+        inM: Math.floor(((next - now) % 3600000) / 60000)
+      };
+    }).sort(function (a, b) { return a.next - b.next; });
+
+    var html = rows.map(function (r) {
+      return '<div><dt>' + esc(r.geo) + ' — суточный снимок</dt><dd>через ' + r.inH + ' ч ' + r.inM + ' мин' +
+        '<span class="small">' + pad2(r.hour) + ':10 UTC · run-daily</span></dd></div>';
+    }).join('');
+    html += '<div><dt>catchup</dt><dd>через ' + (30 - (now.getMinutes() % 30)) + ' мин' +
+      '<span class="small">каждые 30 мин, малыми порциями</span></dd></div>';
+    html += '<div><dt>прогноз запросов</dt><dd>' + fmt(D.schedule.forecast_requests_per_geo_day) +
+      '<span class="small">на гео в сутки</span></dd></div>';
+    el('next-run').innerHTML = html;
+  })();
+
+  function renderRail() {
+    var s = D.status.filter(function (x) { return x.geo === state.geo; })[0] || D.status[0];
+    el('rail-geo').textContent = s ? '· ' + s.geo : '';
+    if (!s || !s.maturity || !s.maturity.stages.length) {
+      el('rail').innerHTML = '<div class="rail-stop"><div class="rail-bar"></div><div class="t">нет истории</div>' +
+        '<div class="m">по этому гео ещё нет ни одного снимка</div></div>';
+      return;
+    }
+    var m = s.maturity;
+    var max = m.stages[m.stages.length - 1].day || 90;
+    var progress = Math.max(2, Math.min(100, (m.elapsed / max) * 100));
+    el('rail').innerHTML = m.stages.map(function (st, i) {
+      return '<div class="rail-stop ' + (st.available ? 'on' : 'off') + '">' +
+        '<div class="rail-bar">' + (i === 0 ? '<i style="width:' + progress.toFixed(1) + '%"></i>' : '') + '</div>' +
+        '<div class="d">' + (st.available ? 'доступно' : 'ждём') + '</div>' +
+        '<div class="t">' + esc(st.title) + '</div>' +
+        '<div class="m">' + esc(st.metrics) + '</div>' +
+        '<div class="eta">' + (st.available ? '✓ считается' : esc(st.eta)) + '</div></div>';
+    }).join('');
+  }
+
+  function renderTasks() {
+    var s = D.status.filter(function (x) { return x.geo === state.geo; })[0] || D.status[0];
+    el('tasks-geo').textContent = s ? '· ' + s.geo : '';
+    if (!s || !s.pending.length) {
+      el('tasks').innerHTML = '<div class="task"><span class="cnt">—</span><span>по этому гео очередей нет</span><span></span></div>';
+      return;
+    }
+    el('tasks').innerHTML = s.pending.map(function (p) {
+      return '<div class="task' + (p.count === 0 ? ' zero' : '') + '">' +
+        '<span class="cnt">' + (p.count === 0 ? '✓' : fmt(p.count)) + '</span>' +
+        '<span>' + esc(p.title) + '</span>' +
+        '<span class="cmd">' + esc(p.cmd) + '</span></div>';
+    }).join('');
+  }
+
+  // ---------------- план ----------------
+  var WD = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+  el('plan-count').textContent = D.plan.length + ' дней вперёд';
+  el('cal').innerHTML = D.plan.map(function (day, i) {
+    var marks = [];
+    if (day.items.some(function (it) { return it.kind === 'light_crawl'; })) {
+      marks.push('<span class="mark light">D1+D2</span>');
+    }
+    day.items.forEach(function (it) {
+      if (it.kind === 'full_crawl') marks.push('<span class="mark full">' + esc(it.geo) + '</span>');
+      if (it.kind === 'k7_a') marks.push('<span class="mark k7">K7·A</span>');
+      if (it.kind === 'k7_b') marks.push('<span class="mark k7">K7·B</span>');
+      if (it.kind === 'monthly') marks.push('<span class="mark month">10.6</span>');
+    });
+    var weekend = day.weekday === 0 || day.weekday === 6;
+    return '<div class="cal-day' + (i === 0 ? ' today' : (weekend ? ' weekend' : '')) + '">' +
+      '<div class="dn"><b>' + day.date.slice(8, 10) + '.' + day.date.slice(5, 7) + '</b><span>' + WD[day.weekday] + '</span></div>' +
+      '<div class="marks">' + marks.join('') + '</div></div>';
+  }).join('');
+
+  (function () {
+    var nextFull = null, nextK7 = null;
+    for (var i = 0; i < D.plan.length; i++) {
+      var f = D.plan[i].items.filter(function (it) { return it.kind === 'full_crawl'; });
+      if (f.length && !nextFull) nextFull = { date: D.plan[i].date, geos: f.map(function (x) { return x.geo; }).join(', ') };
+      if (!nextK7 && D.plan[i].items.some(function (it) { return it.kind === 'k7_a' || it.kind === 'k7_b'; })) nextK7 = D.plan[i].date;
+    }
+    var m0 = D.schedule.monthly[0] || {};
+    el('cadence').innerHTML =
+      '<div><dt>полный обход</dt><dd>раз в ' + D.schedule.full_crawl_cycle + ' дней' +
+        '<span class="small">до ' + D.schedule.full_crawl_per_day + ' гео в день</span></dd></div>' +
+      '<div><dt>ближайший полный обход</dt><dd>' +
+        (nextFull ? esc(nextFull.date) : 'вне горизонта') +
+        '<span class="small">' + (nextFull ? esc(nextFull.geos) : 'план показывает 30 дней') + '</span></dd></div>' +
+      '<div><dt>облегчённый обход</dt><dd>' + WD[D.schedule.light_crawl_weekday] +
+        '<span class="small">еженедельно, D1 + D2 по ядру</span></dd></div>' +
+      '<div><dt>K7</dt><dd>' + D.schedule.k7_a + ' / ' + D.schedule.k7_b + ' дн.' +
+        '<span class="small">уровень A / уровень B · ближайшая ' + (nextK7 || '—') + '</span></dd></div>' +
+      '<div><dt>месячная задача</dt><dd>' + esc(m0.title || '—') +
+        '<span class="small">' + esc(m0.note || '') + '</span></dd></div>';
+  })();
+
+  renderTable('quarterly-table', D.schedule.quarterly.map(function (q) {
+    return { title: q.title, cadence: 'раз в квартал', note: q.note };
+  }), function (r) {
+    return '<tr><td class="ttl">' + esc(r.title) + '</td><td class="mono">' + esc(r.cadence) +
+      '</td><td class="mono">' + esc(r.note) + '</td></tr>';
+  });
+
+  // ---------------- все гео ----------------
+  function geoRow(g) {
+    var st = g.has_data ? '<span class="tag money">данные есть</span>'
+      : (g.active ? '<span class="tag ads">активно, пусто</span>' : '<span class="tag none">выключено</span>');
+    return '<tr' + (g.has_data ? '' : ' class="dim"') + '>' +
+      '<td class="ttl">' + esc(g.geo) + (g.is_reference ? ' <span class="mono">референс</span>' : '') +
+        '<span class="sub">' + esc(g.review_langs) + '</span></td>' +
+      '<td class="num">' + g.tier + '</td>' +
+      '<td class="mono">' + esc(g.hl) + '</td>' +
+      '<td class="mono">' + esc(g.currency) + '</td>' +
+      '<td>' + st + '</td>' +
+      '<td class="mono">' + esc(g.last_snapshot || '—') + '</td>' +
+      '<td class="num">' + fmt(g.apps) + '</td>' +
+      '<td class="num">' + fmt(g.cards) + '</td>' +
+      '<td class="num">' + fmt(g.keywords) + '</td>' +
+      '<td class="num">' + fmt(g.niches) + '</td>' +
+      '<td class="num">' + fmt(g.door_median) + '</td>' +
+      '<td class="num">' + fmt(g.passed) + '</td>' +
+      '<td class="num">' + fmt(g.ecpm_rel_us, 2) + '</td>' +
+      '<td class="num">' + (g.geo_arbitrage == null ? '—' : fmt(g.geo_arbitrage, 2)) + '</td></tr>';
+  }
+  function renderGeos() {
+    var rows = state.onlyActive ? D.geoIndex.filter(function (g) { return g.active; }) : D.geoIndex;
+    renderTable('geos-table', rows, geoRow);
+    el('geos-hint').textContent = 'показано ' + rows.length + ' из ' + D.geoIndex.length;
+  }
+  el('geos-count').textContent = D.counts.geos_total + ' гео · ' + D.counts.geos_active + ' активных';
+  el('geos-only-active').addEventListener('click', function (e) {
+    state.onlyActive = !state.onlyActive;
+    e.currentTarget.setAttribute('aria-pressed', String(state.onlyActive));
+    renderGeos();
+  });
+  renderGeos();
+
+  // ---------------- кросс-гео ----------------
+  (function () {
+    var cg = D.crossGeo || { geos: [], rows: [] };
+    el('cross-count').textContent = cg.rows.length + ' ниш · ' + cg.geos.length + ' гео';
+    el('cross-head').innerHTML = '<th data-k="ref_head">Ниша</th>' + cg.geos.map(function (g) {
+      return '<th>' + esc(g) + '</th>';
+    }).join('');
+
+    renderTable('cross-table', cg.rows, function (row) {
+      var doors = cg.geos.map(function (g) { return row.cells[g] ? row.cells[g].door : null; })
+        .filter(function (v) { return v != null && v > 0; });
+      var lo = doors.length ? Math.min.apply(null, doors) : null;
+      var hi = doors.length ? Math.max.apply(null, doors) : null;
+      var cells = cg.geos.map(function (g) {
+        var c = row.cells[g];
+        if (!c || c.door == null) return '<td class="empty">—</td>';
+        var tint = 0;
+        if (lo != null && hi != null && hi > lo) {
+          // Логарифмическая шкала: door разводит гео на порядки, линейная всё схлопывает.
+          tint = 1 - (Math.log10(c.door + 1) - Math.log10(lo + 1)) / (Math.log10(hi + 1) - Math.log10(lo + 1));
+        } else if (lo != null) { tint = 1; }
+        var bg = 'color-mix(in srgb, var(--accent) ' + Math.round(tint * 42) + '%, var(--surface))';
+        return '<td class="' + (g === D.meta.reference_geo ? 'ref' : '') + '" style="background:' + bg + '" ' +
+          'title="' + esc(g + ' · ' + (c.head_keyword || '') + ' · door ' + c.door) + '">' + fmt(c.door) + '</td>';
+      }).join('');
+      return '<tr><td class="ttl">' + esc(row.ref_head || row.concept) +
+        '<span class="sub">' + esc(row.concept) + ' · в ' + row.geos_present + ' гео</span></td>' + cells + '</tr>';
+    });
+
+    var arbRows = [];
+    cg.rows.forEach(function (row) {
+      var refDoor = row.ref_door;
+      cg.geos.forEach(function (g) {
+        var c = row.cells[g];
+        if (!c || g === D.meta.reference_geo) return;
+        if (c.geo_arbitrage == null && c.door == null) return;
+        arbRows.push({
+          concept: row.ref_head || row.concept, geo: g, head: c.head_keyword, door: c.door,
+          ref_door: refDoor,
+          door_ratio: (refDoor != null && c.door) ? refDoor / c.door : null,
+          wall_ratio: c.wall_ratio, demand_ratio: c.demand_ratio, money_ratio: c.money_ratio,
+          geo_arbitrage: c.geo_arbitrage
+        });
+      });
+    });
+    arbRows.sort(function (a, b) {
+      if (a.geo_arbitrage == null) return 1;
+      if (b.geo_arbitrage == null) return -1;
+      return b.geo_arbitrage - a.geo_arbitrage;
+    });
+    renderTable('arb-table', arbRows.slice(0, 150), function (r) {
+      return '<tr><td class="ttl">' + esc(r.concept) + '</td>' +
+        '<td class="mono">' + esc(r.geo) + '</td>' +
+        '<td class="mono">' + esc(r.head || '') + '</td>' +
+        '<td class="num">' + fmt(r.door) + '</td>' +
+        '<td class="num">' + fmt(r.ref_door) + '</td>' +
+        '<td class="num">' + (r.door_ratio == null ? '—' : fmt(r.door_ratio, 1) + '×') + '</td>' +
+        '<td class="num">' + fmt(r.wall_ratio, 2) + '</td>' +
+        '<td class="num">' + fmt(r.demand_ratio, 2) + '</td>' +
+        '<td class="num">' + fmt(r.money_ratio, 2) + '</td>' +
+        '<td class="num">' + fmt(r.geo_arbitrage, 2) + '</td></tr>';
+    });
+  })();
+
+  // ---------------- переключатель гео ----------------
+  el('geo-switch').innerHTML = D.geoIndex.map(function (g) {
+    return '<button class="geo-btn" type="button" data-geo="' + esc(g.geo) + '"' +
+      (g.has_data ? '' : ' disabled title="нет данных по этому гео"') +
+      ' aria-pressed="' + (g.geo === state.geo) + '">' + esc(g.geo) + '</button>';
+  }).join('');
+  el('geo-switch').addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('.geo-btn') : null;
+    if (!b || b.disabled) return;
+    state.geo = b.dataset.geo;
+    [].forEach.call(el('geo-switch').querySelectorAll('.geo-btn'), function (x) {
+      x.setAttribute('aria-pressed', String(x.dataset.geo === state.geo));
+    });
+    renderGeo();
+  });
+
+  // ---------------- воронка ----------------
+  var REASON_TEXT = {
+    passed: 'прошло все этапы — кандидат на наблюдение',
+    institution: 'госпортал, банк, телеком, маркетплейс — копировать нечего',
+    off_category: 'категория вне семян обхода',
+    regulated_category: 'FINANCE / MEDICAL / NEWS / DATING — политики Play',
+    policy_risk_category: 'категория с повышенным риском модерации',
+    policy_risk_permissions: 'SMS, журнал вызовов, спецразрешения, фоновая локация',
+    branded_only: 'в топ-10 только по своему бренду, generic-ключа нет',
+    periphery: 'один путь обнаружения и позиции 31–50',
+    factory: 'фабрика клонов: 15+ приложений при медиане апдейтов > 100 дней',
+    too_big: 'установки выше p95 гео — не образец, а инкумбент',
+    dead: 'апдейт старше p90 при установках ниже p50',
+    broken: 'рейтинг ниже p10 при заметном числе оценок',
+    no_monetization: 'ни рекламы, ни IAP — ниша не платит',
+    low_monetization: 'потолок IAP ниже порога методики и нет рекламы',
+    fraud_extreme: 'installs/rating вне p01–p99 или рейтинг > 4.9 при 10K+ оценок',
+    regional_clone: 'региональное издание чужого приложения, не свободная ниша',
+    not_available: 'недоступно в гео',
+    heavy_and_bad: 'размер выше p90 при рейтинге ниже p25',
+    blocklist: 'ручной блок-лист'
+  };
+  var GROUP = {
+    passed: ['прошло', 'var(--accent)'],
+    institution: ['политики и правообладатели', 'var(--bad)'],
+    regulated_category: ['политики и правообладатели', 'var(--bad)'],
+    policy_risk_category: ['политики и правообладатели', 'var(--bad)'],
+    policy_risk_permissions: ['политики и правообладатели', 'var(--bad)'],
+    regional_clone: ['политики и правообладатели', 'var(--bad)'],
+    fraud_extreme: ['накрутка', 'var(--warn)'],
+    no_monetization: ['не платит', 'var(--cool)'],
+    low_monetization: ['не платит', 'var(--cool)'],
+    too_big: ['не образец', 'var(--ink-3)'],
+    dead: ['не образец', 'var(--ink-3)'],
+    broken: ['не образец', 'var(--ink-3)'],
+    heavy_and_bad: ['не образец', 'var(--ink-3)'],
+    not_available: ['не образец', 'var(--ink-3)'],
+    off_category: ['вне периметра', 'var(--line-strong)'],
+    periphery: ['вне периметра', 'var(--line-strong)'],
+    branded_only: ['вне периметра', 'var(--line-strong)'],
+    factory: ['вне периметра', 'var(--line-strong)'],
+    blocklist: ['вне периметра', 'var(--line-strong)']
+  };
+  function grp(r) { return GROUP[r] || ['прочее', 'var(--line-strong)']; }
+
+  function renderFunnel(gd) {
+    var total = gd.funnel.reduce(function (a, r) { return a + r.count; }, 0);
+    el('funnel-bar').innerHTML = gd.funnel.map(function (r) {
+      var w = total ? (r.count / total * 100) : 0;
+      return '<div class="funnel-seg" style="width:' + w.toFixed(2) + '%;background:' + grp(r.reason)[1] + '" ' +
+        'title="' + esc(r.reason) + ': ' + r.count + '">' + (w > 6 ? '<span>' + r.count + '</span>' : '') + '</div>';
+    }).join('');
+
+    var order = [], acc = {};
+    gd.funnel.forEach(function (r) {
+      var g = grp(r.reason);
+      if (!acc[g[0]]) { acc[g[0]] = { n: 0, color: g[1] }; order.push(g[0]); }
+      acc[g[0]].n += r.count;
+    });
+    el('funnel-legend').innerHTML = order.map(function (name) {
+      return '<span><i style="background:' + acc[name].color + '"></i>' + esc(name) + ' ' + acc[name].n + '</span>';
+    }).join('');
+
+    renderTable('funnel-table', gd.funnel.map(function (r) {
+      return {
+        reason: r.reason, group: grp(r.reason)[0], stage: r.stage, count: r.count,
+        pct: total ? r.count / total : 0, what: REASON_TEXT[r.reason] || ''
+      };
+    }), function (r) {
+      return '<tr><td class="ttl">' + esc(r.reason) + '</td>' +
+        '<td><span class="tag none">' + esc(r.group) + '</span></td>' +
+        '<td class="num">' + r.stage + '</td>' +
+        '<td class="num">' + r.count + '</td>' +
+        '<td class="num">' + pct(r.pct, 1) + '</td>' +
+        '<td class="mono">' + esc(r.what) + '</td></tr>';
+    });
+  }
+
+  // ---------------- ниши ----------------
+  function kv(k, v) { return '<div><dt>' + esc(k) + '</dt><dd>' + v + '</dd></div>'; }
+  function renderNiches(gd) {
+    var maxDoor = Math.max.apply(null, gd.niches.map(function (n) { return n.door || 0; }).concat([1]));
+    el('niche-list').innerHTML = gd.niches.map(function (n) {
+      var doorW = n.door ? Math.max(2, n.door / maxDoor * 100) : 0;
+      var apps = (n.top_apps || []).map(function (a) {
+        return '<tr><td class="ttl"><a class="app" href="https://play.google.com/store/apps/details?id=' + esc(a.app_id) +
+          '" target="_blank" rel="noopener">' + esc(a.title || a.app_id) + '</a>' +
+          '<span class="sub">' + esc(a.app_id) + '</span></td>' +
+          '<td class="num">' + fmt(a.installs) + '</td><td class="num">' + fmt(a.score, 2) + '</td></tr>';
+      }).join('');
+      return '<details class="niche"><summary>' +
+        '<div class="niche-head"><span class="niche-kw">' + esc(n.head_keyword) + '</span>' +
+        '<span class="niche-core">' + esc((n.core || []).join(' · ')) + '</span></div>' +
+        '<div class="num">' + fmt(n.door) + '<span class="bar"><i style="width:' + doorW.toFixed(1) + '%"></i></span></div>' +
+        '<div class="num">' + fmt(n.best_door) + '</div>' +
+        '<div class="num">' + pct(n.weak_share) + '</div>' +
+        '<div class="num">' + pct(n.new_share_18m) + '</div>' +
+        '<div class="num">' + pct(n.leader_share) + '</div>' +
+        '<div class="num">' + n.keywords_count + '</div></summary>' +
+        '<div class="niche-body"><div class="kv">' +
+          kv('стена авторитета', fmt(n.wall_installs)) +
+          kv('стена по отзывам', fmt(n.wall_ratings)) +
+          kv('спрос ниши (установки)', fmt(n.demand_installs)) +
+          kv('index gap лидера', pct(n.index_gap_leader)) +
+          kv('головной ключ в заголовке', pct(n.exact_in_title)) +
+          kv('Jaccard топ-5, медиана', fmt(n.jaccard_top5_median, 2)) +
+          kv('нерелевантных в топ-20', pct(n.relevance_gap_pct)) +
+          kv('generic-доля ядра', pct(n.generic_demand_share)) +
+          kv('вес подсказок ядра', fmt(n.suggest_score_sum, 1)) +
+          kv('оборот топ-10 / 7 дней', n.top10_turnover_7d === null ? 'нужен снимок 7 дней назад' : pct(n.top10_turnover_7d)) +
+          kv('оборот топ-10 / 14 дней', n.top10_turnover_14d === null ? 'нужен снимок 14 дней назад' : pct(n.top10_turnover_14d)) +
+          kv('оборот топ-10 / 30 дней', n.top10_turnover_30d === null ? 'нужен снимок 30 дней назад' : pct(n.top10_turnover_30d) + (n.partial_window ? ' · окно неполное' : '')) +
+        '</div><div class="tbl-wrap"><table><thead><tr><th>Топ-10 по головному ключу</th>' +
+        '<th class="num">установки</th><th class="num">рейтинг</th></tr></thead><tbody>' +
+        apps + '</tbody></table></div></div></details>';
+    }).join('');
+  }
+
+  // ---------------- прошли воронку ----------------
+  function componentBars(r) {
+    var parts = [['demand', r.demand], ['growth_s', r.growth_s], ['weakness', r.weakness],
+      ['openness', r.openness], ['feasibility', r.feasibility], ['organic', r.organic]];
+    return '<div style="display:flex;gap:3px;align-items:flex-end;height:26px" title="' +
+      parts.map(function (p) { return p[0] + ' ' + (p[1] === null || p[1] === undefined ? '—' : Number(p[1]).toFixed(2)); }).join(', ') + '">' +
+      parts.map(function (p) {
+        var v = p[1];
+        var h = (v === null || v === undefined || !isFinite(v)) ? 0 : Math.max(1, v * 26);
+        return '<i style="display:block;width:7px;height:' + h.toFixed(0) + 'px;background:' +
+          (v === null || v === undefined ? 'var(--line)' : 'var(--accent)') + '"></i>';
+      }).join('') + '</div>';
+  }
+  // Полная карточка приложения: пять типов жалоб, источники прихода, антифрод,
+  // дельты дней 1/7/30 и прочие score/descr поля metrics_app_geo, не влезающие в таблицу.
+  function detailGroup(title, pairs) {
+    var body = pairs
+      .filter(function (p) { return p[1] !== undefined; })
+      .map(function (p) {
+        var val = p[2] === 'pct' ? pct(p[1]) : p[2] === 'bool'
+          ? (p[1] === 1 ? 'да' : p[1] === 0 ? 'нет' : '—') : fmt(p[1], p[2]);
+        return kv(p[0], val);
+      })
+      .join('');
+    if (!body) return '';
+    return '<div class="detail-group"><h4>' + esc(title) + '</h4><div class="kv">' + body + '</div></div>';
+  }
+  function passedDetail(r) {
+    var groups = [
+      detailGroup('пять типов жалоб (9.5)', [
+        ['money', r.pain_money, 'pct'], ['ads', r.pain_ads, 'pct'], ['broken', r.pain_broken, 'pct'],
+        ['missing', r.pain_missing, 'pct'], ['trust', r.pain_trust, 'pct'], ['painFit', r.pain_fit]
+      ]),
+      detailGroup('источник прихода', [
+        ['из рекламы', r.src_ads_pct, 'pct'],
+        ['UGC / видео', r.src_ugc_pct, 'pct'],
+        ['сторовый поиск', r.src_store_pct, 'pct'],
+        ['доля чужого языка', r.review_lang_mismatch, 'pct'],
+        ['доля отзывов не на языке приложения', r.missing_language_pct, 'pct']
+      ]),
+      detailGroup('антифрод и качество', [
+        ['fraud_ok', r.fraud_ok, 'bool'],
+        ['всплеск отзывов', r.burst_flag, 'bool'],
+        ['шаблонные 5★', r.template_review_pct, 'pct'],
+        ['доля крашей в отзывах', r.crash_pct, 'pct'],
+        ['повторное использование', r.repeat_use_pct, 'pct'],
+        ['рейтинг за 30 дней', r.rating_recent_30d, 2],
+        ['installs / rating', r.installs_per_rating, 1],
+        ['полярность 1★/5★', r.polarization, 2]
+      ]),
+      detailGroup('день 1', [
+        ['Δ установок', r.installs_delta_1d],
+        ['Δ оценок за 24ч', r.ratings_delta_24h],
+        ['листинг менялся', r.listing_changed, 'bool'],
+        ['новых отзывов за 24ч', r.new_reviews_24h],
+        ['лучшая позиция', r.rank_best],
+        ['Δ позиции за 24ч', r.rank_delta_24h, 1]
+      ]),
+      detailGroup('день 7 / 30', [
+        ['рост 7д', r.installs_growth_7d, 'pct'],
+        ['отзывов в день (7д)', r.ratings_per_day_7d, 1],
+        ['волатильность ранга', r.rank_volatility, 2],
+        ['корреляция ранг↔установки', r.spearman_rank_installs, 2],
+        ['рост 30д', r.installs_growth_30d, 'pct'],
+        ['growth_conf', r.growth_conf, 2]
+      ]),
+      detailGroup('спрос и индексация', [
+        ['wom_index', r.wom_index, 2], ['index_breadth', r.index_breadth, 'pct'],
+        ['ключей в топ-10', r.kw_top10_count],
+        ['ключей в топ-50', r.kw_top50_count],
+        ['головной ключ в заголовке', r.head_kw_in_title, 'bool'],
+        ['установок в месяц (лайфтайм)', r.installs_per_month_lifetime]
+      ]),
+      detailGroup('локализация и установки', [
+        ['локализовано гео', r.localized_geo_count],
+        ['языки листинга', r.localized_hl_list],
+        ['источник установок', r.installs_source_geo],
+        ['согласованность между гео', r.installs_consistency, 'bool'],
+        ['доступно в гео', r.available_in_geo, 'bool'],
+        ['локализовано здесь', r.localized_here, 'bool']
+      ]),
+      detailGroup('карточка (описательные)', [
+        ['оценок', r.ratings_count], ['скриншотов', r.screenshots_count],
+        ['видео', r.video_present, 'bool'],
+        ['длина описания', r.description_len],
+        ['рейтинг контента', r.content_rating],
+        ['разрешения рискованные', r.permissions_risky, 'bool'],
+        ['портфель разработчика', r.portfolio_size]
+      ]),
+      detailGroup('монетизация', [
+        ['iap мин, $', r.iap_min_usd, 2], ['есть реклама', r.contains_ads, 'bool'],
+        ['monetization_proof', r.monetization_proof, 2],
+        ['iap-продуктов (APK)', r.iap_products_count],
+        ['годовой тариф (APK)', r.has_annual_tier, 'bool']
+      ]),
+      detailGroup('реклама и трекеры (K7, B1/B2)', [
+        ['ads_found', r.ads_found], ['attribution_sdk', r.attribution_sdk, 'bool'],
+        ['трекер найден по тексту', r.tracking_found, 'bool'],
+        ['где найден', r.tracking_matched_in], ['имя трекера', r.tracking_matched_names],
+        ['скан от', r.tracking_checked_at],
+        ['рекламные SDK (APK)', r.ad_sdks], ['пейволл SDK (APK)', r.paywall_sdk],
+        ['вычисление (APK)', r.compute_location], ['локалей (APK)', r.locales_apk],
+        ['размер APK, МБ', r.size_mb_apk, 1]
+      ]),
+      detailGroup('компоненты скора (служебное)', [
+        ['fake', r.fake, 2], ['policy_penalty', r.policy_penalty, 2], ['geo_multiplier', r.geo_multiplier, 2],
+        ['target_sdk_risk', r.target_sdk_risk, 'bool']
+      ])
+    ].filter(Boolean).join('');
+    return '<tr class="detail-row" hidden><td colspan="13"><div class="detail-groups">' + groups + '</div></td></tr>';
+  }
+  function passedRow(r, i) {
+    var pain = r.pain_dominant
+      ? '<span class="tag ' + esc(r.pain_dominant) + '">' + esc(r.pain_dominant) + ' ' + pct(r.pain_fit, 0) + '</span>'
+      : '<span class="tag none">мало отзывов</span>';
+    var ver = r.verification_level === 'полностью'
+      ? '<span class="tag money">полностью</span>'
+      : '<span class="tag none">' + esc(r.verification_level) + '</span>';
+    return '<tr>' +
+      '<td><button class="expand-btn" type="button" data-idx="' + i + '" aria-expanded="false" ' +
+        'aria-label="Развернуть все поля">▸</button></td>' +
+      '<td><span class="lvl ' + esc(r.watch_level) + '">' + esc(r.watch_level) + '</span> ' +
+        '<a class="app" href="https://play.google.com/store/apps/details?id=' + esc(r.app_id) +
+        '" target="_blank" rel="noopener">' + esc(r.title || r.app_id) + '</a>' +
+        '<span class="sub">' + esc(r.app_id) + (r.niche_head ? ' · ' + esc(r.niche_head) : '') + '</span></td>' +
+      '<td class="num">' + fmt(r.prescore, 1) + '</td>' +
+      '<td>' + componentBars(r) + '</td>' +
+      '<td class="num">' + fmt(r.installs) + '</td>' +
+      '<td class="num">' + fmt(r.score, 2) + '</td>' +
+      '<td class="num">' + fmt(r.age_months, 0) + '</td>' +
+      '<td class="num">' + fmt(r.days_since_update, 0) + '</td>' +
+      '<td class="num">' + fmt(r.niche_door) + '</td>' +
+      '<td class="num">' + pct(r.index_gap) + '</td>' +
+      '<td>' + pain + '</td>' +
+      '<td class="mono">' + esc(r.monetization_type) +
+        (r.iap_max_usd ? ' до $' + Number(r.iap_max_usd).toFixed(0) : '') + '</td>' +
+      '<td>' + (r.policy_auto_ok === 1 ? '<span class="tag money">чисто</span>'
+        : r.policy_auto_ok === 0 ? '<span class="tag broken">есть риск</span>'
+        : '<span class="tag none">разрешения не сняты</span>') + '</td>' +
+      '<td>' + ver + '</td></tr>' + passedDetail(r);
+  }
+  var FILTERS = {
+    money: function (r) { return r.pain_dominant === 'money'; },
+    abandoned: function (r) { return r.target_sdk_risk === 1; },
+    iap: function (r) { return r.iap_max_usd != null; },
+    gap: function (r) { return r.index_gap != null && r.index_gap > 0.3; },
+    small: function (r, gd) { return r.installs != null && r.installs <= gd._p50installs; },
+    autopolicy: function (r) { return r.policy_auto_ok === 1; }
+  };
+  function renderPassed(gd) {
+    var q = (el('p-filter').value || '').toLowerCase().trim();
+    var rows = gd.passed.filter(function (r) {
+      if (q) {
+        var hay = (String(r.title || '') + ' ' + r.app_id + ' ' + String(r.niche_head || '') + ' ' +
+          String(r.developer || '')).toLowerCase();
+        if (hay.indexOf(q) < 0) return false;
+      }
+      for (var k in state.filters) if (state.filters[k] && !FILTERS[k](r, gd)) return false;
+      return true;
+    });
+    renderTable('passed-table', rows, passedRow);
+    el('passed-count').textContent = gd.passed.length + ' в гео ' + state.geo;
+    el('p-hint').textContent = 'показано ' + rows.length + ' из ' + gd.passed.length;
+  }
+  el('p-filter').addEventListener('input', function () { renderPassed(D.geoData[state.geo]); });
+  [].forEach.call(document.querySelectorAll('.fchip[data-f]'), function (b) {
+    b.addEventListener('click', function () {
+      var k = b.dataset.f;
+      state.filters[k] = !state.filters[k];
+      b.setAttribute('aria-pressed', String(!!state.filters[k]));
+      renderPassed(D.geoData[state.geo]);
+    });
+  });
+  // Раскрывающаяся строка: каждая passedRow кладёт следом свой <tr class="detail-row" hidden>.
+  el('passed-table').addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('.expand-btn') : null;
+    if (!btn) return;
+    var tr = btn.closest('tr');
+    var detail = tr.nextElementSibling;
+    if (!detail || !detail.classList.contains('detail-row')) return;
+    var open = detail.hidden === false;
+    detail.hidden = open;
+    btn.setAttribute('aria-expanded', String(!open));
+    btn.textContent = open ? '▸' : '▾';
+  });
+
+  // ---------------- K7 ----------------
+  function renderK7(gd) {
+    el('k7-count').textContent = gd.k7.length + ' в очереди · гео ' + state.geo;
+    renderTable('k7-table', gd.k7.map(function (r) {
+      return {
+        app_id: r.app_id, title: r.title, watch_level: r.watch_level, installs: r.installs,
+        installs_growth_1d: r.installs_growth_1d, copy_score_provisional: r.copy_score_provisional,
+        domain: domainOf(r.site),
+        meta_query: String(r.title || '').split(/\s+/).filter(Boolean).slice(0, 2).join(' ')
+      };
+    }), function (r) {
+      return '<tr><td class="ttl"><a class="app" href="https://play.google.com/store/apps/details?id=' + esc(r.app_id) +
+        '" target="_blank" rel="noopener">' + esc(r.title || r.app_id) + '</a>' +
+        '<span class="sub">' + esc(r.app_id) + '</span></td>' +
+        '<td class="mono">' + esc(r.domain || 'домен неизвестен') + '</td>' +
+        '<td class="mono">' + esc(r.meta_query) + '</td>' +
+        '<td><span class="lvl ' + esc(r.watch_level) + '">' + esc(r.watch_level) + '</span></td>' +
+        '<td class="num">' + fmt(r.installs) + '</td>' +
+        '<td class="num">' + (r.installs_growth_1d == null ? '—' : pct(r.installs_growth_1d, 2)) + '</td>' +
+        '<td class="num">' + fmt(r.copy_score_provisional, 3) + '</td></tr>';
+    });
+  }
+
+  // ---------------- разрез по гео ----------------
+  function renderGeo() {
+    var gd = D.geoData[state.geo];
+    if (!gd) return;
+    if (gd._p50installs === undefined) {
+      var v = gd.quantiles.filter(function (q) { return q.metric === 'installs'; })[0];
+      gd._p50installs = v ? v.p50 : Infinity;
+    }
+    var gi = D.geoIndex.filter(function (g) { return g.geo === state.geo; })[0] || {};
+    var lag = gd.date && gd.date !== D.meta.date ? ' <span class="tag ads">данные за ' + esc(gd.date) + ', отстают от отчёта</span>' : '';
+    el('geo-count').textContent = state.geo + ' · снимок ' + (gd.date || '—') + ' · ' + gd.counts.cards_today + ' карточек';
+    el('geo-note').innerHTML = lag + (lag ? ' ' : '') + 'Языки отзывов <code>' + esc(gi.review_langs || '') + '</code> · листинг по <code>' +
+      esc(gi.hl || '') + '</code> · валюта ' + esc(gi.currency || '') + ' · тир ' + esc(gi.tier || '') +
+      ' · час снимка ' + pad2(gi.start_hour_utc || 0) + ':00 UTC. Найдено обходом ' + fmt(gi.apps) +
+      ', карточек всего ' + fmt(gd.counts.cards) + ', отзывов ' + fmt(gd.counts.reviews) +
+      ', ключей ' + fmt(gd.counts.keywords) + ' (навигационных ' + gd.counts.keywords_brand + ').';
+
+    renderFunnel(gd);
+    renderNiches(gd);
+    renderTable('q-table', gd.quantiles, function (r) {
+      return '<tr><td class="ttl">' + esc(r.metric) + '</td>' +
+        ['p01', 'p10', 'p25', 'p50', 'p75', 'p90', 'p95', 'p99'].map(function (p) {
+          return '<td class="num">' + fmt(r[p], r.metric === 'score' ? 2 : undefined) + '</td>';
+        }).join('') + '<td class="num">' + r.n + '</td></tr>';
+    });
+    renderTable('kw-table', gd.keywords, function (r) {
+      return '<tr><td class="ttl">' + esc(r.keyword) + '</td>' +
+        '<td class="mono">' + esc(r.source) + '</td>' +
+        '<td class="num">' + fmt(r.suggest_score, 1) + '</td>' +
+        '<td class="num">' + (r.suggest_depth || 0) + '</td>' +
+        '<td class="num">' + (r.apps || 0) + '</td>' +
+        '<td>' + (r.is_brand ? '<span class="tag ads">навигационный</span>' :
+          (r.dead ? '<span class="tag none">мёртвый</span>' : '<span class="tag money">generic</span>')) + '</td></tr>';
+    });
+    renderPassed(gd);
+    renderK7(gd);
+    renderRail();
+    renderTasks();
+  }
+
+  // ---------------- события и границы ----------------
+  el('ev-count').textContent = D.events.length + ' последних';
+  renderTable('ev-table', D.events, function (r) {
+    return '<tr><td class="mono">' + esc(r.snapshot_date) + '</td>' +
+      '<td class="mono">' + esc(r.geo || '—') + '</td>' +
+      '<td class="ttl">' + esc(r.kind) + '</td>' +
+      '<td>' + (r.app_id
+        ? '<a class="app" href="https://play.google.com/store/apps/details?id=' + esc(r.app_id) +
+          '" target="_blank" rel="noopener">' + esc(r.title || r.app_id) + '</a>'
+        : '<span class="mono">—</span>') + '</td>' +
+      '<td class="mono">' + esc(r.detail) + '</td></tr>';
+  });
+
+  el('gaps-list').innerHTML = D.gaps.map(function (g) {
+    return '<li><b>' + esc(g.name) + '</b> — ' + esc(g.why) + '</li>';
+  }).join('');
+
+  el('footer').innerHTML = 'Собрано ' + esc(D.meta.generated_at) +
+    ' · сырьё в data/radar.db не перетирается: любой скоринг пересчитывается задним числом по другим весам.';
+
+  // ---------------- сортировка ----------------
+  [].forEach.call(document.querySelectorAll('table thead th[data-k]'), function (th) {
+    th.addEventListener('click', function () {
+      var table = th.closest('table');
+      if (!table._rows) return;
+      var k = th.dataset.k;
+      var asc = th.dataset.sorted === 'desc';
+      [].forEach.call(table.querySelectorAll('th'), function (o) { delete o.dataset.sorted; });
+      th.dataset.sorted = asc ? 'asc' : 'desc';
+      var sorted = table._rows.slice().sort(function (a, b) {
+        var x = a[k], y = b[k];
+        if (x === null || x === undefined) return 1;
+        if (y === null || y === undefined) return -1;
+        if (typeof x === 'number' && typeof y === 'number') return asc ? x - y : y - x;
+        return asc ? String(x).localeCompare(String(y)) : String(y).localeCompare(String(x));
+      });
+      table.tBodies[0].innerHTML = sorted.map(table._rowFn).join('');
+    });
+  });
+
+  renderGeo();
+})();
+</script>

@@ -1,0 +1,24 @@
+{
+  "_note": "Расписание из ТЗ 5: обновление ежедневно по всем гео, полный обход по гео раз в месяц, облегчённый (D1+D2 по существующему ядру) раз в неделю. Отсюда же считается план в отчёте — он не рисуется, а выводится из этого файла.",
+  "daily_update": { "enabled": true, "hour_from_geo": true },
+  "full_crawl": { "cycle_days": 30, "geos_per_day_max": 2 },
+  "light_crawl": { "weekday": 1, "_weekday_note": "0 = воскресенье, 1 = понедельник" },
+  "k7": { "level_a_days": 14, "level_b_days": 30 },
+  "monthly": [
+    { "key": "feature_validation", "day_of_month": 1, "title": "Валидация косвенных признаков (10.6)", "note": "минимум 50 buys и 50 organic в organic_labels" }
+  ],
+  "quarterly": [
+    { "key": "geo_economics", "title": "Справочник доходности по гео", "note": "eCPM и ARPU относительно US, вручную" },
+    { "key": "keyword_planner", "title": "E1 — Keyword Planner", "note": "CSV, даёт store_web_ratio" },
+    { "key": "google_trends", "title": "E2 — Google Trends", "note": "CSV, сезонность" },
+    { "key": "proxy_control", "title": "Контрольный замер «параметр против IP»", "note": "по каждому гео, пишет proxy_required" }
+  ],
+  "maturity": [
+    { "day": 0, "title": "день 0", "metrics": "карточка, installs, гистограмма, IAP, разрешения, возраст, door, стена, index_gap, weak_share" },
+    { "day": 1, "title": "день 1", "metrics": "installs_delta_1d, ratings_delta_24h, listing_changed, rank_delta_24h" },
+    { "day": 7, "title": "день 7", "metrics": "installs_growth_7d, ratings_per_day_7d, burst_flag, rank_volatility, chart_vs_search" },
+    { "day": 14, "title": "день 14", "metrics": "growth_s с growth_conf, пять типов жалоб и painFit, источники прихода, crash_pct, rating_recent_30d, fraud_ok" },
+    { "day": 30, "title": "день 30", "metrics": "installs_growth_30d, top10_turnover_30d, listing_elasticity_30d, organic_viability, copy_score_gp, квантили ниш" },
+    { "day": 90, "title": "день 90", "metrics": "review_curve_shape — всплеск, пила или гладкий рост" }
+  ]
+}

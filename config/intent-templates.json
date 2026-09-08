@@ -1,0 +1,137 @@
+{
+  "_note": "D1: шаблоны интента языка гео. Набор на каждый из 18 языков обязателен (ТЗ 8/D1). {kw} — семя.",
+  "en": [
+    {"t": "{kw} app", "intent": "generic"},
+    {"t": "best {kw}", "intent": "generic"},
+    {"t": "free {kw}", "intent": "free"},
+    {"t": "{kw} free", "intent": "free"},
+    {"t": "{kw} offline", "intent": "generic"},
+    {"t": "{kw} without ads", "intent": "generic"},
+    {"t": "how to {kw}", "intent": "question"},
+    {"t": "{kw} for android", "intent": "generic"}
+  ],
+  "de": [
+    {"t": "{kw} app", "intent": "generic"},
+    {"t": "beste {kw}", "intent": "generic"},
+    {"t": "{kw} kostenlos", "intent": "free"},
+    {"t": "{kw} offline", "intent": "generic"},
+    {"t": "{kw} ohne werbung", "intent": "generic"},
+    {"t": "wie {kw}", "intent": "question"}
+  ],
+  "fr": [
+    {"t": "{kw} application", "intent": "generic"},
+    {"t": "meilleur {kw}", "intent": "generic"},
+    {"t": "{kw} gratuit", "intent": "free"},
+    {"t": "{kw} hors ligne", "intent": "generic"},
+    {"t": "{kw} sans pub", "intent": "generic"},
+    {"t": "comment {kw}", "intent": "question"}
+  ],
+  "es": [
+    {"t": "{kw} app", "intent": "generic"},
+    {"t": "mejor {kw}", "intent": "generic"},
+    {"t": "{kw} gratis", "intent": "free"},
+    {"t": "{kw} sin conexion", "intent": "generic"},
+    {"t": "{kw} sin anuncios", "intent": "generic"},
+    {"t": "como {kw}", "intent": "question"}
+  ],
+  "pt": [
+    {"t": "{kw} app", "intent": "generic"},
+    {"t": "melhor {kw}", "intent": "generic"},
+    {"t": "{kw} gratis", "intent": "free"},
+    {"t": "{kw} offline", "intent": "generic"},
+    {"t": "{kw} sem anuncios", "intent": "generic"},
+    {"t": "como {kw}", "intent": "question"}
+  ],
+  "it": [
+    {"t": "{kw} app", "intent": "generic"},
+    {"t": "migliore {kw}", "intent": "generic"},
+    {"t": "{kw} gratis", "intent": "free"},
+    {"t": "{kw} offline", "intent": "generic"},
+    {"t": "{kw} senza pubblicita", "intent": "generic"},
+    {"t": "come {kw}", "intent": "question"}
+  ],
+  "nl": [
+    {"t": "{kw} app", "intent": "generic"},
+    {"t": "beste {kw}", "intent": "generic"},
+    {"t": "{kw} gratis", "intent": "free"},
+    {"t": "{kw} offline", "intent": "generic"},
+    {"t": "{kw} zonder reclame", "intent": "generic"},
+    {"t": "hoe {kw}", "intent": "question"}
+  ],
+  "sv": [
+    {"t": "{kw} app", "intent": "generic"},
+    {"t": "basta {kw}", "intent": "generic"},
+    {"t": "{kw} gratis", "intent": "free"},
+    {"t": "{kw} offline", "intent": "generic"},
+    {"t": "hur {kw}", "intent": "question"}
+  ],
+  "no": [
+    {"t": "{kw} app", "intent": "generic"},
+    {"t": "beste {kw}", "intent": "generic"},
+    {"t": "{kw} gratis", "intent": "free"},
+    {"t": "{kw} offline", "intent": "generic"},
+    {"t": "hvordan {kw}", "intent": "question"}
+  ],
+  "da": [
+    {"t": "{kw} app", "intent": "generic"},
+    {"t": "bedste {kw}", "intent": "generic"},
+    {"t": "{kw} gratis", "intent": "free"},
+    {"t": "{kw} offline", "intent": "generic"},
+    {"t": "hvordan {kw}", "intent": "question"}
+  ],
+  "fi": [
+    {"t": "{kw} sovellus", "intent": "generic"},
+    {"t": "paras {kw}", "intent": "generic"},
+    {"t": "{kw} ilmainen", "intent": "free"},
+    {"t": "{kw} offline", "intent": "generic"},
+    {"t": "miten {kw}", "intent": "question"}
+  ],
+  "pl": [
+    {"t": "{kw} aplikacja", "intent": "generic"},
+    {"t": "najlepszy {kw}", "intent": "generic"},
+    {"t": "{kw} za darmo", "intent": "free"},
+    {"t": "{kw} offline", "intent": "generic"},
+    {"t": "jak {kw}", "intent": "question"}
+  ],
+  "tr": [
+    {"t": "{kw} uygulamasi", "intent": "generic"},
+    {"t": "en iyi {kw}", "intent": "generic"},
+    {"t": "{kw} ucretsiz", "intent": "free"},
+    {"t": "{kw} cevrimdisi", "intent": "generic"},
+    {"t": "nasil {kw}", "intent": "question"}
+  ],
+  "ja": [
+    {"t": "{kw} アプリ", "intent": "generic"},
+    {"t": "{kw} 無料", "intent": "free"},
+    {"t": "{kw} オフライン", "intent": "generic"},
+    {"t": "おすすめ {kw}", "intent": "generic"},
+    {"t": "{kw} 使い方", "intent": "question"}
+  ],
+  "ko": [
+    {"t": "{kw} 앱", "intent": "generic"},
+    {"t": "{kw} 무료", "intent": "free"},
+    {"t": "{kw} 오프라인", "intent": "generic"},
+    {"t": "최고의 {kw}", "intent": "generic"},
+    {"t": "{kw} 방법", "intent": "question"}
+  ],
+  "zh": [
+    {"t": "{kw} 應用", "intent": "generic"},
+    {"t": "{kw} 免費", "intent": "free"},
+    {"t": "{kw} 離線", "intent": "generic"},
+    {"t": "最好的 {kw}", "intent": "generic"},
+    {"t": "如何 {kw}", "intent": "question"}
+  ],
+  "ar": [
+    {"t": "تطبيق {kw}", "intent": "generic"},
+    {"t": "{kw} مجاني", "intent": "free"},
+    {"t": "افضل {kw}", "intent": "generic"},
+    {"t": "{kw} بدون انترنت", "intent": "generic"},
+    {"t": "كيفية {kw}", "intent": "question"}
+  ],
+  "he": [
+    {"t": "אפליקציית {kw}", "intent": "generic"},
+    {"t": "{kw} חינם", "intent": "free"},
+    {"t": "הכי טוב {kw}", "intent": "generic"},
+    {"t": "{kw} אופליין", "intent": "generic"}
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "_note": "Этап 1 воронки: institution. Домен разработчика или юрлицо институции -> отвал.",
+  "domain_patterns": [
+    "*.gov", "*.gov.*", "*.gouv.fr", "*.gob.*", "*.go.jp", "*.go.kr",
+    "*.edu", "*.edu.*", "*.ac.uk", "*.ac.*", "*.mil", "*.mil.*",
+    "*.police.*", "*.nhs.uk", "*.europa.eu", "*.admin.ch", "*.bund.de", "*.gv.at"
+  ],
+  "package_patterns": ["*.gov.*", "*.edu.*", "*.mil.*", "gov.*", "edu.*"],
+  "name_regex": [
+    "\b(bank|banking|banco|banque|banken|sparkasse|volksbank|credit union|caisse)\b",
+    "\b(insurance|assurance|versicherung|seguros|seguro)\b",
+    "\b(ministry|ministerio|ministere|government|govern|municipal|city of|county of|federal)\b",
+    "\b(telecom|mobile operator|vodafone|orange|telefonica|t-mobile|verizon|at&t|claro|vivo|tim)\b",
+    "\b(airlines|airways|railways|railway|metro|transit|transport authority)\b",
+    "\b(university|universidad|universidade|universite|universitat|college|school district)\b",
+    "\b(hospital|clinic|klinik|clinica|health service|healthcare system)\b",
+    "\b(amazon|ebay|walmart|target|aliexpress|shopee|mercado ?libre|mercado ?pago|rakuten|otto)\b",
+    "\b(betting|casino|sportsbook|lottery|bet365|bwin)\b",
+    "\b(netflix|disney|hbo|spotify|prime video|paramount|hulu)\b",
+    "\b(uber|lyft|bolt|doordash|deliveroo|glovo|ifood|grubhub)\b"
+  ],
+  "regulated_categories": ["FINANCE", "MEDICAL", "NEWS_AND_MAGAZINES", "DATING"],
+  "policy_risk_categories": ["FINANCE", "MEDICAL", "NEWS_AND_MAGAZINES", "DATING", "HEALTH_AND_FITNESS", "PARENTING"],
+  "risky_permissions": [
+    "SMS", "READ_SMS", "SEND_SMS", "RECEIVE_SMS",
+    "CALL_LOG", "READ_CALL_LOG", "WRITE_CALL_LOG", "READ_PHONE_NUMBERS",
+    "ACCESS_BACKGROUND_LOCATION", "ACCESS_FINE_LOCATION",
+    "BIND_ACCESSIBILITY_SERVICE", "SYSTEM_ALERT_WINDOW",
+    "QUERY_ALL_PACKAGES", "MANAGE_EXTERNAL_STORAGE", "REQUEST_INSTALL_PACKAGES"
+  ],
+  "risky_permission_labels": [
+    "send sms", "receive text messages", "read your text messages",
+    "read call log", "write call log", "directly call phone numbers",
+    "access location in the background", "precise location",
+    "draw over other apps", "modify system settings", "install other apps",
+    "body sensors", "read your contacts"
+  ],
+  "regional_clone_suffixes": ["VN","ID","TH","BR","IN","PH","MY","MX","TR","EG","PK","BD","NG","RU","JP","KR","TW","CN"],
+  "thin_app_regex": "\b(tracker|timer|converter|scanner|counter|identifier|meter|recorder|reminder|calculator|compass|level|ruler|stopwatch|translator|compressor|cleaner|remover)\b",
+  "cheap_categories": ["TOOLS", "PHOTOGRAPHY", "PRODUCTIVITY", "PERSONALIZATION", "ART_AND_DESIGN", "LIBRARIES_AND_DEMO"],
+  "hard_categories": ["COMMUNICATION", "SOCIAL", "SHOPPING", "VIDEO_PLAYERS", "MAPS_AND_NAVIGATION", "GAME"]
+}

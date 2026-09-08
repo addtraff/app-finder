@@ -1,0 +1,18 @@
+{
+  "name": "play-radar",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Google Play niche radar: collect -> screen -> cluster -> score -> report",
+  "bin": {
+    "radar": "./src/cli.js"
+  },
+  "scripts": {
+    "radar": "node src/cli.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.2.0",
+    "google-play-scraper": "^10.0.0",
+    "playwright": "^1.63.0"
+  }
+}

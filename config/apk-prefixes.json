@@ -1,0 +1,34 @@
+{
+  "_note": "B2 дополнения к ТЗ: перечисление имён пакетов классов из dex — анализ состава. Декомпиляция кода, извлечение ассетов и моделей в объём не входят.",
+  "attribution": {
+    "com.appsflyer": "AppsFlyer",
+    "com.adjust.sdk": "Adjust",
+    "io.branch": "Branch",
+    "com.kochava": "Kochava",
+    "com.singular": "Singular",
+    "com.tenjin": "Tenjin"
+  },
+  "paywall": {
+    "com.revenuecat": "RevenueCat",
+    "com.adapty": "Adapty",
+    "com.qonversion": "Qonversion",
+    "io.purchasely": "Purchasely"
+  },
+  "compute_offline": {
+    "org.tensorflow.lite": "TensorFlow Lite",
+    "com.google.mlkit": "ML Kit",
+    "ai.onnxruntime": "ONNX Runtime"
+  },
+  "ads": {
+    "com.google.android.gms.ads": "AdMob",
+    "com.applovin": "AppLovin",
+    "com.ironsource": "ironSource",
+    "com.unity3d.ads": "Unity Ads",
+    "com.vungle": "Vungle"
+  },
+  "infra_hosts": [
+    "google.com", "googleapis.com", "gstatic.com", "android.com", "firebaseio.com",
+    "firebase.google.com", "crashlytics.com", "schemas.android.com", "w3.org",
+    "apache.org", "github.com", "json-schema.org", "bugly.qq.com", "doubleclick.net"
+  ]
+}

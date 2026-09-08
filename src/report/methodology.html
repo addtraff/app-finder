@@ -1,0 +1,796 @@
+<title>Методика копирования</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #F2F4F1; --surface: #FFFFFF; --surface-2: #E9EDE8;
+    --line: #D3DAD2; --line-strong: #AEB9AC;
+    --ink: #171C18; --ink-2: #4B554E; --ink-3: #78847D;
+    --accent: #12695C; --accent-soft: #DBEAE6;
+    --warn: #9E6216; --warn-soft: #F2E6D0;
+    --bad: #94382B; --bad-soft: #F0DBD6;
+    --good: #2E6F45; --good-soft: #DCE9DF;
+    --cool: #3D5A80; --cool-soft: #DDE4EE;
+    --f-display: "IBM Plex Sans Condensed", "Arial Narrow", Helvetica, sans-serif;
+    --f-body: "IBM Plex Sans", -apple-system, "Segoe UI", Roboto, sans-serif;
+    --f-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+    --rule: 1px solid var(--line);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0E120F; --surface: #151A16; --surface-2: #1C231E;
+      --line: #2A332C; --line-strong: #414D44;
+      --ink: #E8EDE9; --ink-2: #A9B4AC; --ink-3: #7B867F;
+      --accent: #4FC8AE; --accent-soft: #143029;
+      --warn: #D9A24F; --warn-soft: #33280F;
+      --bad: #D97565; --bad-soft: #331A15;
+      --good: #6BB183; --good-soft: #17291C;
+      --cool: #8FADD4; --cool-soft: #18222F;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0E120F; --surface: #151A16; --surface-2: #1C231E;
+    --line: #2A332C; --line-strong: #414D44;
+    --ink: #E8EDE9; --ink-2: #A9B4AC; --ink-3: #7B867F;
+    --accent: #4FC8AE; --accent-soft: #143029;
+    --warn: #D9A24F; --warn-soft: #33280F;
+    --bad: #D97565; --bad-soft: #331A15;
+    --good: #6BB183; --good-soft: #17291C;
+    --cool: #8FADD4; --cool-soft: #18222F;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1340px; margin: 0 auto; padding: 0 22px 80px; }
+
+  /* ---------- шапка с гео ---------- */
+  .top { position: sticky; top: 0; z-index: 40; background: var(--ground); border-bottom: 2px solid var(--ink); padding-top: 18px; }
+  .title-row { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+  h1 { font-family: var(--f-display); font-weight: 700; font-size: 27px; margin: 0; letter-spacing: -0.01em; }
+  .sub { color: var(--ink-2); font-size: 13px; }
+  .meta-line { margin-left: auto; font-family: var(--f-mono); font-size: 11.5px; color: var(--ink-3); }
+
+  .geobar { display: flex; align-items: center; gap: 8px; margin: 12px 0 10px; flex-wrap: wrap; }
+  .geobar .lbl { font-family: var(--f-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-3); }
+  .geos { display: flex; gap: 3px; flex-wrap: wrap; }
+  .geo-btn { font-family: var(--f-mono); font-size: 11.5px; padding: 4px 9px; cursor: pointer; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink-2); border-radius: 2px; }
+  .geo-btn[aria-pressed="true"] { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+  .geo-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .geo-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .geo-btn .ref { color: var(--accent); }
+
+  .tabs { display: flex; gap: 2px; flex-wrap: wrap; padding-bottom: 0; }
+  .tab { font-family: var(--f-mono); font-size: 12px; padding: 7px 12px; cursor: pointer; border: 1px solid transparent; border-bottom: none; background: none; color: var(--ink-2); border-radius: 3px 3px 0 0; }
+  .tab:hover { color: var(--ink); background: var(--surface-2); }
+  .tab[aria-selected="true"] { background: var(--surface); border-color: var(--line-strong); color: var(--ink); font-weight: 500; position: relative; top: 1px; }
+  .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  /* ---------- панели ---------- */
+  .panel { display: none; padding-top: 26px; }
+  .panel.on { display: block; }
+  .panel-head { border-bottom: 2px solid var(--ink); padding-bottom: 7px; display: flex; align-items: baseline; gap: 14px; }
+  .panel-head .eyebrow { font-family: var(--f-mono); font-size: 11px; color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase; }
+  .panel-head h2 { font-family: var(--f-display); font-weight: 600; font-size: 22px; margin: 0; }
+  .panel-head .cnt { margin-left: auto; font-family: var(--f-mono); font-size: 12px; color: var(--ink-3); }
+  .note { color: var(--ink-2); font-size: 13px; margin: 12px 0 16px; max-width: 82ch; }
+  .note b { color: var(--ink); font-weight: 500; }
+  code { font-family: var(--f-mono); font-size: 0.92em; background: var(--surface-2); padding: 1px 4px; border-radius: 2px; }
+  h3 { font-family: var(--f-display); font-weight: 600; font-size: 16px; margin: 26px 0 8px; }
+
+  /* ---------- таблицы ---------- */
+  .tbl-wrap { overflow-x: auto; border: var(--rule); background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  thead th { position: sticky; top: 0; background: var(--surface-2); text-align: left; font-family: var(--f-mono); font-weight: 500; font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2); padding: 8px 9px; white-space: nowrap; border-bottom: 1px solid var(--line-strong); cursor: pointer; user-select: none; }
+  thead th:hover { color: var(--ink); }
+  thead th[data-sorted]::after { content: " ▾"; color: var(--accent); }
+  thead th[data-sorted="asc"]::after { content: " ▴"; color: var(--accent); }
+  tbody td { padding: 7px 9px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: var(--surface-2); }
+  .num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  .mono { font-family: var(--f-mono); font-size: 11.5px; color: var(--ink-2); }
+  .ttl { font-weight: 500; }
+  .subline { color: var(--ink-3); font-size: 11px; font-family: var(--f-mono); display: block; margin-top: 2px; }
+  a.app { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--line-strong); }
+  a.app:hover { border-color: var(--accent); color: var(--accent); }
+
+  .tag { font-family: var(--f-mono); font-size: 10.5px; padding: 2px 6px; border-radius: 2px; white-space: nowrap; border: 1px solid transparent; }
+  .tag.ok { background: var(--good-soft); color: var(--good); border-color: var(--good); }
+  .tag.no { background: var(--bad-soft); color: var(--bad); border-color: var(--bad); }
+  .tag.warn { background: var(--warn-soft); color: var(--warn); border-color: var(--warn); }
+  .tag.none { background: var(--surface-2); color: var(--ink-3); }
+  .tag.cool { background: var(--cool-soft); color: var(--cool); border-color: var(--cool); }
+
+  /* ---------- шесть проверок ---------- */
+  .checks { display: inline-flex; gap: 3px; }
+  .chk { width: 19px; height: 19px; border-radius: 2px; font-family: var(--f-mono); font-size: 11px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid; }
+  .chk.p { background: var(--good-soft); color: var(--good); border-color: var(--good); }
+  .chk.f { background: var(--bad-soft); color: var(--bad); border-color: var(--bad); }
+  .chk.u { background: var(--surface-2); color: var(--ink-3); border-color: var(--line-strong); }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-family: var(--f-mono); font-size: 11.5px; color: var(--ink-2); margin: 10px 0 4px; align-items: center; }
+
+  .stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); border: var(--rule); background: var(--surface); margin-bottom: 4px; }
+  .stat { padding: 13px 15px; border-right: var(--rule); }
+  .stat:last-child { border-right: 0; }
+  .stat .n { font-family: var(--f-mono); font-size: 22px; font-variant-numeric: tabular-nums; display: block; line-height: 1.1; }
+  .stat .l { font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 5px; display: block; }
+
+  .toolbar { display: flex; gap: 8px; align-items: center; margin: 14px 0 10px; flex-wrap: wrap; }
+  .toolbar input { font-family: var(--f-mono); font-size: 12px; padding: 6px 9px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); border-radius: 2px; min-width: 220px; }
+  .toolbar input:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .fchip { font-family: var(--f-mono); font-size: 11.5px; padding: 5px 9px; cursor: pointer; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink-2); border-radius: 2px; }
+  .fchip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .hint { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); margin-left: auto; }
+
+  .bar { display: block; height: 4px; background: var(--surface-2); margin-top: 4px; min-width: 50px; }
+  .bar i { display: block; height: 100%; background: var(--accent); }
+
+  .matrix td:first-child, .matrix th:first-child { position: sticky; left: 0; z-index: 2; background: var(--surface); border-right: 1px solid var(--line-strong); }
+  .matrix thead th:first-child { z-index: 3; background: var(--surface-2); }
+  .matrix td { text-align: right; font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .matrix td:first-child { text-align: left; font-family: var(--f-body); }
+
+  .missing { border: var(--rule); background: var(--warn-soft); border-color: var(--warn); padding: 12px 15px; font-size: 13px; color: var(--ink); margin: 14px 0; border-radius: 2px; }
+  .missing b { font-family: var(--f-mono); font-size: 12px; }
+
+  footer { border-top: 2px solid var(--ink); margin-top: 40px; padding-top: 14px; color: var(--ink-3); font-size: 12px; font-family: var(--f-mono); }
+  @media (max-width: 800px) { h1 { font-size: 22px; } .meta-line { margin-left: 0; } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <div class="top">
+    <div class="title-row">
+      <h1>Методика копирования</h1>
+      <span class="sub">разрез по слоям методики v1.1</span>
+      <span class="meta-line" id="meta-line"></span>
+    </div>
+    <div class="geobar">
+      <span class="lbl">гео</span>
+      <div class="geos" id="geos"></div>
+    </div>
+    <div class="tabs" id="tabs" role="tablist"></div>
+  </div>
+
+  <div id="panels"></div>
+
+  <footer id="footer"></footer>
+</div>
+
+<script id="radar-data" type="application/json">__RADAR_DATA__</script>
+<script>
+(function () {
+  var D = JSON.parse(document.getElementById('radar-data').textContent);
+  var state = { geo: D.meta.selected_geo, tab: 'finalists', filters: {}, q: '' };
+  var el = function (id) { return document.getElementById(id); };
+
+  function fmt(n, digits) {
+    if (n === null || n === undefined || n === '' || (typeof n === 'number' && !isFinite(n))) return '—';
+    if (typeof n !== 'number') return String(n);
+    if (digits !== undefined) return n.toFixed(digits);
+    if (Math.abs(n) >= 1e9) return (n / 1e9).toFixed(2) + ' млрд';
+    if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(1) + ' млн';
+    if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(n >= 1e5 ? 0 : 1) + ' тыс';
+    return String(Math.round(n * 100) / 100);
+  }
+  function pct(n, digits) {
+    if (n === null || n === undefined || !isFinite(n)) return '—';
+    return (n * 100).toFixed(digits === undefined ? 0 : digits) + '%';
+  }
+  function esc(s) {
+    return String(s === null || s === undefined ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function playLink(appId, title) {
+    return '<a class="app" href="https://play.google.com/store/apps/details?id=' + esc(appId) +
+      '" target="_blank" rel="noopener">' + esc(title || appId) + '</a>';
+  }
+  function bool(v, yes, no) {
+    if (v === null || v === undefined) return '<span class="tag none">—</span>';
+    return v ? '<span class="tag no">' + esc(yes) + '</span>' : '<span class="tag ok">' + esc(no) + '</span>';
+  }
+
+  // ---------- шесть проверок ----------
+  var CHECK_NAMES = [
+    '1. Спрос есть и он органический',
+    '2. Инкумбент побеждаем',
+    '3. Вырос без закупки',
+    '4. Дёшев в повторении',
+    '5. Монетизация доказана',
+    '6. Переживёт модерацию'
+  ];
+  function checksHtml(checks) {
+    return '<span class="checks">' + checks.map(function (c, i) {
+      var cls = c === 1 ? 'p' : (c === 0 ? 'f' : 'u');
+      var sym = c === 1 ? '✓' : (c === 0 ? '✗' : '?');
+      return '<span class="chk ' + cls + '" title="' + esc(CHECK_NAMES[i]) + '">' + sym + '</span>';
+    }).join('') + '</span>';
+  }
+
+  function gd() { return D.geoData[state.geo] || { apps: [], niches: [], funnel: [], date: null }; }
+
+  // ---------- таблицы с сортировкой ----------
+  var tableState = {};
+  function table(id, cols, rows, rowFn) {
+    var head = '<thead><tr>' + cols.map(function (c) {
+      return '<th data-k="' + esc(c.k) + '"' + (c.num ? ' class="num"' : '') + '>' + c.t + '</th>';
+    }).join('') + '</tr></thead>';
+    tableState[id] = { rows: rows, rowFn: rowFn, cols: cols };
+    return '<div class="tbl-wrap"><table id="' + id + '">' + head + '<tbody>' +
+      rows.map(rowFn).join('') + '</tbody></table></div>';
+  }
+  function wireSort(root) {
+    root.querySelectorAll('table[id] thead th[data-k]').forEach(function (th) {
+      th.addEventListener('click', function () {
+        var t = th.closest('table');
+        var st = tableState[t.id];
+        if (!st) return;
+        var k = th.dataset.k;
+        var asc = th.dataset.sorted === 'desc';
+        t.querySelectorAll('th').forEach(function (o) { delete o.dataset.sorted; });
+        th.dataset.sorted = asc ? 'asc' : 'desc';
+        var sorted = st.rows.slice().sort(function (a, b) {
+          var x = a[k], y = b[k];
+          if (x === null || x === undefined) return 1;
+          if (y === null || y === undefined) return -1;
+          if (typeof x === 'number' && typeof y === 'number') return asc ? x - y : y - x;
+          return asc ? String(x).localeCompare(String(y)) : String(y).localeCompare(String(x));
+        });
+        t.tBodies[0].innerHTML = sorted.map(st.rowFn).join('');
+      });
+    });
+  }
+
+  // ================= ВКЛАДКИ =================
+  var TABS = [
+    { id: 'finalists', t: 'Финалисты', render: renderFinalists },
+    { id: 'checks', t: 'Шесть проверок', render: renderChecks },
+    { id: 'a', t: 'A. Спрос', render: renderA },
+    { id: 'b', t: 'B. Конкуренция', render: renderB },
+    { id: 'c', t: 'C. Повторение', render: renderC },
+    { id: 'd', t: 'D. Монетизация', render: renderD },
+    { id: 'e', t: 'E. Устойчивость', render: renderE },
+    { id: 'f', t: 'F. Гео-арбитраж', render: renderF },
+    { id: 'organic', t: 'Детектор органики', render: renderOrganic },
+    { id: 'fraud', t: 'Антифрод', render: renderFraud },
+    { id: 'disq', t: 'Дисквалификаторы', render: renderDisq }
+  ];
+
+  // ---------- Финалисты ----------
+  function finalistRow(r) {
+    return '<tr>' +
+      '<td class="ttl">' + playLink(r.app_id, r.title) +
+        '<span class="subline">' + esc(r.app_id) + (r.niche_head ? ' · ' + esc(r.niche_head) : '') + '</span></td>' +
+      '<td>' + checksHtml(r.checks) + '</td>' +
+      '<td class="num">' + r.passed + '</td>' +
+      '<td class="num">' + r.failed + '</td>' +
+      '<td class="num">' + fmt(r.prescore, 1) + '</td>' +
+      '<td class="num">' + fmt(r.installs) + '</td>' +
+      '<td class="num">' + fmt(r.niche_door) + '</td>' +
+      '<td class="mono">' + esc(r.monetization_type || '—') + '</td>' +
+      '<td>' + (r.attribution_sdk === 1
+        ? '<span class="tag no">трекер: ' + esc(r.tracking_matched || 'да') + '</span>'
+        : (r.ads_found && r.ads_found !== 'unchecked'
+          ? '<span class="tag warn">' + esc(r.ads_found) + '</span>'
+          : '<span class="tag none">не проверено</span>')) + '</td>' +
+      '</tr>';
+  }
+  function globalFinalistRow(r) {
+    return '<tr>' +
+      '<td class="ttl">' + playLink(r.app_id, r.title) +
+        '<span class="subline">' + esc(r.app_id) + '</span></td>' +
+      '<td>' + checksHtml(r.checks) + '</td>' +
+      '<td class="num">' + r.passed + '</td>' +
+      '<td class="mono">' + esc(r.best_geo) + '</td>' +
+      '<td class="num">' + fmt(r.prescore, 1) + '</td>' +
+      '<td class="num">' + r.geos_count + '</td>' +
+      '<td class="mono" title="' + esc(r.geos_list) + '">' + esc(r.geos_list.slice(0, 40)) + (r.geos_list.length > 40 ? '…' : '') + '</td>' +
+      '<td class="mono">' + (r.cheapest_geo ? esc(r.cheapest_geo.geo) + ' · door ' + fmt(r.cheapest_geo.door) : '—') + '</td>' +
+      '<td class="num">' + fmt(r.installs) + '</td>' +
+      '</tr>';
+  }
+  function renderFinalists() {
+    var apps = gd().apps.slice().sort(function (a, b) {
+      return (b.passed - a.passed) || ((b.prescore ?? -1) - (a.prescore ?? -1));
+    });
+    var g = D.globalFinalists;
+    var maxPassed = apps.length ? apps[0].passed : 0;
+
+    return '<div class="panel-head"><span class="eyebrow">итог методики</span>' +
+      '<h2>Финалисты на копирование</h2><span class="cnt">' + apps.length + ' в гео ' + state.geo +
+      ' · ' + g.length + ' уникальных по всем гео</span></div>' +
+      '<p class="note">Ранжирование — по числу <b>пройденных</b> проверок, затем по <code>prescore</code>. ' +
+      'Методика требует все шесть: «образец годится, только если проходит все шесть». Пока проверка №6 ' +
+      '(<code>policy_ok</code>, ручная) не выставлена ни у кого, ни одно приложение не может считаться ' +
+      'финалистом формально — список показывает, кто ближе всех и на чём именно застрял.</p>' +
+
+      '<div class="legend">' + CHECK_NAMES.map(function (n, i) {
+        return '<span><span class="chk u">' + (i + 1) + '</span> ' + esc(n.replace(/^\d+\.\s*/, '')) + '</span>';
+      }).join('') + '</div>' +
+      '<div class="legend"><span><span class="chk p">✓</span> пройдена</span>' +
+      '<span><span class="chk f">✗</span> провалена</span>' +
+      '<span><span class="chk u">?</span> нет данных — методика запрещает считать пройденной</span></div>' +
+
+      '<div class="stat-row" style="margin-top:14px">' +
+        '<div class="stat"><span class="n">' + apps.filter(function (a) { return a.passed >= 4; }).length +
+          '</span><span class="l">4+ проверок в гео</span></div>' +
+        '<div class="stat"><span class="n">' + apps.filter(function (a) { return a.failed === 0; }).length +
+          '</span><span class="l">без провалов</span></div>' +
+        '<div class="stat"><span class="n">' + maxPassed + '</span><span class="l">максимум пройдено</span></div>' +
+        '<div class="stat"><span class="n">' + D.counts.policy_confirmed + '</span><span class="l">policy_ok подтверждён</span></div>' +
+      '</div>' +
+
+      '<h3>По текущему гео — ' + esc(state.geo) + '</h3>' +
+      table('t-fin', [
+        { k: 'title', t: 'Приложение' }, { k: 'checks', t: '6 проверок' },
+        { k: 'passed', t: 'прошло', num: true }, { k: 'failed', t: 'провал', num: true },
+        { k: 'prescore', t: 'prescore', num: true }, { k: 'installs', t: 'установки', num: true },
+        { k: 'niche_door', t: 'door ниши', num: true }, { k: 'monetization_type', t: 'монетизация' },
+        { k: 'ads_found', t: 'закупка' }
+      ], apps.slice(0, 200), finalistRow) +
+
+      '<h3>По всем гео сразу</h3>' +
+      '<p class="note">Одно приложение живёт в нескольких гео. Здесь строка — приложение, а гео выбрано то, ' +
+      'где оно выглядит сильнее всего по <code>prescore</code>. Колонка «дешевле всего» показывает гео с ' +
+      'минимальным <code>door</code> — это и есть кандидат на вход по схеме гео-арбитража: механика та же, ' +
+      'а стена ниже.</p>' +
+      table('t-gfin', [
+        { k: 'title', t: 'Приложение' }, { k: 'checks', t: '6 проверок' },
+        { k: 'passed', t: 'прошло', num: true }, { k: 'best_geo', t: 'лучшее гео' },
+        { k: 'prescore', t: 'prescore', num: true }, { k: 'geos_count', t: 'гео', num: true },
+        { k: 'geos_list', t: 'в каких гео' }, { k: 'cheapest_geo', t: 'вход дешевле всего' },
+        { k: 'installs', t: 'установки', num: true }
+      ], g.slice(0, 200), globalFinalistRow);
+  }
+
+  // ---------- Шесть проверок: сводка ----------
+  function renderChecks() {
+    var apps = gd().apps;
+    var stats = CHECK_NAMES.map(function (name, i) {
+      return {
+        name: name,
+        passed: apps.filter(function (a) { return a.checks[i] === 1; }).length,
+        failed: apps.filter(function (a) { return a.checks[i] === 0; }).length,
+        unknown: apps.filter(function (a) { return a.checks[i] === null; }).length
+      };
+    });
+    var total = apps.length || 1;
+    return '<div class="panel-head"><span class="eyebrow">раздел 1</span><h2>Шесть проверок</h2>' +
+      '<span class="cnt">' + apps.length + ' приложений · гео ' + state.geo + '</span></div>' +
+      '<p class="note">«Пять исходных остаются, добавляется шестая, специфичная для Play. Образец годится, ' +
+      'только если проходит все шесть». Третий пункт методика называет самым важным, шестой — самым дешёвым ' +
+      'в проверке и самым дорогим в игнорировании.</p>' +
+      table('t-checks', [
+        { k: 'name', t: 'Проверка' }, { k: 'passed', t: 'прошли', num: true },
+        { k: 'failed', t: 'провалили', num: true }, { k: 'unknown', t: 'не знаем', num: true },
+        { k: 'bar', t: 'распределение' }
+      ], stats, function (r) {
+        var p = (r.passed / total * 100), f = (r.failed / total * 100), u = (r.unknown / total * 100);
+        return '<tr><td class="ttl">' + esc(r.name) + '</td>' +
+          '<td class="num">' + r.passed + '</td>' +
+          '<td class="num">' + r.failed + '</td>' +
+          '<td class="num">' + r.unknown + '</td>' +
+          '<td><div style="display:flex;height:14px;min-width:180px;border:1px solid var(--line)">' +
+            '<div style="width:' + p.toFixed(1) + '%;background:var(--good)"></div>' +
+            '<div style="width:' + f.toFixed(1) + '%;background:var(--bad)"></div>' +
+            '<div style="width:' + u.toFixed(1) + '%;background:var(--surface-2)"></div>' +
+          '</div></td></tr>';
+      }) +
+      '<div class="missing"><b>Почему так много «не знаем».</b> Проверка №3 требует K7 (проверка рекламных ' +
+      'библиотек Google Ads Transparency и Meta Ad Library через браузер) — ' +
+      (D.counts.ads_checked ? 'проверено записей: ' + D.counts.ads_checked : 'ещё не запущена') +
+      '. Проверка №6 — ручной гейт <code>policy_ok</code>, подтверждено: ' + D.counts.policy_confirmed + '. ' +
+      'Скан трекеров по тексту (замена разбора APK) выполнен: ' + D.counts.tracking_scanned +
+      ' приложений, трекер найден у ' + D.counts.tracking_found + '.</div>';
+  }
+
+  // ---------- A. Спрос ----------
+  function renderA() {
+    var n = gd().niches;
+    return '<div class="panel-head"><span class="eyebrow">слой A</span><h2>Спрос — есть ли кого ловить</h2>' +
+      '<span class="cnt">' + n.length + ' ниш · гео ' + state.geo + '</span></div>' +
+      '<p class="note">Спрос в методике меряется нишей, а не приложением: сумма score подсказок по ядру, ' +
+      'число generic-запросов, глубина подсказок. Порог годности по методике — сумма score > 5 и не меньше ' +
+      'трёх generic-ключей.</p>' +
+      (D.counts.planner_rows === 0
+        ? '<div class="missing"><b>Keyword Planner и Trends не загружены.</b> Абсолютный объём запросов ' +
+          '(≥ 1000/мес хотя бы по одному ключу) и сезонность — ручные квартальные выгрузки E1/E2. ' +
+          'Без них слой A опирается только на внутреннюю шкалу подсказок Play, без абсолютных чисел: ' +
+          '<code>node src/cli.js import-planner --file kp.csv</code></div>'
+        : '') +
+      table('t-a', [
+        { k: 'head_keyword', t: 'Ниша' }, { k: 'suggest_score_sum', t: 'score подсказок', num: true },
+        { k: 'keywords_count', t: 'ключей в ядре', num: true },
+        { k: 'generic_demand_share', t: 'доля generic', num: true },
+        { k: 'demand_installs', t: 'спрос, установки', num: true },
+        { k: 'apps_count', t: 'приложений', num: true }
+      ], n, function (r) {
+        var ok = (r.suggest_score_sum || 0) > 5;
+        return '<tr><td class="ttl">' + esc(r.head_keyword) +
+          '<span class="subline">' + esc(r.concept || '') + '</span></td>' +
+          '<td class="num">' + fmt(r.suggest_score_sum, 1) +
+            ' ' + (ok ? '<span class="tag ok">&gt;5</span>' : '<span class="tag none">низкий</span>') + '</td>' +
+          '<td class="num">' + fmt(r.keywords_count) + '</td>' +
+          '<td class="num">' + pct(r.generic_demand_share) + '</td>' +
+          '<td class="num">' + fmt(r.demand_installs) + '</td>' +
+          '<td class="num">' + fmt(r.apps_count) + '</td></tr>';
+      });
+  }
+
+  // ---------- B. Конкуренция ----------
+  function renderB() {
+    var n = gd().niches;
+    return '<div class="panel-head"><span class="eyebrow">слой B</span><h2>Конкуренция — можно ли вклиниться</h2>' +
+      '<span class="cnt">' + n.length + ' ниш · гео ' + state.geo + '</span></div>' +
+      '<p class="note">Пороги методики: стена авторитета &lt; 5 млн установок, стена по отзывам &lt; 150 тыс, ' +
+      'слабость топа &gt; 0,4, проходимость (доля моложе 18 мес) &gt; 0,3, доля лидера &lt; 0,7, ' +
+      'индексная дыра &gt; 0,4. В таблице пороги подсвечены: зелёное — соответствует, серое — нет. ' +
+      'Абсолютные числа здесь оставлены как в методике, но в самом скоре пороги квантильные (принцип 9 ТЗ).</p>' +
+      table('t-b', [
+        { k: 'head_keyword', t: 'Ниша' }, { k: 'door', t: 'door', num: true },
+        { k: 'wall_installs', t: 'стена, установки', num: true },
+        { k: 'wall_ratings', t: 'стена, отзывы', num: true },
+        { k: 'weak_share', t: 'слабых в топ-10', num: true },
+        { k: 'new_share_18m', t: 'моложе 18 мес', num: true },
+        { k: 'leader_share', t: 'доля лидера', num: true },
+        { k: 'index_gap_leader', t: 'индексная дыра', num: true }
+      ], n, function (r) {
+        var mark = function (v, ok, f) { return '<td class="num">' + (f ? f(v) : fmt(v)) +
+          (v == null ? '' : (ok ? ' <span class="tag ok">✓</span>' : ' <span class="tag none">—</span>')) + '</td>'; };
+        return '<tr><td class="ttl">' + esc(r.head_keyword) + '</td>' +
+          '<td class="num">' + fmt(r.door) + '</td>' +
+          mark(r.wall_installs, r.wall_installs != null && r.wall_installs < 5e6) +
+          mark(r.wall_ratings, r.wall_ratings != null && r.wall_ratings < 150000) +
+          mark(r.weak_share, r.weak_share != null && r.weak_share > 0.4, function (v) { return pct(v); }) +
+          mark(r.new_share_18m, r.new_share_18m != null && r.new_share_18m > 0.3, function (v) { return pct(v); }) +
+          mark(r.leader_share, r.leader_share != null && r.leader_share < 0.7, function (v) { return pct(v); }) +
+          mark(r.index_gap_leader, r.index_gap_leader != null && r.index_gap_leader > 0.4, function (v) { return pct(v); }) +
+          '</tr>';
+      });
+  }
+
+  // ---------- C. Стоимость повторения ----------
+  function renderC() {
+    var apps = gd().apps;
+    return '<div class="panel-head"><span class="eyebrow">слой C</span><h2>Стоимость повторения</h2>' +
+      '<span class="cnt">' + apps.length + ' приложений · гео ' + state.geo + '</span></div>' +
+      '<p class="note">Ориентиры методики: до 25 МБ — тонкий клиент к API, 25–80 МБ — возможна встроенная ' +
+      'модель, 150+ МБ — офлайн-модель. Скриншотов 3–6, разрешения «камера + сеть» дёшевы, ' +
+      '«фон / локация / SMS» — дорого и рискованно.</p>' +
+      '<div class="missing"><b>Размер и число IAP-продуктов Play не отдаёт.</b> ' +
+      'У большинства приложений в карточке стоит «зависит от устройства» (формат AAB), поэтому ' +
+      '<code>size_mb</code> заполнен редко. Точные значения даёт только разбор скачанного APK ' +
+      '(<code>node src/cli.js stage analyze-apk</code>) — разобрано: ' + D.counts.apk_parsed + '.</div>' +
+      table('t-c', [
+        { k: 'title', t: 'Приложение' }, { k: 'feasibility', t: 'feasibility', num: true },
+        { k: 'size_mb', t: 'размер, МБ', num: true },
+        { k: 'screenshots_count', t: 'скриншотов', num: true },
+        { k: 'video_present', t: 'видео' },
+        { k: 'permissions_risky', t: 'разрешения' },
+        { k: 'compute_location', t: 'вычисление' },
+        { k: 'description_len', t: 'длина описания', num: true }
+      ], apps, function (r) {
+        return '<tr><td class="ttl">' + playLink(r.app_id, r.title) + '</td>' +
+          '<td class="num">' + fmt(r.feasibility, 2) +
+            '<span class="bar"><i style="width:' + ((r.feasibility || 0) * 100).toFixed(0) + '%"></i></span></td>' +
+          '<td class="num">' + (r.size_mb != null ? fmt(r.size_mb, 1) +
+            (r.size_mb < 25 ? ' <span class="tag ok">тонкий</span>' : '') : '<span class="tag none">не указан</span>') + '</td>' +
+          '<td class="num">' + fmt(r.screenshots_count) + '</td>' +
+          '<td>' + (r.video_present === 1 ? '<span class="tag cool">есть</span>' : '<span class="tag none">нет</span>') + '</td>' +
+          '<td>' + bool(r.permissions_risky, 'рискованные', 'чисто') + '</td>' +
+          '<td class="mono">' + esc(r.compute_location || '—') + '</td>' +
+          '<td class="num">' + fmt(r.description_len) + '</td></tr>';
+      });
+  }
+
+  // ---------- D. Монетизация ----------
+  function renderD() {
+    var apps = gd().apps;
+    var byType = {};
+    apps.forEach(function (a) { byType[a.monetization_type || '—'] = (byType[a.monetization_type || '—'] || 0) + 1; });
+    return '<div class="panel-head"><span class="eyebrow">слой D</span><h2>Доказанная монетизация</h2>' +
+      '<span class="cnt">' + apps.length + ' приложений · гео ' + state.geo + '</span></div>' +
+      '<p class="note">Порог методики: <code>iap_max_usd</code> ≥ 20 $, иначе ниша не платит. ' +
+      '«Если у образца нет годового тарифа от 20 $ и он не рекламный — либо он не умеет монетизировать, ' +
+      'либо ниша не платит». Гибридная и рекламная монетизация в Play встречается втрое чаще, чем в App Store.</p>' +
+      '<div class="stat-row">' + Object.keys(byType).map(function (k) {
+        return '<div class="stat"><span class="n">' + byType[k] + '</span><span class="l">' + esc(k) + '</span></div>';
+      }).join('') + '</div>' +
+      table('t-d', [
+        { k: 'title', t: 'Приложение' }, { k: 'monetization_type', t: 'тип' },
+        { k: 'iap_min_usd', t: 'IAP от, $', num: true }, { k: 'iap_max_usd', t: 'IAP до, $', num: true },
+        { k: 'contains_ads', t: 'реклама' }, { k: 'monetization_proof', t: 'доказана', num: true },
+        { k: 'has_annual_tier', t: 'годовой тариф' },
+        { k: 'installs_per_month_lifetime', t: 'установок в мес', num: true }
+      ], apps, function (r) {
+        return '<tr><td class="ttl">' + playLink(r.app_id, r.title) + '</td>' +
+          '<td class="mono">' + esc(r.monetization_type || '—') + '</td>' +
+          '<td class="num">' + (r.iap_min_usd != null ? fmt(r.iap_min_usd, 2) : '—') + '</td>' +
+          '<td class="num">' + (r.iap_max_usd != null ? fmt(r.iap_max_usd, 2) +
+            (r.iap_max_usd >= 20 ? ' <span class="tag ok">≥20$</span>' : ' <span class="tag no">&lt;20$</span>') : '—') + '</td>' +
+          '<td>' + (r.contains_ads === 1 ? '<span class="tag warn">есть</span>' : '<span class="tag none">нет</span>') + '</td>' +
+          '<td class="num">' + fmt(r.monetization_proof, 2) + '</td>' +
+          '<td>' + (r.has_annual_tier == null ? '<span class="tag none">нужен APK</span>'
+            : (r.has_annual_tier ? '<span class="tag ok">есть</span>' : '<span class="tag no">нет</span>')) + '</td>' +
+          '<td class="num">' + fmt(r.installs_per_month_lifetime) + '</td></tr>';
+      });
+  }
+
+  // ---------- E. Устойчивость ----------
+  function renderE() {
+    var apps = gd().apps;
+    return '<div class="panel-head"><span class="eyebrow">слой E</span><h2>Устойчивость и техническое качество</h2>' +
+      '<span class="cnt">' + apps.length + ' приложений · гео ' + state.geo + '</span></div>' +
+      '<p class="note">«days_since_update &lt; 30 — продукт живой, &gt; 180 — вы копируете то, что автор бросил». ' +
+      'Заброшенный лидер в Play — конкурент с датой исчезновения: Google ежегодно поднимает планку targetSdk. ' +
+      'Полярность &gt; 0,15 при общем рейтинге 4.5 означает большой сломанный сегмент — «прочитайте эти ' +
+      'единицы, они прямо перечисляют, что строить». Доля крашей в отзывах выше 5 % — красный флаг про нишу ' +
+      'и зелёный про вход.</p>' +
+      table('t-e', [
+        { k: 'title', t: 'Приложение' }, { k: 'days_since_update', t: 'дней без апдейта', num: true },
+        { k: 'score', t: 'рейтинг', num: true }, { k: 'rating_recent_30d', t: 'рейтинг 30 дн', num: true },
+        { k: 'polarization', t: 'полярность 1★/5★', num: true },
+        { k: 'crash_pct', t: 'краши в отзывах', num: true },
+        { k: 'ratings_count', t: 'оценок', num: true },
+        { k: 'content_rating', t: 'возраст' }
+      ], apps, function (r) {
+        var stale = r.days_since_update != null && r.days_since_update > 180;
+        var recentDrop = r.rating_recent_30d != null && r.score != null && (r.score - r.rating_recent_30d) > 0.5;
+        return '<tr><td class="ttl">' + playLink(r.app_id, r.title) + '</td>' +
+          '<td class="num">' + fmt(r.days_since_update, 0) +
+            (stale ? ' <span class="tag warn">заброшен</span>' : '') +
+            (r.target_sdk_risk === 1 ? ' <span class="tag no">targetSdk</span>' : '') + '</td>' +
+          '<td class="num">' + fmt(r.score, 2) + '</td>' +
+          '<td class="num">' + fmt(r.rating_recent_30d, 2) +
+            (recentDrop ? ' <span class="tag no">просел</span>' : '') + '</td>' +
+          '<td class="num">' + fmt(r.polarization, 2) +
+            (r.polarization != null && r.polarization > 0.15 ? ' <span class="tag warn">&gt;0,15</span>' : '') + '</td>' +
+          '<td class="num">' + pct(r.crash_pct, 1) +
+            (r.crash_pct != null && r.crash_pct > 0.05 ? ' <span class="tag warn">&gt;5%</span>' : '') + '</td>' +
+          '<td class="num">' + fmt(r.ratings_count) + '</td>' +
+          '<td class="mono">' + esc(r.content_rating || '—') + '</td></tr>';
+      });
+  }
+
+  // ---------- F. Гео-арбитраж ----------
+  function renderF() {
+    var cg = D.crossGeo;
+    var head = '<thead><tr><th>Ниша</th>' + cg.geos.map(function (g) {
+      return '<th>' + esc(g) + '</th>';
+    }).join('') + '</tr></thead>';
+    var body = cg.rows.map(function (row) {
+      var doors = cg.geos.map(function (g) { return row.cells[g] ? row.cells[g].door : null; })
+        .filter(function (v) { return v != null && v > 0; });
+      var lo = doors.length ? Math.min.apply(null, doors) : null;
+      var hi = doors.length ? Math.max.apply(null, doors) : null;
+      var cells = cg.geos.map(function (g) {
+        var c = row.cells[g];
+        if (!c || c.door == null) return '<td class="mono">—</td>';
+        var tint = 0;
+        if (lo != null && hi != null && hi > lo) {
+          tint = 1 - (Math.log10(c.door + 1) - Math.log10(lo + 1)) / (Math.log10(hi + 1) - Math.log10(lo + 1));
+        } else if (lo != null) tint = 1;
+        return '<td style="background:color-mix(in srgb, var(--accent) ' + Math.round(tint * 42) +
+          '%, var(--surface))" title="' + esc(g + ' · ' + (c.head_keyword || '')) + '">' + fmt(c.door) + '</td>';
+      }).join('');
+      return '<tr><td class="ttl">' + esc(row.ref_head || row.concept) +
+        '<span class="subline">в ' + row.geos_present + ' гео</span></td>' + cells + '</tr>';
+    }).join('');
+
+    var arb = [];
+    cg.rows.forEach(function (row) {
+      cg.geos.forEach(function (g) {
+        var c = row.cells[g];
+        if (!c || g === D.meta.reference_geo || c.geo_arbitrage == null) return;
+        arb.push({
+          concept: row.ref_head || row.concept, geo: g, head: c.head_keyword, door: c.door,
+          ref_door: row.ref_door,
+          door_ratio: (row.ref_door != null && c.door) ? row.ref_door / c.door : null,
+          wall_ratio: c.wall_ratio, demand_ratio: c.demand_ratio, money_ratio: c.money_ratio,
+          geo_arbitrage: c.geo_arbitrage
+        });
+      });
+    });
+    arb.sort(function (a, b) { return (b.geo_arbitrage ?? -1) - (a.geo_arbitrage ?? -1); });
+
+    return '<div class="panel-head"><span class="eyebrow">слой F</span><h2>Гео-арбитраж</h2>' +
+      '<span class="cnt">' + cg.rows.length + ' ниш × ' + cg.geos.length + ' гео</span></div>' +
+      '<p class="note">«Берёте механику, доказанную в US, и ставите её в гео, где она ещё не локализована». ' +
+      'В ячейке — <code>door</code>, ширина входа в нишу; чем светлее, тем дешевле вход относительно того же ' +
+      'концепта в других гео. Ниши сопоставляются по языконезависимому ключу, потому что головной ключ ' +
+      'в каждом гео на своём языке.</p>' +
+      '<div class="tbl-wrap"><table class="matrix" id="t-f">' + head + '<tbody>' + body + '</tbody></table></div>' +
+      '<h3>Где вход дешевле, чем в референсе</h3>' +
+      '<p class="note"><code>geo_arbitrage = wall_ratio × demand_ratio × money_ratio</code>. ' +
+      '«20 % спроса при 10 % конкуренции и 30 % денег выгоднее, чем 100 % спроса при стене в 5M установок». ' +
+      '<code>money_ratio</code> берётся из справочника доходности гео — он заполнен приорами, не измерениями.</p>' +
+      table('t-arb', [
+        { k: 'concept', t: 'Ниша' }, { k: 'geo', t: 'гео' }, { k: 'head', t: 'ключ в гео' },
+        { k: 'door', t: 'door', num: true }, { k: 'ref_door', t: 'door в US', num: true },
+        { k: 'door_ratio', t: 'во сколько уже', num: true },
+        { k: 'wall_ratio', t: 'wall_ratio', num: true },
+        { k: 'demand_ratio', t: 'demand_ratio', num: true },
+        { k: 'money_ratio', t: 'money_ratio', num: true },
+        { k: 'geo_arbitrage', t: 'арбитраж', num: true }
+      ], arb.slice(0, 150), function (r) {
+        return '<tr><td class="ttl">' + esc(r.concept) + '</td>' +
+          '<td class="mono">' + esc(r.geo) + '</td>' +
+          '<td class="mono">' + esc(r.head || '') + '</td>' +
+          '<td class="num">' + fmt(r.door) + '</td>' +
+          '<td class="num">' + fmt(r.ref_door) + '</td>' +
+          '<td class="num">' + (r.door_ratio == null ? '—' : fmt(r.door_ratio, 1) + '×') + '</td>' +
+          '<td class="num">' + fmt(r.wall_ratio, 2) + '</td>' +
+          '<td class="num">' + fmt(r.demand_ratio, 2) + '</td>' +
+          '<td class="num">' + fmt(r.money_ratio, 2) + '</td>' +
+          '<td class="num">' + fmt(r.geo_arbitrage, 2) + '</td></tr>';
+      });
+  }
+
+  // ---------- Детектор органики ----------
+  function renderOrganic() {
+    var apps = gd().apps;
+    return '<div class="panel-head"><span class="eyebrow">раздел 2</span><h2>Детектор органики</h2>' +
+      '<span class="cnt">' + apps.length + ' приложений · гео ' + state.geo + '</span></div>' +
+      '<p class="note">«На iOS данных о закупке нет вовсе, в Play два признака из шести становятся прямыми». ' +
+      'Прямые: найденные объявления в библиотеках (K7) и SDK атрибуции. Косвенные — портфель, локали, ' +
+      'бренд в подсказках — в скор не входят: по ТЗ признак попадает в скор только после валидации ' +
+      'на размеченной выборке.</p>' +
+      (D.counts.ads_checked === 0
+        ? '<div class="missing"><b>K7 не выполнен</b> — проверка рекламных библиотек (Google Ads Transparency ' +
+          'и Meta Ad Library через настоящий браузер). Пока её нет, «объявления не найдены» ≠ «органика», ' +
+          'и <code>organic</code> остаётся нейтральным 0,35: ' +
+          '<code>node src/cli.js stage check-ads --geo ' + esc(state.geo) + ' --limit 20</code></div>'
+        : '') +
+      table('t-org', [
+        { k: 'title', t: 'Приложение' }, { k: 'organic', t: 'organic', num: true },
+        { k: 'ads_found', t: 'реклама (K7)' }, { k: 'attribution_sdk', t: 'трекер атрибуции' },
+        { k: 'src_ads_pct', t: 'отзывы «из рекламы»', num: true },
+        { k: 'wom_index', t: 'wom_index', num: true },
+        { k: 'portfolio_size', t: 'портфель', num: true },
+        { k: 'growth_s', t: 'рост', num: true },
+        { k: 'verification_level', t: 'проверка' }
+      ], apps, function (r) {
+        return '<tr><td class="ttl">' + playLink(r.app_id, r.title) + '</td>' +
+          '<td class="num">' + fmt(r.organic, 2) + '</td>' +
+          '<td>' + (r.ads_found && r.ads_found !== 'unchecked'
+            ? '<span class="tag ' + (r.ads_found === 'none' ? 'ok' : 'no') + '">' + esc(r.ads_found) + '</span>'
+            : '<span class="tag none">не проверено</span>') + '</td>' +
+          '<td>' + (r.attribution_sdk === 1
+            ? '<span class="tag no">' + esc(r.tracking_matched || 'найден') + '</span>'
+            : (r.attribution_sdk === 0 ? '<span class="tag ok">нет</span>' : '<span class="tag none">—</span>')) + '</td>' +
+          '<td class="num">' + pct(r.src_ads_pct, 1) + '</td>' +
+          '<td class="num">' + fmt(r.wom_index, 2) + '</td>' +
+          '<td class="num">' + (r.portfolio_size != null ? fmt(r.portfolio_size) +
+            (r.portfolio_size <= 3 ? ' <span class="tag ok">одиночка</span>' :
+             (r.portfolio_size >= 20 ? ' <span class="tag warn">студия</span>' : '')) : '—') + '</td>' +
+          '<td class="num">' + fmt(r.growth_s, 2) + '</td>' +
+          '<td class="mono">' + esc(r.verification_level || '—') + '</td></tr>';
+      });
+  }
+
+  // ---------- Антифрод ----------
+  function renderFraud() {
+    var apps = gd().apps;
+    var failed = apps.filter(function (a) { return a.fraud_ok === 0; });
+    return '<div class="panel-head"><span class="eyebrow">раздел 4</span><h2>Антифрод — состав гейта fraud_ok</h2>' +
+      '<span class="cnt">' + failed.length + ' не прошли · ' + apps.length + ' всего</span></div>' +
+      '<p class="note">«Копировать накрученное приложение — худший из возможных исходов: вы воспроизводите ' +
+      'механику, которой не было». Гейт считается из пяти признаков, срабатывание любого → ' +
+      '<code>fraud_ok = 0</code> и образец в отвал независимо от скора. Пороги здесь квантильные ' +
+      '(принцип 9 ТЗ), кроме «рейтинг выше 4.9 при 10K+ оценок» — это про шкалу Play, а не про нишу.</p>' +
+      table('t-fraud', [
+        { k: 'title', t: 'Приложение' }, { k: 'fraud_ok', t: 'гейт' },
+        { k: 'installs_per_rating', t: 'installs / оценки', num: true },
+        { k: 'burst_flag', t: 'всплеск отзывов' },
+        { k: 'template_review_pct', t: 'шаблонные 5★', num: true },
+        { k: 'review_lang_mismatch', t: 'чужой язык', num: true },
+        { k: 'score', t: 'рейтинг', num: true },
+        { k: 'ratings_count', t: 'оценок', num: true }
+      ], apps, function (r) {
+        return '<tr><td class="ttl">' + playLink(r.app_id, r.title) + '</td>' +
+          '<td>' + (r.fraud_ok === 0 ? '<span class="tag no">не прошёл</span>' : '<span class="tag ok">чисто</span>') + '</td>' +
+          '<td class="num">' + fmt(r.installs_per_rating, 1) + '</td>' +
+          '<td>' + (r.burst_flag === 1 ? '<span class="tag no">есть</span>' :
+            (r.burst_flag === 0 ? '<span class="tag ok">нет</span>' : '<span class="tag none">мало отзывов</span>')) + '</td>' +
+          '<td class="num">' + pct(r.template_review_pct, 1) + '</td>' +
+          '<td class="num">' + (r.review_lang_mismatch == null
+            ? '<span class="tag none">только уровень A</span>' : pct(r.review_lang_mismatch, 1)) + '</td>' +
+          '<td class="num">' + fmt(r.score, 2) +
+            (r.score != null && r.score > 4.9 && r.ratings_count >= 10000 ? ' <span class="tag no">&gt;4.9</span>' : '') + '</td>' +
+          '<td class="num">' + fmt(r.ratings_count) + '</td></tr>';
+      });
+  }
+
+  // ---------- Дисквалификаторы ----------
+  var REASON_TEXT = {
+    passed: 'прошло все этапы воронки',
+    institution: 'госпортал, банк, телеком, маркетплейс',
+    off_category: 'категория вне семян обхода',
+    regulated_category: 'FINANCE / MEDICAL / NEWS / DATING',
+    policy_risk_category: 'категория с повышенным риском модерации',
+    policy_risk_permissions: 'SMS, журнал вызовов, спецразрешения, фоновая локация',
+    branded_only: 'в топ-10 только по своему бренду, generic-ключа нет',
+    periphery: 'один путь обнаружения и позиции 31–50',
+    factory: 'фабрика клонов: 15+ приложений при медиане апдейтов > 100 дней',
+    too_big: 'установки выше p95 гео — инкумбент, не образец',
+    dead: 'апдейт старше p90 при установках ниже p50',
+    broken: 'рейтинг ниже p10 при заметном числе оценок',
+    no_monetization: 'ни рекламы, ни IAP — ниша не платит',
+    low_monetization: 'потолок IAP ниже порога методики и нет рекламы',
+    fraud_extreme: 'installs/rating вне p01–p99 или рейтинг > 4.9 при 10K+',
+    regional_clone: 'региональное издание чужого приложения',
+    not_available: 'недоступно в гео',
+    heavy_and_bad: 'размер выше p90 при рейтинге ниже p25',
+    budget: 'локализовано в слишком многих гео при малом возрасте',
+    blocklist: 'ручной блок-лист'
+  };
+  function renderDisq() {
+    var f = gd().funnel;
+    var total = f.reduce(function (a, r) { return a + r.count; }, 0) || 1;
+    return '<div class="panel-head"><span class="eyebrow">раздел 8</span><h2>Дисквалификаторы</h2>' +
+      '<span class="cnt">' + total + ' карточек · гео ' + state.geo + '</span></div>' +
+      '<p class="note">«Отбрасывайте образец сразу, если верно хотя бы одно». Ничего не удаляется: ' +
+      'отсеянное остаётся в реестре с причиной и датой, поэтому решение можно пересмотреть задним числом.</p>' +
+      table('t-disq', [
+        { k: 'reason', t: 'Причина' }, { k: 'count', t: 'приложений', num: true },
+        { k: 'share', t: 'доля', num: true }, { k: 'what', t: 'что это значит' }
+      ], f.map(function (r) {
+        return { reason: r.reason, count: r.count, share: r.count / total, what: REASON_TEXT[r.reason] || '' };
+      }), function (r) {
+        return '<tr><td class="ttl">' + esc(r.reason) +
+          (r.reason === 'passed' ? ' <span class="tag ok">прошли</span>' : '') + '</td>' +
+          '<td class="num">' + r.count + '</td>' +
+          '<td class="num">' + pct(r.share, 1) + '</td>' +
+          '<td class="mono">' + esc(r.what) + '</td></tr>';
+      });
+  }
+
+  // ================= каркас =================
+  function renderGeos() {
+    el('geos').innerHTML = D.geoIndex.map(function (g) {
+      return '<button class="geo-btn" type="button" data-geo="' + esc(g.geo) + '"' +
+        (g.has_data ? '' : ' disabled title="нет данных"') +
+        ' aria-pressed="' + (g.geo === state.geo) + '">' + esc(g.geo) +
+        (g.is_reference ? '<span class="ref"> ★</span>' : '') + '</button>';
+    }).join('');
+  }
+  function renderTabs() {
+    el('tabs').innerHTML = TABS.map(function (t) {
+      return '<button class="tab" role="tab" type="button" data-tab="' + t.id + '" aria-selected="' +
+        (t.id === state.tab) + '">' + esc(t.t) + '</button>';
+    }).join('');
+  }
+  function renderPanel() {
+    var tab = TABS.filter(function (t) { return t.id === state.tab; })[0] || TABS[0];
+    var host = el('panels');
+    host.innerHTML = '<div class="panel on">' + tab.render() + '</div>';
+    wireSort(host);
+  }
+  function renderMeta() {
+    var g = D.geoIndex.filter(function (x) { return x.geo === state.geo; })[0] || {};
+    el('meta-line').innerHTML = 'снимок ' + esc(g.date || '—') + ' · тир ' + esc(g.tier || '—') +
+      ' · референс ' + esc(D.meta.reference_geo) + ' · гео с данными ' + D.counts.geos_with_data +
+      ' из ' + D.counts.geos_total;
+  }
+  function renderAll() { renderGeos(); renderTabs(); renderMeta(); renderPanel(); }
+
+  el('geos').addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('.geo-btn') : null;
+    if (!b || b.disabled) return;
+    state.geo = b.dataset.geo;
+    renderAll();
+  });
+  el('tabs').addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('.tab') : null;
+    if (!b) return;
+    state.tab = b.dataset.tab;
+    renderTabs();
+    renderPanel();
+    window.scrollTo({ top: 0 });
+  });
+
+  el('footer').innerHTML = 'Собрано ' + esc(D.meta.generated_at) + ' · база ' + fmt(D.meta.db_size_mb, 1) +
+    ' МБ · ' + D.counts.apps_passed + ' прошедших воронку, ' + D.counts.apps_unique + ' уникальных приложений';
+
+  renderAll();
+})();
+</script>

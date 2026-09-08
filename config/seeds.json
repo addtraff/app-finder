@@ -1,0 +1,2796 @@
+{
+  "_note": "Семена на языке гео (ТЗ 3.2). concept — языконезависимый ключ ниши: по нему слой F сопоставляет одну и ту же нишу между гео. Файл генерируется tools/gen-seeds.js.",
+  "concepts": [
+    "document-scanner",
+    "photo-translator",
+    "voice-recorder",
+    "habit-tracker",
+    "unit-converter",
+    "qr-scanner",
+    "plant-identifier",
+    "white-noise",
+    "focus-timer",
+    "screen-recorder",
+    "video-compressor",
+    "duplicate-photo-remover"
+  ],
+  "keywords": {
+    "US": [
+      {
+        "keyword": "document scanner",
+        "lang": "en",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "photo translator",
+        "lang": "en",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "voice recorder",
+        "lang": "en",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "habit tracker",
+        "lang": "en",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "unit converter",
+        "lang": "en",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "qr code scanner",
+        "lang": "en",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "plant identifier",
+        "lang": "en",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "white noise",
+        "lang": "en",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "focus timer",
+        "lang": "en",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "screen recorder",
+        "lang": "en",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "video compressor",
+        "lang": "en",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "duplicate photo remover",
+        "lang": "en",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "water reminder",
+        "lang": "en",
+        "concept": "water-reminder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "noise meter",
+        "lang": "en",
+        "concept": "noise-meter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "wifi analyzer",
+        "lang": "en",
+        "concept": "wifi-analyzer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "handwriting to text",
+        "lang": "en",
+        "concept": "handwriting-to-text",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "measure distance camera",
+        "lang": "en",
+        "concept": "distance-measure",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "bird sound identifier",
+        "lang": "en",
+        "concept": "bird-sound-id",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "AU": [
+      {
+        "keyword": "document scanner",
+        "lang": "en",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "photo translator",
+        "lang": "en",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "voice recorder",
+        "lang": "en",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "habit tracker",
+        "lang": "en",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "unit converter",
+        "lang": "en",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "qr code scanner",
+        "lang": "en",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "plant identifier",
+        "lang": "en",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "white noise",
+        "lang": "en",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "focus timer",
+        "lang": "en",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "screen recorder",
+        "lang": "en",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "video compressor",
+        "lang": "en",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "duplicate photo remover",
+        "lang": "en",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "GB": [
+      {
+        "keyword": "document scanner",
+        "lang": "en",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "photo translator",
+        "lang": "en",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "voice recorder",
+        "lang": "en",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "habit tracker",
+        "lang": "en",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "unit converter",
+        "lang": "en",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "qr code scanner",
+        "lang": "en",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "plant identifier",
+        "lang": "en",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "white noise",
+        "lang": "en",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "focus timer",
+        "lang": "en",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "screen recorder",
+        "lang": "en",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "video compressor",
+        "lang": "en",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "duplicate photo remover",
+        "lang": "en",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "CA": [
+      {
+        "keyword": "document scanner",
+        "lang": "en",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "photo translator",
+        "lang": "en",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "voice recorder",
+        "lang": "en",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "habit tracker",
+        "lang": "en",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "unit converter",
+        "lang": "en",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "qr code scanner",
+        "lang": "en",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "plant identifier",
+        "lang": "en",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "white noise",
+        "lang": "en",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "focus timer",
+        "lang": "en",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "screen recorder",
+        "lang": "en",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "video compressor",
+        "lang": "en",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "duplicate photo remover",
+        "lang": "en",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "DE": [
+      {
+        "keyword": "dokumente scannen",
+        "lang": "de",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "foto übersetzer",
+        "lang": "de",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "sprachaufnahme",
+        "lang": "de",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "gewohnheiten tracker",
+        "lang": "de",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "einheiten umrechner",
+        "lang": "de",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "qr code scanner",
+        "lang": "de",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "pflanzen bestimmen",
+        "lang": "de",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "weißes rauschen",
+        "lang": "de",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "fokus timer",
+        "lang": "de",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "bildschirm aufnehmen",
+        "lang": "de",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "video komprimieren",
+        "lang": "de",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "doppelte fotos löschen",
+        "lang": "de",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "JP": [
+      {
+        "keyword": "書類 スキャン",
+        "lang": "ja",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "写真 翻訳",
+        "lang": "ja",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "ボイスレコーダー",
+        "lang": "ja",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "習慣 記録",
+        "lang": "ja",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "単位 変換",
+        "lang": "ja",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "qrコード リーダー",
+        "lang": "ja",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "植物 判定",
+        "lang": "ja",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "ホワイトノイズ",
+        "lang": "ja",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "集中 タイマー",
+        "lang": "ja",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "画面 録画",
+        "lang": "ja",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "動画 圧縮",
+        "lang": "ja",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "重複 写真 削除",
+        "lang": "ja",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "FR": [
+      {
+        "keyword": "scanner de documents",
+        "lang": "fr",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "traducteur photo",
+        "lang": "fr",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "enregistreur vocal",
+        "lang": "fr",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "suivi des habitudes",
+        "lang": "fr",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "convertisseur d'unités",
+        "lang": "fr",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "scanner qr code",
+        "lang": "fr",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "identifier les plantes",
+        "lang": "fr",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "bruit blanc",
+        "lang": "fr",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "minuteur de concentration",
+        "lang": "fr",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "enregistreur d'écran",
+        "lang": "fr",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "compresser video",
+        "lang": "fr",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "supprimer photos en double",
+        "lang": "fr",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "KR": [
+      {
+        "keyword": "문서 스캔",
+        "lang": "ko",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "사진 번역",
+        "lang": "ko",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "음성 녹음기",
+        "lang": "ko",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "습관 기록",
+        "lang": "ko",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "단위 변환기",
+        "lang": "ko",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "qr 코드 스캐너",
+        "lang": "ko",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "식물 식별",
+        "lang": "ko",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "백색소음",
+        "lang": "ko",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "집중 타이머",
+        "lang": "ko",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "화면 녹화",
+        "lang": "ko",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "동영상 압축",
+        "lang": "ko",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "중복 사진 삭제",
+        "lang": "ko",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "CH": [
+      {
+        "keyword": "dokumente scannen",
+        "lang": "de",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "foto übersetzer",
+        "lang": "de",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "sprachaufnahme",
+        "lang": "de",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "gewohnheiten tracker",
+        "lang": "de",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "einheiten umrechner",
+        "lang": "de",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "qr code scanner",
+        "lang": "de",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "pflanzen bestimmen",
+        "lang": "de",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "weißes rauschen",
+        "lang": "de",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "fokus timer",
+        "lang": "de",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "bildschirm aufnehmen",
+        "lang": "de",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "video komprimieren",
+        "lang": "de",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "doppelte fotos löschen",
+        "lang": "de",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "NL": [
+      {
+        "keyword": "documenten scannen",
+        "lang": "nl",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "foto vertaler",
+        "lang": "nl",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "spraakrecorder",
+        "lang": "nl",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "gewoonte tracker",
+        "lang": "nl",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "eenheden omrekenen",
+        "lang": "nl",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "qr code scanner",
+        "lang": "nl",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "planten herkennen",
+        "lang": "nl",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "witte ruis",
+        "lang": "nl",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "focus timer",
+        "lang": "nl",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "scherm opnemen",
+        "lang": "nl",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "video comprimeren",
+        "lang": "nl",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "dubbele fotos verwijderen",
+        "lang": "nl",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "SE": [
+      {
+        "keyword": "skanna dokument",
+        "lang": "sv",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "foto översättare",
+        "lang": "sv",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "röstinspelare",
+        "lang": "sv",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "vanor tracker",
+        "lang": "sv",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "enhetsomvandlare",
+        "lang": "sv",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "qr kod skanner",
+        "lang": "sv",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "identifiera växter",
+        "lang": "sv",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "vitt brus",
+        "lang": "sv",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "fokus timer",
+        "lang": "sv",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "skärminspelare",
+        "lang": "sv",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "komprimera video",
+        "lang": "sv",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "ta bort dubbletter foton",
+        "lang": "sv",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "NO": [
+      {
+        "keyword": "skanne dokumenter",
+        "lang": "no",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "foto oversetter",
+        "lang": "no",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "lydopptaker",
+        "lang": "no",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "vane tracker",
+        "lang": "no",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "enhetsomregner",
+        "lang": "no",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "qr kode skanner",
+        "lang": "no",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "identifisere planter",
+        "lang": "no",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "hvit støy",
+        "lang": "no",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "fokus timer",
+        "lang": "no",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "skjermopptaker",
+        "lang": "no",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "komprimere video",
+        "lang": "no",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "slette duplikat bilder",
+        "lang": "no",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "DK": [
+      {
+        "keyword": "scan dokumenter",
+        "lang": "da",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "foto oversætter",
+        "lang": "da",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "diktafon",
+        "lang": "da",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "vane tracker",
+        "lang": "da",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "enhedsomregner",
+        "lang": "da",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "qr kode scanner",
+        "lang": "da",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "identificer planter",
+        "lang": "da",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "hvid støj",
+        "lang": "da",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "fokus timer",
+        "lang": "da",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "skærmoptager",
+        "lang": "da",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "komprimer video",
+        "lang": "da",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "slet dublet billeder",
+        "lang": "da",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "FI": [
+      {
+        "keyword": "asiakirjojen skannaus",
+        "lang": "fi",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "kuvan kääntäjä",
+        "lang": "fi",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "äänitallennin",
+        "lang": "fi",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "tapojen seuranta",
+        "lang": "fi",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "yksikkömuunnin",
+        "lang": "fi",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "qr koodin lukija",
+        "lang": "fi",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "kasvien tunnistus",
+        "lang": "fi",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "valkoinen kohina",
+        "lang": "fi",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "keskittymisajastin",
+        "lang": "fi",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "näytön tallennus",
+        "lang": "fi",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "videon pakkaus",
+        "lang": "fi",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "poista kaksoiskuvat",
+        "lang": "fi",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "NZ": [
+      {
+        "keyword": "document scanner",
+        "lang": "en",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "photo translator",
+        "lang": "en",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "voice recorder",
+        "lang": "en",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "habit tracker",
+        "lang": "en",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "unit converter",
+        "lang": "en",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "qr code scanner",
+        "lang": "en",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "plant identifier",
+        "lang": "en",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "white noise",
+        "lang": "en",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "focus timer",
+        "lang": "en",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "screen recorder",
+        "lang": "en",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "video compressor",
+        "lang": "en",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "duplicate photo remover",
+        "lang": "en",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "AT": [
+      {
+        "keyword": "dokumente scannen",
+        "lang": "de",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "foto übersetzer",
+        "lang": "de",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "sprachaufnahme",
+        "lang": "de",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "gewohnheiten tracker",
+        "lang": "de",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "einheiten umrechner",
+        "lang": "de",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "qr code scanner",
+        "lang": "de",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "pflanzen bestimmen",
+        "lang": "de",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "weißes rauschen",
+        "lang": "de",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "fokus timer",
+        "lang": "de",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "bildschirm aufnehmen",
+        "lang": "de",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "video komprimieren",
+        "lang": "de",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "doppelte fotos löschen",
+        "lang": "de",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "BE": [
+      {
+        "keyword": "documenten scannen",
+        "lang": "nl",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "foto vertaler",
+        "lang": "nl",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "spraakrecorder",
+        "lang": "nl",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "gewoonte tracker",
+        "lang": "nl",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "eenheden omrekenen",
+        "lang": "nl",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "qr code scanner",
+        "lang": "nl",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "planten herkennen",
+        "lang": "nl",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "witte ruis",
+        "lang": "nl",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "focus timer",
+        "lang": "nl",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "scherm opnemen",
+        "lang": "nl",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "video comprimeren",
+        "lang": "nl",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "dubbele fotos verwijderen",
+        "lang": "nl",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "IE": [
+      {
+        "keyword": "document scanner",
+        "lang": "en",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "photo translator",
+        "lang": "en",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "voice recorder",
+        "lang": "en",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "habit tracker",
+        "lang": "en",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "unit converter",
+        "lang": "en",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "qr code scanner",
+        "lang": "en",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "plant identifier",
+        "lang": "en",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "white noise",
+        "lang": "en",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "focus timer",
+        "lang": "en",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "screen recorder",
+        "lang": "en",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "video compressor",
+        "lang": "en",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "duplicate photo remover",
+        "lang": "en",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "SG": [
+      {
+        "keyword": "document scanner",
+        "lang": "en",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "photo translator",
+        "lang": "en",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "voice recorder",
+        "lang": "en",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "habit tracker",
+        "lang": "en",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "unit converter",
+        "lang": "en",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "qr code scanner",
+        "lang": "en",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "plant identifier",
+        "lang": "en",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "white noise",
+        "lang": "en",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "focus timer",
+        "lang": "en",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "screen recorder",
+        "lang": "en",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "video compressor",
+        "lang": "en",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "duplicate photo remover",
+        "lang": "en",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "AE": [
+      {
+        "keyword": "ماسح المستندات",
+        "lang": "ar",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "ترجمة الصور",
+        "lang": "ar",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "مسجل صوت",
+        "lang": "ar",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "تتبع العادات",
+        "lang": "ar",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "محول الوحدات",
+        "lang": "ar",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "قارئ باركود",
+        "lang": "ar",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "التعرف على النباتات",
+        "lang": "ar",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "ضوضاء بيضاء",
+        "lang": "ar",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "مؤقت التركيز",
+        "lang": "ar",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "تسجيل الشاشة",
+        "lang": "ar",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "ضغط الفيديو",
+        "lang": "ar",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "حذف الصور المكررة",
+        "lang": "ar",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "IL": [
+      {
+        "keyword": "סורק מסמכים",
+        "lang": "he",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "מתרגם תמונות",
+        "lang": "he",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "מקליט קול",
+        "lang": "he",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "מעקב הרגלים",
+        "lang": "he",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "ממיר יחידות",
+        "lang": "he",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "סורק קוד qr",
+        "lang": "he",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "זיהוי צמחים",
+        "lang": "he",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "רעש לבן",
+        "lang": "he",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "טיימר ריכוז",
+        "lang": "he",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "מקליט מסך",
+        "lang": "he",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "דחיסת וידאו",
+        "lang": "he",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "מחיקת תמונות כפולות",
+        "lang": "he",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "IT": [
+      {
+        "keyword": "scanner documenti",
+        "lang": "it",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "traduttore foto",
+        "lang": "it",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "registratore vocale",
+        "lang": "it",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "monitoraggio abitudini",
+        "lang": "it",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "convertitore di unita",
+        "lang": "it",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "scanner qr code",
+        "lang": "it",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "identificare piante",
+        "lang": "it",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "rumore bianco",
+        "lang": "it",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "timer concentrazione",
+        "lang": "it",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "registratore schermo",
+        "lang": "it",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "comprimere video",
+        "lang": "it",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "rimuovere foto duplicate",
+        "lang": "it",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "ES": [
+      {
+        "keyword": "escaner de documentos",
+        "lang": "es",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "traductor de fotos",
+        "lang": "es",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "grabadora de voz",
+        "lang": "es",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "seguimiento de habitos",
+        "lang": "es",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "convertidor de unidades",
+        "lang": "es",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "escaner qr",
+        "lang": "es",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "identificar plantas",
+        "lang": "es",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "ruido blanco",
+        "lang": "es",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "temporizador de enfoque",
+        "lang": "es",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "grabar pantalla",
+        "lang": "es",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "comprimir video",
+        "lang": "es",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "eliminar fotos duplicadas",
+        "lang": "es",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "SA": [
+      {
+        "keyword": "ماسح المستندات",
+        "lang": "ar",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "ترجمة الصور",
+        "lang": "ar",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "مسجل صوت",
+        "lang": "ar",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "تتبع العادات",
+        "lang": "ar",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "محول الوحدات",
+        "lang": "ar",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "قارئ باركود",
+        "lang": "ar",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "التعرف على النباتات",
+        "lang": "ar",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "ضوضاء بيضاء",
+        "lang": "ar",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "مؤقت التركيز",
+        "lang": "ar",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "تسجيل الشاشة",
+        "lang": "ar",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "ضغط الفيديو",
+        "lang": "ar",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "حذف الصور المكررة",
+        "lang": "ar",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "PT": [
+      {
+        "keyword": "scanner de documentos",
+        "lang": "pt",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "tradutor de fotos",
+        "lang": "pt",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "gravador de voz",
+        "lang": "pt",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "rastreador de habitos",
+        "lang": "pt",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "conversor de unidades",
+        "lang": "pt",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "leitor de qr code",
+        "lang": "pt",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "identificar plantas",
+        "lang": "pt",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "ruido branco",
+        "lang": "pt",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "temporizador de foco",
+        "lang": "pt",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "gravador de tela",
+        "lang": "pt",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "comprimir video",
+        "lang": "pt",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "remover fotos duplicadas",
+        "lang": "pt",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "BR": [
+      {
+        "keyword": "scanner de documentos",
+        "lang": "pt",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "tradutor de fotos",
+        "lang": "pt",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "gravador de voz",
+        "lang": "pt",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "rastreador de habitos",
+        "lang": "pt",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "conversor de unidades",
+        "lang": "pt",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "leitor de qr code",
+        "lang": "pt",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "identificar plantas",
+        "lang": "pt",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "ruido branco",
+        "lang": "pt",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "temporizador de foco",
+        "lang": "pt",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "gravador de tela",
+        "lang": "pt",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "comprimir video",
+        "lang": "pt",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "remover fotos duplicadas",
+        "lang": "pt",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "TW": [
+      {
+        "keyword": "文件掃描",
+        "lang": "zh",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "照片翻譯",
+        "lang": "zh",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "錄音機",
+        "lang": "zh",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "習慣追蹤",
+        "lang": "zh",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "單位換算",
+        "lang": "zh",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "qr code 掃描",
+        "lang": "zh",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "植物辨識",
+        "lang": "zh",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "白噪音",
+        "lang": "zh",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "專注計時器",
+        "lang": "zh",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "螢幕錄影",
+        "lang": "zh",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "影片壓縮",
+        "lang": "zh",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "重複照片清理",
+        "lang": "zh",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "PL": [
+      {
+        "keyword": "skaner dokumentow",
+        "lang": "pl",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "tlumacz zdjec",
+        "lang": "pl",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "dyktafon",
+        "lang": "pl",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "nawyki tracker",
+        "lang": "pl",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "przelicznik jednostek",
+        "lang": "pl",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "skaner kodow qr",
+        "lang": "pl",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "rozpoznawanie roslin",
+        "lang": "pl",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "bialy szum",
+        "lang": "pl",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "minutnik skupienia",
+        "lang": "pl",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "nagrywanie ekranu",
+        "lang": "pl",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "kompresja wideo",
+        "lang": "pl",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "usuwanie duplikatow zdjec",
+        "lang": "pl",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "MX": [
+      {
+        "keyword": "escaner de documentos",
+        "lang": "es",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "traductor de fotos",
+        "lang": "es",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "grabadora de voz",
+        "lang": "es",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "seguimiento de habitos",
+        "lang": "es",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "convertidor de unidades",
+        "lang": "es",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "escaner qr",
+        "lang": "es",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "identificar plantas",
+        "lang": "es",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "ruido blanco",
+        "lang": "es",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "temporizador de enfoque",
+        "lang": "es",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "grabar pantalla",
+        "lang": "es",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "comprimir video",
+        "lang": "es",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "eliminar fotos duplicadas",
+        "lang": "es",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ],
+    "TR": [
+      {
+        "keyword": "belge tarayici",
+        "lang": "tr",
+        "concept": "document-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "fotograf ceviri",
+        "lang": "tr",
+        "concept": "photo-translator",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "ses kaydedici",
+        "lang": "tr",
+        "concept": "voice-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "aliskanlik takip",
+        "lang": "tr",
+        "concept": "habit-tracker",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "birim cevirici",
+        "lang": "tr",
+        "concept": "unit-converter",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "qr kod okuyucu",
+        "lang": "tr",
+        "concept": "qr-scanner",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "bitki tanima",
+        "lang": "tr",
+        "concept": "plant-identifier",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "beyaz gurultu",
+        "lang": "tr",
+        "concept": "white-noise",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "odaklanma zamanlayici",
+        "lang": "tr",
+        "concept": "focus-timer",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "ekran kaydedici",
+        "lang": "tr",
+        "concept": "screen-recorder",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "video sikistirma",
+        "lang": "tr",
+        "concept": "video-compressor",
+        "intent_type": "generic",
+        "weight": 1
+      },
+      {
+        "keyword": "yinelenen fotograf silme",
+        "lang": "tr",
+        "concept": "duplicate-photo-remover",
+        "intent_type": "generic",
+        "weight": 1
+      }
+    ]
+  },
+  "apps": {
+    "US": []
+  },
+  "categories": {
+    "US": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "AU": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "GB": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "CA": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "DE": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "JP": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "FR": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "KR": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "CH": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "NL": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "SE": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "NO": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "DK": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "FI": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "NZ": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "AT": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "BE": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "IE": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "SG": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "AE": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "IL": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "IT": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "ES": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "SA": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "PT": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "BR": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "TW": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "PL": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "MX": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ],
+    "TR": [
+      "TOOLS",
+      "PHOTOGRAPHY",
+      "PRODUCTIVITY"
+    ]
+  }
+}

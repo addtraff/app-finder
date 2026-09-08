@@ -1,0 +1,31 @@
+{
+  "_note": "Веса prescore круглые и НЕ валидированы — это записанная гипотеза (ТЗ 9.8). Сырьё хранится, пересчёт задним числом возможен.",
+  "prescore_weights": {
+    "demand": 0.24, "growth_s": 0.24, "weakness": 0.16,
+    "openness": 0.11, "feasibility": 0.13, "organic": 0.12
+  },
+  "policy_penalty": 0.45,
+  "openness_mix": { "door": 0.6, "age": 0.4 },
+  "feasibility": { "thin_bonus": 0.25, "abandoned_bonus": 0.10 },
+  "organic_defaults": {
+    "ads_found": 0.0, "attribution_sdk": 0.0,
+    "src_ads_high": 0.15, "verified_none": 1.0, "unknown": 0.35
+  },
+  "growth": { "unknown_value": 0.3, "min_days": 14, "min_old_half_reviews": 25 },
+  "fake": { "demand_penalty": 0.75 },
+  "clustering": {
+    "min_shared_top10": 4,
+    "min_jaccard": 0.25,
+    "ubiquitous_min_abs": 8,
+    "ubiquitous_pct": 0.04,
+    "min_cluster_keywords": 3,
+    "similar_edge_bonus": 3
+  },
+  "monetization_proof": { "ok": 1.0, "weak": 0.4, "iap_max_usd_prior": 20 },
+  "in_score_features": ["demand", "growth_s", "weakness", "openness", "feasibility", "organic"],
+  "candidate_features": [
+    "portfolio_size", "locales_count", "size_mb", "wom_index", "index_breadth",
+    "localization_quality", "suggest_depth", "head_kw_in_title", "installs_per_rating",
+    "growth_s", "pain_fit"
+  ]
+}
