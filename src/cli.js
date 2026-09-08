@@ -211,6 +211,7 @@ async function main() {
           sequential: args.sequential === true || args.sequential === 'yes',
           domains: args.domains || null, apps: args.apps || null,
           skipMeta: args['skip-meta'] === true || args['skip-meta'] === 'yes',
+          calibrateOnly: args.calibrate === true || args.calibrate === 'yes',
         });
       }
       break;
@@ -371,6 +372,7 @@ async function main() {
   node src/cli.js import-planner --file kp.csv  выгрузка Keyword Planner (E1)
   node src/cli.js import-trends  --file gt.csv  выгрузка Google Trends (E2)
   node src/cli.js stage check-ads --geo US [--limit 90] [--sequential] [--domains a.com,b.com]
+  node src/cli.js stage check-ads --geo US --calibrate   снять форму RPC-запроса со страницы
   node src/cli.js record-ads --source meta --app <id> --found 1
   node src/cli.js record-ads --source google --domain example.com --found 0
 

@@ -314,12 +314,18 @@ async function metaAdLibrary(page, apps, date, c, limit) {
     try {
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
       await page.waitForTimeout(2500);
-      const html = await page.content();
-      if (/checkpoint|captcha/i.test(html)) {
-        logEvent('k7_captcha', { date, detail: `meta, запрос "${query}"` });
+      // Капчу определяем по факту редиректа на checkpoint или по видимой форме,
+      // а не по подстроке в HTML: у Facebook слово captcha встречается в JS-бандле
+      // на любой странице, и раньше это давало ложный стоп на первом же запросе.
+      const landedOn = page.url();
+      const challenged = /\/checkpoint\//.test(landedOn) ||
+        (await page.locator('form[action*="checkpoint"], input[name="captcha_response"]').count().catch(() => 0)) > 0;
+      if (challenged) {
+        logEvent('k7_captcha', { date, detail: `meta, запрос "${query}", url ${landedOn}` });
         warn('капча в Meta Ad Library — стоп');
         return { checked, found, stopped: 'captcha' };
       }
+      const html = await page.content();
       // Один запрос подтверждает все package id, которые в нём всплыли.
       const packages = [...html.matchAll(/store\/apps\/details\?id=([A-Za-z0-9_.]+)/g)].map((m) => m[1]);
       const uniq = [...new Set(packages)];
@@ -347,11 +353,71 @@ async function loadPlaywright() {
   catch { return null; }
 }
 
+// ---------------------------------------------------------------------------
+// Калибровка формы запроса. Номера полей в proto у Google не документированы и
+// меняются, угадывать их бессмысленно: 400 «Trouble converting f.req to
+// SearchCreativesRequest» — ровно про это. Но сама страница шлёт нужный запрос,
+// когда домен вводят в её интерфейс. Поэтому мы не угадываем, а перехватываем
+// настоящий запрос и сохраняем его как шаблон, подставив {{DOMAIN}}.
+// ---------------------------------------------------------------------------
+async function calibrate(page, probeDomain, date) {
+  const captured = [];
+  const onRequest = (req) => {
+    const url = req.url();
+    if (!url.includes('/anji/_/rpc/')) return;
+    if (req.method() !== 'POST') return;
+    captured.push({ url, body: req.postData() || '' });
+  };
+  page.on('request', onRequest);
+
+  log(`  калибровка: открываю страницу по домену ${probeDomain} и слушаю её собственные RPC`);
+  await page.goto(`https://adstransparency.google.com/?region=anywhere&domain=${encodeURIComponent(probeDomain)}`,
+    { waitUntil: 'domcontentloaded', timeout: 45000 });
+  await page.waitForTimeout(8000); // выдача подгружается скриптом, запросы идут не сразу
+  page.off('request', onRequest);
+
+  const outDir = path.join(ROOT, 'out');
+  fs.mkdirSync(outDir, { recursive: true });
+  fs.writeFileSync(path.join(outDir, 'ads-transparency-calibration.json'),
+    JSON.stringify({ probe_domain: probeDomain, captured_at: date, requests: captured }, null, 2), 'utf8');
+
+  log(`  калибровка: перехвачено ${captured.length} RPC-запросов -> out/ads-transparency-calibration.json`);
+  for (const r of captured) {
+    log(`     ${r.url.split('/anji/_/rpc/')[1] || r.url} · ${r.body.length} байт`);
+  }
+
+  // Ищем запрос, в теле которого встречается проверочный домен: это и есть поиск.
+  const hit = captured.find((r) => r.body && decodeURIComponent(r.body).includes(probeDomain));
+  if (!hit) {
+    warn('калибровка: запрос с доменом в теле не найден. Возможно, страница ищет по идентификатору ' +
+         'рекламодателя, а не по домену — посмотрите out/ads-transparency-calibration.json.');
+    return null;
+  }
+
+  // Тело приходит как f.req=<urlencoded json>. Достаём JSON и параметризуем домен.
+  const raw = hit.body.startsWith('f.req=') ? decodeURIComponent(hit.body.slice(6)) : decodeURIComponent(hit.body);
+  const template = raw.split(probeDomain).join('{{DOMAIN}}');
+
+  const cfgPath = path.join(ROOT, 'config', 'ads-transparency.json');
+  const conf = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+  conf.rpc_url = hit.url.split('?')[0];
+  conf.payload_template = template;
+  conf._calibrated_at = date;
+  conf._calibrated_from = probeDomain;
+  fs.writeFileSync(cfgPath, JSON.stringify(conf, null, 2) + '\n', 'utf8');
+
+  log(`  калибровка: форма запроса сохранена в config/ads-transparency.json`);
+  log(`     эндпоинт: ${conf.rpc_url}`);
+  log(`     шаблон:   ${template.slice(0, 200)}${template.length > 200 ? '…' : ''}`);
+  return conf;
+}
+
 export async function run({ geo, date, runId, cycle = 'daily', useBrowser = true, headless = false,
-                            limit = null, sequential = false, domains = null, apps = null, skipMeta = false }) {
+                            limit = null, sequential = false, domains = null, apps = null,
+                            skipMeta = false, calibrateOnly = false }) {
   const d = db();
   startRun(runId, 'check-ads', geo, cycle, date);
-  const c = cfg();
+  let c = cfg();
   const batch = limit ? Number(limit) : c.batch_per_day;
 
   const full = buildDomainQueue(d, geo, date, { domains, apps });
@@ -390,12 +456,38 @@ export async function run({ geo, date, runId, cycle = 'daily', useBrowser = true
   let g = { checked: 0, found: 0, failed: [] }, m = { checked: 0, found: 0, stopped: null };
   try {
     const page = await ctx.newPage();
-    // Транспорт: сначала встаём НА страницу Ads Transparency, дальше все запросы идут
-    // её же fetch-ом. Прямой HTTP отсюда исключён по построению.
-    await page.goto('https://adstransparency.google.com/?region=anywhere', {
-      waitUntil: 'domcontentloaded', timeout: 45000,
-    });
-    await page.waitForTimeout(2000);
+
+    // Форма запроса не угадывается: если она ещё не откалибрована или прошлый прогон
+    // получил 400, снимаем настоящий запрос с самой страницы.
+    const needCalibration = calibrateOnly || !c._calibrated_at ||
+      d.prepare(`SELECT COUNT(*) c FROM raw_ads_google WHERE status LIKE 'http_4%'`).get().c > 0;
+    if (needCalibration) {
+      const probe = queue[0] ? queue[0].domain : 'canva.com';
+      const updated = await calibrate(page, probe, date);
+      if (updated) c = updated;
+      else if (!c._calibrated_at) {
+        finishRun(runId, 'check-ads', geo, { status: 'calibration-failed', notes: 'форму запроса снять не удалось' });
+        warn('форму запроса снять не удалось — смотрите out/ads-transparency-calibration.json');
+        await page.close();
+        return { queued: queue.length, checked: 0, calibrated: false };
+      }
+      if (calibrateOnly) {
+        finishRun(runId, 'check-ads', geo, { status: 'ok', notes: 'калибровка выполнена' });
+        await page.close();
+        return { queued: queue.length, checked: 0, calibrated: true };
+      }
+      // После калибровки старые 400 больше не мешают очереди.
+      d.prepare(`DELETE FROM raw_ads_google WHERE status LIKE 'http_4%'`).run();
+    }
+
+    // Транспорт: стоим НА странице Ads Transparency, дальше все запросы идут её же
+    // fetch-ом. Прямой HTTP отсюда исключён по построению.
+    if (page.url().indexOf('adstransparency.google.com') < 0) {
+      await page.goto('https://adstransparency.google.com/?region=anywhere', {
+        waitUntil: 'domcontentloaded', timeout: 45000,
+      });
+      await page.waitForTimeout(2000);
+    }
 
     log(`  ${geo}: K7 — ${queue.length} доменов, режим ${sequential ? 'последовательный ' + c.pause_ms + ' мс' : 'окнами по ' + c.parallel_window}`);
     g = await googleTransparency(page, queue, date, c, { sequential });
