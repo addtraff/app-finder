@@ -13,6 +13,10 @@ const SCHEMA = `
 PRAGMA journal_mode = WAL;
 PRAGMA synchronous = NORMAL;
 PRAGMA foreign_keys = OFF;
+-- Гео обходятся параллельно, а догоняющий прогон может пересечься с суточным.
+-- WAL разводит читателей с писателем, но два писателя всё равно сталкиваются:
+-- без ожидания второй немедленно падает с SQLITE_BUSY и теряет уже снятые данные.
+PRAGMA busy_timeout = 15000;
 
 -- ============ 6.1 Реестр ============
 CREATE TABLE IF NOT EXISTS geos (
