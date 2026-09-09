@@ -1,18 +1,20 @@
 {
-  "_note": "Лимиты одного прогона. Значения discovery рассчитаны на первый проход по 30 гео на одной машине: полный обход одного гео при этих числах занимает ~11 минут. Для глубокого обхода отдельного гео поднимайте max_keywords_per_geo и max_apps_cards_per_geo.",
+  "_note": "Лимиты одного прогона. Значения discovery рассчитаны на глубокий проход по каталогу из 72 ниш: один гео занимает ~50-60 минут, все 30 — около суток непрерывной работы. Для быстрой проверки одного гео опускайте max_keywords_per_geo и max_apps_cards_per_geo либо запускайте stage с --limit.",
   "discovery": {
     "suggest_depth": 1,
-    "max_keywords_per_geo": 60,
+    "max_keywords_per_geo": 260,
     "serp_top_n": 50,
-    "max_apps_cards_per_geo": 150,
+    "max_apps_cards_per_geo": 700,
     "similar_depth": 2,
     "similar_seeds": 20,
+    "similar_seeds_per_concept": 5,
+    "similar_frontier": 300,
     "reviews_first_snapshot": 200,
     "reviews_screen_snapshot": 100,
-    "max_review_apps": 40,
+    "max_review_apps": 100,
     "developer_max_apps": 30,
-    "max_developers": 40,
-    "permissions_max_apps": 40
+    "max_developers": 100,
+    "permissions_max_apps": 100
   },
   "daily": {
     "reviews_per_app": 100,

@@ -48,17 +48,25 @@ export function syncRegistry() {
       });
     }
 
+    // Семена — это ровно то, что записано в seeds.json. Ключ, переписанный в каталоге,
+    // иначе остался бы в базе рядом с новым: обход тратил бы запросы на строку,
+    // которой в каталоге уже нет. Собранная по ней история при этом не трогается —
+    // раз попавшее в disc_keywords и raw_search остаётся навсегда.
     const upKw = d.prepare(`INSERT OR REPLACE INTO seed_keywords (geo, keyword, lang, intent_type, weight, concept) VALUES (?,?,?,?,?,?)`);
+    const dropKw = d.prepare(`DELETE FROM seed_keywords WHERE geo=? AND keyword NOT IN (SELECT value FROM json_each(?))`);
     for (const [geo, list] of Object.entries(c.seeds.keywords || {})) {
       for (const k of list) upKw.run(geo, k.keyword.toLowerCase(), k.lang, k.intent_type, k.weight ?? 1, k.concept ?? null);
+      dropKw.run(geo, JSON.stringify(list.map((k) => k.keyword.toLowerCase())));
     }
     const upApp = d.prepare(`INSERT OR REPLACE INTO seed_apps (app_id, geo, note) VALUES (?,?,?)`);
     for (const [geo, list] of Object.entries(c.seeds.apps || {})) {
       for (const a of list) upApp.run(typeof a === 'string' ? a : a.app_id, geo, typeof a === 'string' ? null : a.note);
     }
     const upCat = d.prepare(`INSERT OR REPLACE INTO seed_categories (geo, category) VALUES (?,?)`);
+    const dropCat = d.prepare(`DELETE FROM seed_categories WHERE geo=? AND category NOT IN (SELECT value FROM json_each(?))`);
     for (const [geo, list] of Object.entries(c.seeds.categories || {})) {
       for (const cat of list) upCat.run(geo, cat);
+      dropCat.run(geo, JSON.stringify(list));
     }
     // Ключи, собранные до появления concept, донаследуют его от своего семени.
     // Трогаются только строки без концепта, поэтому шаг безопасно повторять.

@@ -1,5 +1,9 @@
-// D3. Граф похожих: от семян и топ-10 по головным ключам, глубина 2.
+// D3. Граф похожих: от семян и топа выдачи каждой ниши, глубина из бюджета.
 // Останов: категория вне семян; установки выше p95 ниши/гео.
+//
+// Старт берётся по нише, а не по всей выдаче гео разом. Общий ORDER BY suggest_score
+// отдавал все места нескольким самым «громким» ключам, и половина каталога вообще
+// не попадала в обход — ниша была в семенах, а её соседей никто не искал.
 import { play } from '../lib/play.js';
 import { db, startRun, finishRun } from '../lib/db.js';
 import { config, primaryHl } from '../lib/config.js';
@@ -15,18 +19,38 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
   const seedCats = new Set(d.prepare(`SELECT category FROM seed_categories WHERE geo=?`).all(geo).map((r) => r.category));
   const p95 = qv(null, geo, 'installs', date, 'p95', { nicheFirst: false });
 
-  // Старт: семена + топ-10 по головным ключам (или по ключам с наибольшим весом подсказок).
-  const start = d.prepare(
-    `SELECT DISTINCT r.app_id FROM raw_search r
-       JOIN disc_keywords k ON k.geo=r.geo AND k.keyword=r.keyword
-      WHERE r.geo=? AND r.position<=10 AND k.is_brand=0
-      ORDER BY k.suggest_score DESC LIMIT ?`
-  ).all(geo, budget.similar_seeds).map((r) => r.app_id);
+  // Старт: семена + верх выдачи каждой ниши. Приложение берётся с лучшей позицией,
+  // какая у него была по ключам этой ниши, поэтому один и тот же лидер не занимает
+  // несколько мест, а ниши с редкими ключами не остаются без старта.
+  const perConcept = budget.similar_seeds_per_concept || 5;
+  let start = d.prepare(
+    `WITH best AS (
+       SELECT k.concept AS concept, r.app_id AS app_id, MIN(r.position) AS pos
+         FROM raw_search r
+         JOIN disc_keywords k ON k.geo=r.geo AND k.keyword=r.keyword
+        WHERE r.geo=? AND r.position<=10 AND k.is_brand=0 AND k.concept IS NOT NULL
+        GROUP BY k.concept, r.app_id
+     ), ranked AS (
+       SELECT concept, app_id, ROW_NUMBER() OVER (PARTITION BY concept ORDER BY pos) AS rn FROM best
+     )
+     SELECT DISTINCT app_id FROM ranked WHERE rn <= ?`
+  ).all(geo, perConcept).map((r) => r.app_id);
+  // Данные, собранные до появления concept, ниш не знают — для них остаётся прежний отбор.
+  if (!start.length) {
+    start = d.prepare(
+      `SELECT DISTINCT r.app_id FROM raw_search r
+         JOIN disc_keywords k ON k.geo=r.geo AND k.keyword=r.keyword
+        WHERE r.geo=? AND r.position<=10 AND k.is_brand=0
+        ORDER BY k.suggest_score DESC LIMIT ?`
+    ).all(geo, budget.similar_seeds).map((r) => r.app_id);
+  }
   const seedApps = d.prepare(`SELECT app_id FROM seed_apps WHERE geo=?`).all(geo).map((r) => r.app_id);
 
   const insEdge = d.prepare(`INSERT OR REPLACE INTO disc_similar_edges (geo, src, dst, depth) VALUES (?,?,?,?)`);
   const insSim = d.prepare(`INSERT OR REPLACE INTO raw_similar (snapshot_date, geo, app_id, similar_app_id, position) VALUES (?,?,?,?,?)`);
   const known = new Set(d.prepare(`SELECT app_id FROM disc_apps WHERE geo=?`).all(geo).map((r) => r.app_id));
+  const lastCard = d.prepare(
+    `SELECT genre_id, max_installs FROM raw_app_page WHERE app_id=? AND geo=? ORDER BY snapshot_date DESC LIMIT 1`);
 
   let frontier = [...new Set([...seedApps, ...start])];
   const visited = new Set();
@@ -58,13 +82,13 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
       })();
       // Останов обхода вглубь
       for (const a of sim) {
-        const card = d.prepare(`SELECT genre_id, max_installs FROM raw_app_page WHERE app_id=? AND geo=? ORDER BY snapshot_date DESC LIMIT 1`).get(a.appId, geo);
+        const card = lastCard.get(a.appId, geo);
         const outOfCat = seedCats.size && card?.genre_id && !seedCats.has(card.genre_id);
         const tooBig = p95 != null && card?.max_installs != null && card.max_installs > p95;
         if (!outOfCat && !tooBig) next.push(a.appId);
       }
     }
-    frontier = [...new Set(next)].slice(0, budget.similar_seeds * 2);
+    frontier = [...new Set(next)].slice(0, budget.similar_frontier || budget.similar_seeds * 2);
   }
 
   // Приёмка v1.5: D3 находит >= 15 % вне выдачи.
@@ -75,8 +99,9 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
   const total = d.prepare(`SELECT COUNT(*) c FROM disc_apps WHERE geo=?`).get(geo).c;
 
   finishRun(runId, 'similar-graph', geo, {
-    requests, errors, notes: `+${found} приложений, вне выдачи ${outsideSerp} (${total ? ((outsideSerp / total) * 100).toFixed(1) : 0}%)`,
+    requests, errors,
+    notes: `старт ${start.length} приложений, +${found} новых, вне выдачи ${outsideSerp} (${total ? ((outsideSerp / total) * 100).toFixed(1) : 0}%)`,
   });
-  log(`  ${geo}: граф похожих +${found}, вне выдачи ${outsideSerp} из ${total}`);
-  return { found, outsideSerp, total };
+  log(`  ${geo}: граф похожих от ${start.length} стартовых +${found}, вне выдачи ${outsideSerp} из ${total}`);
+  return { found, outsideSerp, total, start: start.length };
 }

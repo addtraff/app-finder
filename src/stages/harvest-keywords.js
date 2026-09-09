@@ -55,11 +55,14 @@ export async function run({ geo, date, runId, cycle = 'discovery', withNgrams = 
   const seen = new Set(d.prepare(`SELECT keyword FROM disc_keywords WHERE geo=?`).all(geo).map((r) => r.keyword));
   let added = 0, requests = 0;
 
-  const addKw = (kw, source, depth, intent, concept) => {
+  // Лимит ограничивает расширение, а не сам каталог: семя — это ниша, которую решили
+  // наблюдать, и молча выбросить её нельзя. Без исключения гео, добравший лимит
+  // подсказками в прошлом прогоне, не увидел бы ни одной новой ниши из seeds.json.
+  const addKw = (kw, source, depth, intent, concept, force = false) => {
     const k = kw.toLowerCase().trim();
     if (!k || k.length < 3 || k.length > 60) return false;
     if (seen.has(k)) return false;
-    if (seen.size >= budget.max_keywords_per_geo) return false;
+    if (!force && seen.size >= budget.max_keywords_per_geo) return false;
     registerKeyword(geo, k, { lang, source, depth, intent, date, concept });
     seen.add(k);
     added++;
@@ -67,7 +70,7 @@ export async function run({ geo, date, runId, cycle = 'discovery', withNgrams = 
   };
 
   // 1) семена
-  for (const s of seeds) addKw(s.keyword, 'seed', 0, s.intent_type, s.concept);
+  for (const s of seeds) addKw(s.keyword, 'seed', 0, s.intent_type, s.concept, true);
 
   // 2) подсказки рекурсивно (глубина из бюджета). Запросы выполняются независимо от
   // лимита на число ключей: raw_suggest нужен для suggest_score и wom_index, даже если
