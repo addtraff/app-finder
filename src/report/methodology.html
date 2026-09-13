@@ -159,7 +159,9 @@
 <script id="radar-data" type="application/json">__RADAR_DATA__</script>
 <script>
 (function () {
-  var D = JSON.parse(document.getElementById('radar-data').textContent);
+  // Данные приходят колонками — см. src/lib/pack.js. Разворачиваем до первого чтения.
+  __UNPACK_JS__
+  var D = unpackRows(JSON.parse(document.getElementById('radar-data').textContent));
   var state = { geo: D.meta.selected_geo, tab: 'finalists', filters: {}, q: '' };
   var el = function (id) { return document.getElementById(id); };
 

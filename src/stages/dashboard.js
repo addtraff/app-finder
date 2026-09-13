@@ -8,6 +8,7 @@ import { config, referenceGeo, activeGeos } from '../lib/config.js';
 import { planForDays, maturity, pendingWork, schedule } from '../lib/schedule.js';
 import { buildQueue } from './check-ads.js';
 import { median, log } from '../lib/util.js';
+import { packRows, UNPACK_JS } from '../lib/pack.js';
 
 const one = (d, sql, ...p) => d.prepare(sql).get(...p);
 const all = (d, sql, ...p) => d.prepare(sql).all(...p);
@@ -279,8 +280,8 @@ export async function run({ geo, date }) {
   const data = collect(d, geo, date);
 
   const tpl = fs.readFileSync(path.join(ROOT, 'src', 'report', 'template.html'), 'utf8');
-  const json = JSON.stringify(data).replace(/</g, '\\u003c');
-  const fragment = tpl.replace('__RADAR_DATA__', () => json);
+  const json = JSON.stringify(packRows(data)).replace(/</g, '\\u003c');
+  const fragment = tpl.replace('__RADAR_DATA__', () => json).replace('__UNPACK_JS__', () => UNPACK_JS);
 
   const outDir = path.join(ROOT, 'out');
   fs.mkdirSync(outDir, { recursive: true });

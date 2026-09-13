@@ -629,7 +629,11 @@
 <script id="radar-data" type="application/json">__RADAR_DATA__</script>
 <script>
 (function () {
-  var D = JSON.parse(document.getElementById('radar-data').textContent);
+  // Данные приходят колонками: имена полей вынесены один раз, строки — массивами
+  // значений. Иначе 108 имён, повторённых в каждой из 6+ тысяч карточек, раздувают
+  // отчёт за лимит артефакта. Разворачиваем до того, как их кто-либо увидит.
+  __UNPACK_JS__
+  var D = unpackRows(JSON.parse(document.getElementById('radar-data').textContent));
   var el = function (id) { return document.getElementById(id); };
   var state = { geo: D.meta.selected_geo, filters: {}, onlyActive: false };
 
