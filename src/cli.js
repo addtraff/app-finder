@@ -28,6 +28,7 @@ import * as alerts from './stages/alerts.js';
 import * as analyzeApk from './stages/analyze-apk.js';
 import * as analyzeTracking from './stages/analyze-tracking.js';
 import * as methodologyReport from './stages/methodology-report.js';
+import * as appradar from './stages/appradar.js';
 
 const STAGES = {
   'collect-charts': collectCharts,
@@ -50,6 +51,7 @@ const STAGES = {
   'analyze-apk': analyzeApk,           // ручной путь: реальный разбор скачанного APK
   'analyze-tracking': analyzeTracking, // автоматический: то же самое по тексту, без скачивания
   'methodology': methodologyReport,     // второй отчёт: разрез по слоям методики, вкладками
+  'appradar': appradar,                 // третий отчёт: те же данные в оформлении AppRadar
 };
 
 function csvLines(text) {
@@ -104,6 +106,7 @@ const DISCOVERY = [
   ['score', {}],
   ['dashboard', {}],
   ['methodology', {}],
+  ['appradar', {}],
   ['export', {}],
   ['alerts', {}],
 ];
@@ -147,6 +150,7 @@ const DAILY = [
   ['score', {}],
   ['dashboard', {}],
   ['methodology', {}],
+  ['appradar', {}],
   ['export', {}],
   ['alerts', {}],
 ];
