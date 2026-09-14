@@ -67,7 +67,7 @@ export async function run({ geo, date }) {
                            m.permissions_risky, m.policy_risk_category, m.content_rating,
                            m.monetization_type, m.installs
                       FROM metrics_app_geo m JOIN apps a ON a.app_id=m.app_id
-                      JOIN screen_result s ON s.app_id=m.app_id AND s.geo=m.geo AND s.snapshot_date=m.snapshot_date
+                      ${screenAsOf()}
                      WHERE m.geo='${geo}' AND m.snapshot_date='${date}' AND s.reject_reason IS NULL
                        AND m.app_id NOT IN (SELECT app_id FROM organic_labels WHERE evidence='policy')
                      ORDER BY COALESCE(m.policy_auto_ok,0) DESC, m.prescore DESC`,

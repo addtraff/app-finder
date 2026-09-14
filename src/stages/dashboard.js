@@ -9,7 +9,7 @@ import { planForDays, maturity, pendingWork, schedule } from '../lib/schedule.js
 import { buildQueue } from './check-ads.js';
 import { median, log } from '../lib/util.js';
 import { packRows, UNPACK_JS } from '../lib/pack.js';
-import { latestShownDate } from '../lib/snapshots.js';
+import { latestShownDate, screenAsOf, screenDateAsOf } from '../lib/snapshots.js';
 
 const one = (d, sql, ...p) => d.prepare(sql).get(...p);
 const all = (d, sql, ...p) => d.prepare(sql).all(...p);
@@ -18,7 +18,7 @@ const all = (d, sql, ...p) => d.prepare(sql).all(...p);
 function collectGeo(d, geo, date) {
   const funnel = all(d,
     `SELECT COALESCE(reject_reason,'passed') AS reason, MIN(stage_reached) AS stage, COUNT(*) AS count
-       FROM screen_result WHERE geo=? AND snapshot_date=? GROUP BY reason ORDER BY count DESC`, geo, date);
+       FROM screen_result WHERE geo=? AND snapshot_date=? GROUP BY reason ORDER BY count DESC`, geo, screenDateAsOf(d, geo, date));
   funnel.sort((a, b) => (a.reason === 'passed' ? -1 : b.reason === 'passed' ? 1 : b.count - a.count));
 
   const niches = all(d,
@@ -41,7 +41,7 @@ function collectGeo(d, geo, date) {
             t.matched_in AS tracking_matched_in, t.checked_at AS tracking_checked_at
        FROM metrics_app_geo m
        JOIN apps a ON a.app_id = m.app_id
-       JOIN screen_result s ON s.app_id=m.app_id AND s.geo=m.geo AND s.snapshot_date=m.snapshot_date
+       ${screenAsOf()}
        LEFT JOIN metrics_niche_geo n ON n.niche_id=m.niche_id AND n.geo=m.geo AND n.snapshot_date=m.snapshot_date
        LEFT JOIN (SELECT t1.* FROM raw_tracking_scan t1
                     JOIN (SELECT app_id, MAX(checked_at) md FROM raw_tracking_scan GROUP BY app_id) f

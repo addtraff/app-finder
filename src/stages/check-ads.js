@@ -32,6 +32,7 @@ import path from 'node:path';
 import { db, ROOT, startRun, finishRun, logEvent } from '../lib/db.js';
 import { qv } from './quantiles.js';
 import { sleep, log, warn } from '../lib/util.js';
+import { screenAsOf } from '../lib/snapshots.js';
 
 const PROFILE_DIR = process.env.RADAR_BROWSER_PROFILE ||
   path.join(process.env.LOCALAPPDATA || process.env.HOME || ROOT, 'play-radar', 'browser-profile');
@@ -108,7 +109,7 @@ export function buildMetaQueue(d, geo, date) {
               ORDER BY p.snapshot_date DESC LIMIT 1) AS us_title
        FROM metrics_app_geo m
        JOIN apps a ON a.app_id=m.app_id
-       LEFT JOIN screen_result s ON s.app_id=m.app_id AND s.geo=m.geo AND s.snapshot_date=m.snapshot_date
+       ${screenAsOf('s', 'm', 'LEFT JOIN')}
       WHERE m.geo=? AND m.snapshot_date=?`
   ).all(geo, snapDate);
 
@@ -163,7 +164,7 @@ export function buildDomainQueue(d, geo, date, { domains = null, apps = null } =
               WHERE p.app_id=m.app_id AND p.geo=m.geo ORDER BY p.snapshot_date DESC LIMIT 1) AS developer
        FROM metrics_app_geo m
        JOIN apps a ON a.app_id=m.app_id
-       LEFT JOIN screen_result s ON s.app_id=m.app_id AND s.geo=m.geo AND s.snapshot_date=m.snapshot_date
+       ${screenAsOf('s', 'm', 'LEFT JOIN')}
       WHERE m.geo=? AND m.snapshot_date=?`
   ).all(geo, snapDate)) {
     // dev_website, если пусто — privacy_url
