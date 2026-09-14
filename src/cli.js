@@ -99,6 +99,9 @@ const DISCOVERY = [
   ['quantiles', { scope: 'niche' }],
   ['score', {}],
   ['check-ads', {}],
+  // Третий score — после check-ads: иначе находки K7 и Meta попадают в ads_found только
+  // на следующие сутки, и отчёт этого дня показывает их как unchecked.
+  ['score', {}],
   ['dashboard', {}],
   ['methodology', {}],
   ['export', {}],
@@ -139,6 +142,9 @@ const DAILY = [
   ['quantiles', { scope: 'niche' }],
   ['score', {}],
   ['check-ads', {}],
+  // Третий score — после check-ads: иначе находки K7 и Meta попадают в ads_found только
+  // на следующие сутки, и отчёт этого дня показывает их как unchecked.
+  ['score', {}],
   ['dashboard', {}],
   ['methodology', {}],
   ['export', {}],
@@ -213,6 +219,7 @@ async function main() {
           sequential: args.sequential === true || args.sequential === 'yes',
           domains: args.domains || null, apps: args.apps || null,
           skipMeta: args['skip-meta'] === true || args['skip-meta'] === 'yes',
+          skipGoogle: args['skip-google'] === true || args['skip-google'] === 'yes',
           calibrateOnly: args.calibrate === true || args.calibrate === 'yes',
         });
       }
