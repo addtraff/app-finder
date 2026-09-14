@@ -183,15 +183,12 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     `SELECT developer_domain, MAX(creatives_found) f FROM raw_ads_google
       WHERE creatives_found IS NOT NULL GROUP BY developer_domain`
   ).all().map((r) => [r.developer_domain, r.f ? 1 : 0]));
+  // Домены берутся из уже загруженных карточек этого гео: проход по всей raw_app_page
+  // с GROUP BY app_id занимал минуты на каждое гео и превращал пересчёт в часы.
   const googleSeen = new Map();
-  for (const r of d.prepare(
-    `SELECT p.app_id, p.developer_website AS site, p.privacy_policy AS privacy
-       FROM raw_app_page p
-       JOIN (SELECT app_id, MAX(snapshot_date) md FROM raw_app_page GROUP BY app_id) l
-         ON l.app_id=p.app_id AND l.md=p.snapshot_date`
-  ).all()) {
+  for (const r of cards) {
     if (googleSeen.get(r.app_id) === 1) continue;
-    for (const host of [hostOf(r.site), hostOf(r.privacy)]) {
+    for (const host of [hostOf(r.developer_website), hostOf(r.privacy_policy)]) {
       if (host && googleByDomain.has(host)) {
         const f = googleByDomain.get(host);
         if (f === 1 || !googleSeen.has(r.app_id)) googleSeen.set(r.app_id, f);
