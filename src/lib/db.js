@@ -361,6 +361,21 @@ export function db() {
   if (_db) return _db;
   fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
   _db = new Database(DB_PATH);
+  // В базу одновременно пишут несколько процессов (сбор, K7/Meta, пересчёт). Транзакция
+  // better-sqlite3 по умолчанию DEFERRED: если внутри сначала чтение, а потом запись,
+  // а между ними успел записать другой процесс, повышение блокировки в WAL падает с
+  // SQLITE_BUSY сразу — busy_timeout в этом случае не применяется вовсе. Так падал score
+  // (чтение metrics_niche_geo -> запись metrics_geo_arbitrage), тот же шаблон есть в Meta
+  // и в отзывах. IMMEDIATE берёт блокировку на запись в начале и ждёт её по busy_timeout.
+  const deferredTx = _db.transaction.bind(_db);
+  _db.transaction = (fn) => {
+    const t = deferredTx(fn);
+    const run = (...args) => t.immediate(...args);
+    run.deferred = t.deferred;
+    run.immediate = t.immediate;
+    run.exclusive = t.exclusive;
+    return run;
+  };
   _db.exec(SCHEMA);
   migrate(_db);
   return _db;
