@@ -71,6 +71,7 @@ export function metaQuery(title) {
 // 0 совпадений в 10 загрузках из 10 при десятках ссылок в экранированном и кодированном
 // виде. Все «не найдено» v1 — это «не смотрели», а не «рекламы нет».
 export const META_DETECTOR = 'meta-v2';
+const META_BLANK_STOP = 5;  // пустых страниц подряд — дальше не жжём очередь
 
 // Ссылка на карточку Play встречается на странице в трёх формах:
 //   store\/apps\/details?id=…            — встроенный JSON, слеши экранированы
@@ -368,7 +369,7 @@ async function metaAdLibrary(page, apps, date, c, limit) {
   const known = d.prepare(`SELECT 1 FROM apps WHERE app_id=?`);
   const labelBuys = d.prepare(
     `INSERT OR REPLACE INTO organic_labels (app_id, label, evidence, labeled_at, note) VALUES (?,?,?,?,?)`);
-  let checked = 0, found = 0;
+  let checked = 0, found = 0, blankInRow = 0, blankTotal = 0;
   // Один запрос часто подтверждает сразу несколько приложений; повторять его для
   // остальных приложений с тем же названием бессмысленно.
   const askedQueries = new Map();  // query -> пакеты, найденные по нему
@@ -407,8 +408,30 @@ async function metaAdLibrary(page, apps, date, c, limit) {
         warn('капча в Meta Ad Library — стоп');
         return { checked, found, stopped: 'captcha' };
       }
+      const html = await page.content();
       // Один запрос подтверждает все package id, которые в нём всплыли.
-      const uniq = playPackagesIn(await page.content());
+      const uniq = playPackagesIn(html);
+      // «Не найдено» записывается, только если страница действительно показала выдачу:
+      // объявления (ad_archive_id во встроенном JSON — от языка не зависит) либо явное
+      // «No ads match your search criteria». Пустая страница без того и другого — это
+      // стена входа, лимит или недогрузка, и записать по ней «не найдено» значило бы
+      // снова получить ложные нули, ради устранения которых писался v2.
+      const adsOnPage = (html.match(/ad_archive_id/g) || []).length;
+      const explicitEmpty = /No ads match your search criteria/i.test(html);
+      if (!uniq.length && !adsOnPage && !explicitEmpty) {
+        ins.run(app.app_id, query, date, null, null,
+          'ошибка: страница без объявлений и без «No ads match» — стена входа, лимит или недогрузка');
+        blankInRow++;
+        blankTotal++;
+        if (blankInRow >= META_BLANK_STOP) {
+          logEvent('k7_meta_blank', { date, detail: `${blankInRow} пустых страниц подряд, последний запрос "${query}", url ${landedOn}` });
+          warn(`Meta: ${blankInRow} пустых страниц подряд — стоп, приложения остаются в очереди`);
+          return { checked, found, blank: blankTotal, stopped: 'blank' };
+        }
+        await sleep(c.pause_ms);
+        continue;
+      }
+      blankInRow = 0;
       askedQueries.set(query, uniq);
       d.transaction(() => {
         for (const pkg of uniq) {
@@ -428,7 +451,7 @@ async function metaAdLibrary(page, apps, date, c, limit) {
     }
     await sleep(c.pause_ms);
   }
-  return { checked, found, stopped: null };
+  return { checked, found, blank: blankTotal, stopped: null };
 }
 
 async function loadPlaywright() {
@@ -596,9 +619,9 @@ export async function run({ geo, date, runId, cycle = 'daily', useBrowser = true
     requests: g.checked + m.checked,
     errors: g.failed.length,
     notes: `google ${g.checked} доменов (реклама у ${g.found}, не удалось ${g.failed.length}), ` +
-           `meta ${m.checked} запросов (подтверждено ${m.found})`,
+           `meta ${m.checked} запросов (подтверждено ${m.found}, пустых страниц ${m.blank || 0})`,
   });
   log(`  ${geo}: K7 — google ${g.checked} доменов, реклама у ${g.found}, не удалось ${g.failed.length}; ` +
-      `meta ${m.checked} запросов, подтверждено ${m.found}`);
+      `meta ${m.checked} запросов, подтверждено ${m.found}, пустых страниц ${m.blank || 0}`);
   return { queued: queue.length, checked: g.checked + m.checked, found: g.found + m.found, failed: g.failed.length };
 }
