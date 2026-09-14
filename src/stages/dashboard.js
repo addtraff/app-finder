@@ -9,6 +9,7 @@ import { planForDays, maturity, pendingWork, schedule } from '../lib/schedule.js
 import { buildQueue } from './check-ads.js';
 import { median, log } from '../lib/util.js';
 import { packRows, UNPACK_JS } from '../lib/pack.js';
+import { latestShownDate } from '../lib/snapshots.js';
 
 const one = (d, sql, ...p) => d.prepare(sql).get(...p);
 const all = (d, sql, ...p) => d.prepare(sql).all(...p);
@@ -117,7 +118,7 @@ export function collect(d, selectedGeo, date) {
   // план на месяц — эти два вопроса про текущие сутки, а не про то, что можно показать.
   const geoDate = {};
   for (const g of cfg.geos.geos) {
-    geoDate[g.geo] = one(d, `SELECT MAX(snapshot_date) m FROM raw_app_page WHERE geo=?`, g.geo)?.m || null;
+    geoDate[g.geo] = latestShownDate(d, g.geo);
   }
 
   const geoData = {};

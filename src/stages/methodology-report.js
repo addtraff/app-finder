@@ -10,6 +10,7 @@ import { db, ROOT, DB_PATH } from '../lib/db.js';
 import { config, referenceGeo, activeGeos } from '../lib/config.js';
 import { median, log } from '../lib/util.js';
 import { packRows, UNPACK_JS } from '../lib/pack.js';
+import { latestShownDate } from '../lib/snapshots.js';
 
 const one = (d, sql, ...p) => d.prepare(sql).get(...p);
 const all = (d, sql, ...p) => d.prepare(sql).all(...p);
@@ -113,7 +114,7 @@ export function collect(d, selectedGeo, date) {
 
   const geoDate = {};
   for (const g of cfg.geos.geos) {
-    geoDate[g.geo] = one(d, `SELECT MAX(snapshot_date) m FROM raw_app_page WHERE geo=?`, g.geo)?.m || null;
+    geoDate[g.geo] = latestShownDate(d, g.geo);
   }
 
   const geoData = {};
