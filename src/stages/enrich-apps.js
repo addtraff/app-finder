@@ -5,7 +5,25 @@ import { config, geoConf } from '../lib/config.js';
 import { ensureRates, toUsd } from '../lib/fx.js';
 import { md5, parseSizeMb, parseIapRange, log } from '../lib/util.js';
 
-function pickAppsToRefresh(d, geo, date, cycle, budget) {
+function pickAppsToRefresh(d, geo, date, cycle, budget, force) {
+  if (cycle === 'daily' && force) {
+    // Принудительный сбор (--force): недельное окно C-уровня (ТЗ 5.2) не действует —
+    // берём всё, что этот гео когда-либо находил и что прошло screen (watch_level
+    // проставлен), без разбора уровня и без недельного окна. Нужно, когда требуется
+    // свежий снимок сегодня для всех, а не только для A/B по расписанию: без него у
+    // C/D копится история с разрывами в неделю, и day-7/day-14 метрики не считаются
+    // даже там, где реально прошло 7 дней.
+    // watch_level IS NULL — не «C пониже», а вообще не классифицировано (screen.js
+    // не входит в DAILY, только в DISCOVERY): таких 70К+ по всем гео, в metrics_app_geo
+    // они не попадают, и тратить на их карточки сетевой бюджет незачем.
+    return d.prepare(
+      `SELECT DISTINCT da.app_id FROM disc_apps da
+         JOIN apps a ON a.app_id = da.app_id
+        WHERE da.geo=? AND a.status <> 'rejected' AND a.watch_level IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM raw_app_page p WHERE p.app_id=da.app_id AND p.geo=? AND p.snapshot_date=?)
+        ORDER BY CASE a.watch_level WHEN 'A' THEN 0 WHEN 'B' THEN 1 WHEN 'C' THEN 2 ELSE 3 END`
+    ).all(geo, geo, date).map((r) => r.app_id);
+  }
   if (cycle === 'daily') {
     // Уровни A и B — ежедневно, C — раз в неделю (ТЗ 5.2).
     return d.prepare(
@@ -29,14 +47,14 @@ function pickAppsToRefresh(d, geo, date, cycle, budget) {
   ).all(geo, date, budget.max_apps_cards_per_geo).map((r) => r.app_id);
 }
 
-export async function run({ geo, date, runId, cycle = 'discovery', limit = null }) {
+export async function run({ geo, date, runId, cycle = 'discovery', limit = null, force = false }) {
   const d = db();
   startRun(runId, 'enrich-apps', geo, cycle, date);
   await ensureRates(date);
 
   const g = geoConf(geo);
   const budget = config().budget.discovery;
-  let todo = pickAppsToRefresh(d, geo, date, cycle, budget);
+  let todo = pickAppsToRefresh(d, geo, date, cycle, budget, force);
   if (limit) todo = todo.slice(0, limit);
 
   const ins = d.prepare(`INSERT OR REPLACE INTO raw_app_page (

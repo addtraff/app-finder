@@ -41,7 +41,7 @@ function scanText(text, matchers) {
   return [...found];
 }
 
-export async function run({ geo, date, runId, cycle = 'discovery', limit = null }) {
+export async function run({ geo, date, runId, cycle = 'discovery', limit = null, force = false }) {
   const d = db();
   startRun(runId, 'analyze-tracking', geo, cycle, date);
   const matchers = buildMatchers();
@@ -49,10 +49,20 @@ export async function run({ geo, date, runId, cycle = 'discovery', limit = null 
   const budget = config().budget.discovery;
 
   // Уровни A/B, ещё не сканированные за 30 дней (тот же интервал, что был у APK-разбора).
+  // Принудительный сбор (--force): добавляет C — сам факт наличия/отсутствия трекера
+  // важен и для фона, а не только для отобранных — и снимает 30-дневное окно, потому
+  // что privacy policy проверялась ДО расширения каталога и половина C-уровня вообще
+  // никогда не сканировалась. watch_level общий для приложения, не per-geo — без
+  // отсечки «уже просканировано сегодня» этот запрос повторился бы на всех 30 гео
+  // одним и тем же списком и заново сходил бы за той же privacy policy 30 раз.
   let todo = d.prepare(
-    `SELECT a.app_id FROM apps a
-      WHERE a.watch_level IN ('A','B')
-        AND NOT EXISTS (SELECT 1 FROM raw_tracking_scan s WHERE s.app_id=a.app_id AND s.checked_at > date(?, '-30 day'))`
+    force
+      ? `SELECT a.app_id FROM apps a
+          WHERE a.watch_level IN ('A','B','C')
+            AND NOT EXISTS (SELECT 1 FROM raw_tracking_scan s WHERE s.app_id=a.app_id AND s.checked_at=?)`
+      : `SELECT a.app_id FROM apps a
+          WHERE a.watch_level IN ('A','B')
+            AND NOT EXISTS (SELECT 1 FROM raw_tracking_scan s WHERE s.app_id=a.app_id AND s.checked_at > date(?, '-30 day'))`
   ).all(date).map((r) => r.app_id);
   if (limit) todo = todo.slice(0, limit);
 

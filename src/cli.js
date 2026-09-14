@@ -145,16 +145,16 @@ const DAILY = [
   ['alerts', {}],
 ];
 
-async function runPipeline(plan, { geo, date, cycle, only = null }) {
+async function runPipeline(plan, { geo, date, cycle, only = null, force = false }) {
   const runId = `${date}-${geo}-${cycle}-${md5(String(Date.now())).slice(0, 6)}`;
-  log(`=== ${cycle} ${geo} ${date} (run ${runId}) ===`);
+  log(`=== ${cycle} ${geo} ${date}${force ? ' --force' : ''} (run ${runId}) ===`);
   for (const [name, opts] of plan) {
     if (only && name !== only) continue;
     const stage = STAGES[name];
     if (!stage) { warn(`нет стадии ${name}`); continue; }
     log(`-> ${name}`);
     try {
-      await stage.run({ geo, date, runId, cycle, ...opts });
+      await stage.run({ geo, date, runId, cycle, force, ...opts });
     } catch (e) {
       if (e instanceof CaptchaStop) {
         logEvent('captcha_stop', { date, geo, detail: e.message });
@@ -189,12 +189,14 @@ async function main() {
 
     case 'discover': {
       const plan = args.light ? LIGHT_DISCOVERY : DISCOVERY;
-      for (const geo of geos) await runPipeline(plan, { geo, date, cycle: 'discovery', only: args.stage || null });
+      for (const geo of geos) await runPipeline(plan, { geo, date, cycle: 'discovery', only: args.stage || null, force: !!args.force });
       break;
     }
 
     case 'daily':
-      for (const geo of geos) await runPipeline(DAILY, { geo, date, cycle: 'daily', only: args.stage || null });
+      // --force: снимает недельное/трёхдневное/тридцатидневное окно C/D-уровня и берёт
+      // всех сразу, а не по расписанию — используется для разового полного прогона.
+      for (const geo of geos) await runPipeline(DAILY, { geo, date, cycle: 'daily', only: args.stage || null, force: !!args.force });
       break;
 
     case 'stage': {

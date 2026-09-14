@@ -13,14 +13,29 @@ function allReviewLangs() {
 }
 import { log } from '../lib/util.js';
 
-export async function run({ geo, date, runId, cycle = 'discovery', limit = null }) {
+export async function run({ geo, date, runId, cycle = 'discovery', limit = null, force = false }) {
   const d = db();
   startRun(runId, 'enrich-reviews', geo, cycle, date);
   const g = geoConf(geo);
   const budget = config().budget;
   const disc = budget.discovery;
 
-  const targets = cycle === 'daily'
+  // Принудительный сбор (--force): трёхдневное окно B и полное исключение C/D не
+  // действуют — берём A/B/C без лимита. Та же логика, что у enrich-apps: расписание
+  // по умолчанию бережёт RPM-бюджет, force жертвует им ради полного снимка сегодня.
+  // watch_level здесь общий для приложения, а не per-geo, поэтому эта стадия
+  // при --force вызывается один раз на каждое из 30 гео за тот же список app_id —
+  // без отсечки «уже собрано сегодня» это 30-кратный повтор одного и того же запроса.
+  // Отсечка по дате (а не по review_id) даёт языку первого прошедшего гео забрать
+  // приложение целиком — точность по языку здесь приносится в жертву тому же RPM.
+  const targets = cycle === 'daily' && force
+    ? d.prepare(
+        `SELECT app_id, watch_level FROM apps
+          WHERE watch_level IN ('A','B','C')
+            AND app_id NOT IN (SELECT DISTINCT app_id FROM raw_reviews WHERE fetched_at=?)
+          ORDER BY CASE watch_level WHEN 'A' THEN 0 WHEN 'B' THEN 1 ELSE 2 END`
+      ).all(date)
+    : cycle === 'daily'
     ? d.prepare(
         `SELECT app_id, watch_level FROM apps
           WHERE watch_level='A'

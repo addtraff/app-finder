@@ -414,13 +414,16 @@ async function calibrate(page, probeDomain, date) {
 
 export async function run({ geo, date, runId, cycle = 'daily', useBrowser = true, headless = false,
                             limit = null, sequential = false, domains = null, apps = null,
-                            skipMeta = false, calibrateOnly = false }) {
+                            skipMeta = false, calibrateOnly = false, force = false }) {
   const d = db();
   startRun(runId, 'check-ads', geo, cycle, date);
   let c = cfg();
-  const batch = limit ? Number(limit) : c.batch_per_day;
-
   const full = buildDomainQueue(d, geo, date, { domains, apps });
+  // batch_per_day — суточный лимит для расписания, чтобы не проверять сотни доменов
+  // одним прогоном каждый день. --force снимает его и додавливает всю очередь этого
+  // гео за один раз (пейсинг в googleTransparency/metaAdLibrary остаётся тот же самый —
+  // именно он, а не суточный лимит, защищает от 429).
+  const batch = limit ? Number(limit) : (force ? full.length : c.batch_per_day);
   const skipped = full.skipped || {};
   const queue = full.slice(0, batch);
   log(`  ${geo}: доменов доступно ${full.length}, берём ${queue.length}; пропущено — ` +
