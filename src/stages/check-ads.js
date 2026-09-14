@@ -408,17 +408,33 @@ async function metaAdLibrary(page, apps, date, c, limit) {
         warn('капча в Meta Ad Library — стоп');
         return { checked, found, stopped: 'captcha' };
       }
-      const html = await page.content();
-      // Один запрос подтверждает все package id, которые в нём всплыли.
-      const uniq = playPackagesIn(html);
       // «Не найдено» записывается, только если страница действительно показала выдачу:
       // объявления (ad_archive_id во встроенном JSON — от языка не зависит) либо явное
       // «No ads match your search criteria». Пустая страница без того и другого — это
       // стена входа, лимит или недогрузка, и записать по ней «не найдено» значило бы
       // снова получить ложные нули, ради устранения которых писался v2.
-      const adsOnPage = (html.match(/ad_archive_id/g) || []).length;
-      const explicitEmpty = /No ads match your search criteria/i.test(html);
-      if (!uniq.length && !adsOnPage && !explicitEmpty) {
+      const readResults = async () => {
+        const h = await page.content();
+        return {
+          uniq: playPackagesIn(h),
+          adsOnPage: (h.match(/ad_archive_id/g) || []).length,
+          explicitEmpty: /No ads match your search criteria/i.test(h),
+        };
+      };
+      const isBlank = (r) => !r.uniq.length && !r.adsOnPage && !r.explicitEmpty;
+      let res = await readResults();
+      // На полном прогоне пустыми оказывались частые запросы с заведомо большой выдачей
+      // («Sound meter»), а соседние проходили — это недогрузка, а не стена. Поэтому
+      // сначала ждём и перечитываем, затем перезагружаем, и только потом признаём ошибку.
+      if (isBlank(res)) { await page.waitForTimeout(5000); res = await readResults(); }
+      if (isBlank(res)) {
+        await page.reload({ waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => {});
+        await page.waitForTimeout(4500);
+        res = await readResults();
+      }
+      // Один запрос подтверждает все package id, которые в нём всплыли.
+      const { uniq } = res;
+      if (isBlank(res)) {
         ins.run(app.app_id, query, date, null, null,
           'ошибка: страница без объявлений и без «No ads match» — стена входа, лимит или недогрузка');
         blankInRow++;
