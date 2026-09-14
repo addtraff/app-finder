@@ -65,6 +65,68 @@ export function metaQuery(title) {
     .join(' ');
 }
 
+// Версия детектора Meta пишется в note каждой строки raw_ads_meta. Строки прежней версии
+// считаются непроверенными: v1 искал ссылку только в сыром виде `store/apps/details?id=`,
+// а в странице Ad Library её в таком виде нет вообще — проба tools/probe-meta.js дала
+// 0 совпадений в 10 загрузках из 10 при десятках ссылок в экранированном и кодированном
+// виде. Все «не найдено» v1 — это «не смотрели», а не «рекламы нет».
+export const META_DETECTOR = 'meta-v2';
+
+// Ссылка на карточку Play встречается на странице в трёх формах:
+//   store\/apps\/details?id=…            — встроенный JSON, слеши экранированы
+//   store%2Fapps%2Fdetails%3Fid%3D…      — редирект l.facebook.com/l.php?u=…
+//   store%252Fapps%252Fdetails…          — то же, закодированное дважды
+// плюс ? / = вместо ? и = в JSON. Сначала сводим всё к сырому виду.
+export function playPackagesIn(html) {
+  const text = String(html || '')
+    .replace(/\\\//g, '/')
+    .replace(/\\u003[fF]/g, '?').replace(/\\u003[dD]/g, '=').replace(/\\u0026/g, '&')
+    .replace(/%25/g, '%')
+    .replace(/%2[fF]/g, '/').replace(/%3[fF]/g, '?').replace(/%3[dD]/g, '=').replace(/%26/g, '&');
+  const ids = [...text.matchAll(/store\/apps\/details\?(?:[^"'\s<>]*?&)?id=([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)+)/g)]
+    .map((m) => m[1]);
+  return [...new Set(ids)];
+}
+
+// Очередь Meta — по приложениям и не зависит от очереди K7. Раньше Meta брала приложения
+// только из доменов в очереди K7, а K7 навсегда исключает домены со статусом ok: получив
+// одно ложное «не найдено», приложение больше в Meta не попадало. Поиск в библиотеке идёт
+// по всем странам сразу, поэтому проверка — на приложение, а не на пару приложение+гео.
+export function buildMetaQueue(d, geo, date) {
+  const c = cfg();
+  const snapDate = d.prepare(
+    `SELECT MAX(snapshot_date) m FROM metrics_app_geo WHERE geo=? AND snapshot_date<=?`
+  ).get(geo, date)?.m || date;
+  const done = new Set(d.prepare(
+    `SELECT DISTINCT app_id FROM raw_ads_meta WHERE note LIKE ?`
+  ).all(`${META_DETECTOR}%`).map((r) => r.app_id));
+
+  const rows = d.prepare(
+    `SELECT m.app_id, a.title AS any_title, a.watch_level, m.installs, m.prescore, s.reject_reason,
+            (SELECT p.title FROM raw_app_page p WHERE p.app_id=m.app_id AND p.geo='US'
+              ORDER BY p.snapshot_date DESC LIMIT 1) AS us_title
+       FROM metrics_app_geo m
+       JOIN apps a ON a.app_id=m.app_id
+       LEFT JOIN screen_result s ON s.app_id=m.app_id AND s.geo=m.geo AND s.snapshot_date=m.snapshot_date
+      WHERE m.geo=? AND m.snapshot_date=?`
+  ).all(geo, snapDate);
+
+  const tier = (r) => {
+    if (!r.reject_reason && r.prescore != null) return 1;
+    if (['A', 'B'].includes(r.watch_level)) return 2;
+    if ((r.installs || 0) >= c.min_installs_tail) return 3;
+    return 4;
+  };
+  return rows
+    .filter((r) => !done.has(r.app_id))
+    // Название из US-карточки: в apps.title лежит последний снятый перевод («Identifiera
+    // insekt», «Master Bildschirm»), а страница рекламодателя в Meta почти всегда под брендом.
+    .map((r) => ({ app_id: r.app_id, title: r.us_title || r.any_title, tier: tier(r),
+                   prescore: r.prescore, installs: r.installs || 0 }))
+    .filter((r) => r.tier <= 3)
+    .sort((a, b) => (a.tier - b.tier) || ((b.prescore ?? -1) - (a.prescore ?? -1)) || (b.installs - a.installs));
+}
+
 // ---------------------------------------------------------------------------
 // Очередь доменов: по ценности решения, а не по алфавиту.
 //   1 — именной список (--domains / --apps): конкретные конкуренты нужны сегодня
@@ -304,16 +366,36 @@ async function metaAdLibrary(page, apps, date, c, limit) {
   const ins = d.prepare(`INSERT OR REPLACE INTO raw_ads_meta
     (app_id, query, checked_at, found_by_package_id, ad_count, note) VALUES (?,?,?,?,?,?)`);
   const known = d.prepare(`SELECT 1 FROM apps WHERE app_id=?`);
+  const labelBuys = d.prepare(
+    `INSERT OR REPLACE INTO organic_labels (app_id, label, evidence, labeled_at, note) VALUES (?,?,?,?,?)`);
   let checked = 0, found = 0;
+  // Один запрос часто подтверждает сразу несколько приложений; повторять его для
+  // остальных приложений с тем же названием бессмысленно.
+  const askedQueries = new Map();  // query -> пакеты, найденные по нему
+  const confirmedNow = new Set();
 
   for (const app of apps) {
     if (limit && checked >= limit) break;
+    if (confirmedNow.has(app.app_id)) continue;  // уже подтверждён чужим запросом в этом прогоне
     const query = metaQuery(app.title);
     if (!query) continue;
+    if (askedQueries.has(query)) {
+      const pkgs = askedQueries.get(query);
+      if (!pkgs.includes(app.app_id)) {
+        ins.run(app.app_id, query, date, 0, 0, `${META_DETECTOR}: не найдено (запрос уже задан в этом прогоне)`);
+      }
+      continue;
+    }
     const url = `https://www.facebook.com/ads/library/?active_status=all&ad_type=all&country=ALL&q=${encodeURIComponent(query)}&media_type=all`;
     try {
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
       await page.waitForTimeout(2500);
+      // Прокрутка подгружает следующую порцию карточек: на пробе 28 -> ~50 и заметно
+      // больше ссылок на Play. Три шага — компромисс между полнотой и временем на запрос.
+      for (let i = 0; i < 3; i++) {
+        await page.mouse.wheel(0, 2500).catch(() => {});
+        await page.waitForTimeout(1000);
+      }
       // Капчу определяем по факту редиректа на checkpoint или по видимой форме,
       // а не по подстроке в HTML: у Facebook слово captcha встречается в JS-бандле
       // на любой странице, и раньше это давало ложный стоп на первом же запросе.
@@ -325,22 +407,23 @@ async function metaAdLibrary(page, apps, date, c, limit) {
         warn('капча в Meta Ad Library — стоп');
         return { checked, found, stopped: 'captcha' };
       }
-      const html = await page.content();
       // Один запрос подтверждает все package id, которые в нём всплыли.
-      const packages = [...html.matchAll(/store\/apps\/details\?id=([A-Za-z0-9_.]+)/g)].map((m) => m[1]);
-      const uniq = [...new Set(packages)];
+      const uniq = playPackagesIn(await page.content());
+      askedQueries.set(query, uniq);
       d.transaction(() => {
         for (const pkg of uniq) {
           if (!known.get(pkg)) continue;
-          ins.run(pkg, query, date, 1, uniq.length, 'подтверждён по ссылке на карточку Play');
-          d.prepare(`INSERT OR REPLACE INTO organic_labels (app_id, label, evidence, labeled_at, note) VALUES (?,?,?,?,?)`)
-            .run(pkg, 'buys', 'meta', date, `запрос "${query}"`);
-          found++;
+          ins.run(pkg, query, date, 1, uniq.length, `${META_DETECTOR}: подтверждён по ссылке на карточку Play`);
+          labelBuys.run(pkg, 'buys', 'meta', date, `запрос "${query}"`);
+          if (!confirmedNow.has(pkg)) found++;
+          confirmedNow.add(pkg);
         }
-        if (!uniq.includes(app.app_id)) ins.run(app.app_id, query, date, 0, 0, 'не найдено в Meta');
+        if (!uniq.includes(app.app_id)) ins.run(app.app_id, query, date, 0, 0, `${META_DETECTOR}: не найдено`);
       })();
       checked++;
     } catch (e) {
+      // Ошибку не помечаем версией детектора: такая строка не считается проверкой,
+      // и приложение останется в очереди на следующий прогон.
       ins.run(app.app_id, query, date, null, null, `ошибка: ${e.message}`);
     }
     await sleep(c.pause_ms);
@@ -414,11 +497,11 @@ async function calibrate(page, probeDomain, date) {
 
 export async function run({ geo, date, runId, cycle = 'daily', useBrowser = true, headless = false,
                             limit = null, sequential = false, domains = null, apps = null,
-                            skipMeta = false, calibrateOnly = false, force = false }) {
+                            skipMeta = false, skipGoogle = false, calibrateOnly = false, force = false }) {
   const d = db();
   startRun(runId, 'check-ads', geo, cycle, date);
   let c = cfg();
-  const full = buildDomainQueue(d, geo, date, { domains, apps });
+  const full = skipGoogle ? Object.assign([], { skipped: {} }) : buildDomainQueue(d, geo, date, { domains, apps });
   // batch_per_day — суточный лимит для расписания, чтобы не проверять сотни доменов
   // одним прогоном каждый день. --force снимает его и додавливает всю очередь этого
   // гео за один раз (пейсинг в googleTransparency/metaAdLibrary остаётся тот же самый —
@@ -426,9 +509,12 @@ export async function run({ geo, date, runId, cycle = 'daily', useBrowser = true
   const batch = limit ? Number(limit) : (force ? full.length : c.batch_per_day);
   const skipped = full.skipped || {};
   const queue = full.slice(0, batch);
+  const metaFull = skipMeta ? [] : buildMetaQueue(d, geo, date);
+  const metaBatch = limit ? Number(limit) : (force ? metaFull.length : (c.meta_batch_per_day || c.batch_per_day));
+  const metaQueue = metaFull.slice(0, metaBatch);
   log(`  ${geo}: доменов доступно ${full.length}, берём ${queue.length}; пропущено — ` +
       `без домена ${skipped.noDomain || 0}, хостинги-пустышки ${skipped.blacklisted || 0}, ` +
-      `уже проверено ${skipped.alreadyDone || 0}`);
+      `уже проверено ${skipped.alreadyDone || 0}; Meta — приложений ${metaFull.length}, берём ${metaQueue.length}`);
   const outDir = path.join(ROOT, 'out');
   fs.mkdirSync(outDir, { recursive: true });
   fs.writeFileSync(path.join(outDir, 'k7-queue.csv'),
@@ -438,9 +524,9 @@ export async function run({ geo, date, runId, cycle = 'daily', useBrowser = true
         r.best_prescore ?? '', r.max_installs ?? '',
       ].join(','))).join('\n'), 'utf8');
 
-  if (!queue.length) {
-    finishRun(runId, 'check-ads', geo, { status: 'ok', notes: 'очередь пуста: все домены уже проверены' });
-    log(`  ${geo}: очередь K7 пуста — все домены со статусом ok уже проверены`);
+  if (!queue.length && !metaQueue.length) {
+    finishRun(runId, 'check-ads', geo, { status: 'ok', notes: 'очереди пусты: домены K7 и приложения Meta уже проверены' });
+    log(`  ${geo}: очереди K7 и Meta пусты — проверять нечего`);
     return { queued: 0, checked: 0 };
   }
 
@@ -462,8 +548,8 @@ export async function run({ geo, date, runId, cycle = 'daily', useBrowser = true
 
     // Форма запроса не угадывается: если она ещё не откалибрована или прошлый прогон
     // получил 400, снимаем настоящий запрос с самой страницы.
-    const needCalibration = calibrateOnly || !c._calibrated_at ||
-      d.prepare(`SELECT COUNT(*) c FROM raw_ads_google WHERE status LIKE 'http_4%'`).get().c > 0;
+    const needCalibration = queue.length > 0 && (calibrateOnly || !c._calibrated_at ||
+      d.prepare(`SELECT COUNT(*) c FROM raw_ads_google WHERE status LIKE 'http_4%'`).get().c > 0);
     if (needCalibration) {
       const probe = queue[0] ? queue[0].domain : 'canva.com';
       const updated = await calibrate(page, probe, date);
@@ -483,21 +569,22 @@ export async function run({ geo, date, runId, cycle = 'daily', useBrowser = true
       d.prepare(`DELETE FROM raw_ads_google WHERE status LIKE 'http_4%'`).run();
     }
 
-    // Транспорт: стоим НА странице Ads Transparency, дальше все запросы идут её же
-    // fetch-ом. Прямой HTTP отсюда исключён по построению.
-    if (page.url().indexOf('adstransparency.google.com') < 0) {
-      await page.goto('https://adstransparency.google.com/?region=anywhere', {
-        waitUntil: 'domcontentloaded', timeout: 45000,
-      });
-      await page.waitForTimeout(2000);
+    if (queue.length) {
+      // Транспорт: стоим НА странице Ads Transparency, дальше все запросы идут её же
+      // fetch-ом. Прямой HTTP отсюда исключён по построению.
+      if (page.url().indexOf('adstransparency.google.com') < 0) {
+        await page.goto('https://adstransparency.google.com/?region=anywhere', {
+          waitUntil: 'domcontentloaded', timeout: 45000,
+        });
+        await page.waitForTimeout(2000);
+      }
+      log(`  ${geo}: K7 — ${queue.length} доменов, режим ${sequential ? 'последовательный ' + c.pause_ms + ' мс' : 'окнами по ' + c.parallel_window}`);
+      g = await googleTransparency(page, queue, date, c, { sequential });
     }
 
-    log(`  ${geo}: K7 — ${queue.length} доменов, режим ${sequential ? 'последовательный ' + c.pause_ms + ' мс' : 'окнами по ' + c.parallel_window}`);
-    g = await googleTransparency(page, queue, date, c, { sequential });
-
-    if (!skipMeta) {
-      const metaApps = queue.flatMap((q) => q.apps).slice(0, batch);
-      m = await metaAdLibrary(page, metaApps, date, c, batch);
+    if (metaQueue.length) {
+      log(`  ${geo}: Meta — ${metaQueue.length} приложений, детектор ${META_DETECTOR}`);
+      m = await metaAdLibrary(page, metaQueue, date, c, metaBatch);
     }
     await page.close();
   } finally {
