@@ -6,6 +6,7 @@ import { qv, clearQCache } from './quantiles.js';
 import { resolveInstallsSource } from '../lib/installs.js';
 import { setWatchLevel } from '../lib/registry.js';
 import { norm, clamp, median, log } from '../lib/util.js';
+import { hostOf, META_DETECTOR } from './check-ads.js';
 
 const DAY = 86400000;
 
@@ -163,17 +164,40 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
 
   // ads_found ∈ {google, meta, both, none, unchecked}. «none» ставится только если
   // проверены оба источника и оба пусты: пустой результат — «не найдено», не «органика».
+  // Отрицательный результат Meta засчитывается только от детектора v2. Детектор v1 искал
+  // ссылку на Play в сыром виде, которого на странице Ad Library нет вовсе, — его «не
+  // найдено» означает «не смотрели», и ставить по нему none значило бы выдать пустоту
+  // за ноль. Положительные находки v1 настоящие (сырая ссылка действительно была).
   const metaSeen = new Map();
-  for (const r of d.prepare(`SELECT app_id, MAX(found_by_package_id) f FROM raw_ads_meta WHERE found_by_package_id IS NOT NULL GROUP BY app_id`).all()) {
+  for (const r of d.prepare(
+    `SELECT app_id, MAX(found_by_package_id) f FROM raw_ads_meta
+      WHERE found_by_package_id IS NOT NULL AND (found_by_package_id=1 OR note LIKE ?)
+      GROUP BY app_id`
+  ).all(`${META_DETECTOR}%`)) {
     metaSeen.set(r.app_id, r.f ? 1 : 0);
   }
+  // Домен приложения — ровно как его строит очередь K7: сайт разработчика, а если его нет —
+  // хост privacy policy. Раньше сопоставление шло только по сайту, и приложения, чей домен
+  // K7 взял из политики, оставались unchecked навсегда, хотя проверка давно была.
+  const googleByDomain = new Map(d.prepare(
+    `SELECT developer_domain, MAX(creatives_found) f FROM raw_ads_google
+      WHERE creatives_found IS NOT NULL GROUP BY developer_domain`
+  ).all().map((r) => [r.developer_domain, r.f ? 1 : 0]));
   const googleSeen = new Map();
   for (const r of d.prepare(
-    `SELECT p.app_id, MAX(ag.creatives_found) f FROM raw_ads_google ag
-       JOIN raw_app_page p ON lower(replace(replace(replace(COALESCE(p.developer_website,''),'https://',''),'http://',''),'www.','')) LIKE ag.developer_domain || '%'
-      WHERE ag.creatives_found IS NOT NULL GROUP BY p.app_id`
+    `SELECT p.app_id, p.developer_website AS site, p.privacy_policy AS privacy
+       FROM raw_app_page p
+       JOIN (SELECT app_id, MAX(snapshot_date) md FROM raw_app_page GROUP BY app_id) l
+         ON l.app_id=p.app_id AND l.md=p.snapshot_date`
   ).all()) {
-    googleSeen.set(r.app_id, r.f ? 1 : 0);
+    if (googleSeen.get(r.app_id) === 1) continue;
+    for (const host of [hostOf(r.site), hostOf(r.privacy)]) {
+      if (host && googleByDomain.has(host)) {
+        const f = googleByDomain.get(host);
+        if (f === 1 || !googleSeen.has(r.app_id)) googleSeen.set(r.app_id, f);
+        break;
+      }
+    }
   }
   const adsFound = new Map();
   for (const appId of new Set([...metaSeen.keys(), ...googleSeen.keys()])) {
