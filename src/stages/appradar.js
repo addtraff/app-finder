@@ -16,6 +16,7 @@ import { log } from '../lib/util.js';
 import { packRows, UNPACK_JS } from '../lib/pack.js';
 import { collect as collectMethodology } from './methodology-report.js';
 import { META_DETECTOR } from './check-ads.js';
+import { collectCollection } from './dashboard.js';
 
 const one = (d, sql, ...p) => d.prepare(sql).get(...p);
 const all = (d, sql, ...p) => d.prepare(sql).all(...p);
@@ -149,6 +150,9 @@ export function collect(d, selectedGeo, date) {
     crossGeo: base.crossGeo,
     ads: { google, meta },
     timeline,
+    // Страница «Сбор и планы» — те же данные, что разделы «Состояние сбора» и «План на месяц»
+    // в Play Market Radar.
+    collection: collectCollection(d, date),
   };
 }
 
