@@ -30,6 +30,7 @@ import * as analyzeTracking from './stages/analyze-tracking.js';
 import * as methodologyReport from './stages/methodology-report.js';
 import * as appradar from './stages/appradar.js';
 import * as radarV2 from './stages/radar-v2.js';
+import * as appradar2 from './stages/appradar2.js';
 
 const STAGES = {
   'collect-charts': collectCharts,
@@ -54,6 +55,7 @@ const STAGES = {
   'methodology': methodologyReport,     // второй отчёт: разрез по слоям методики, вкладками
   'appradar': appradar,                 // третий отчёт: те же данные в оформлении AppRadar
   'radar-v2': radarV2,                  // методика v2.0: свобода, ёмкость, чистота, семь проверок
+  'appradar2': appradar2,               // отчёт AppRadar 2 по методике v2.0 (все гео сразу)
 };
 
 function csvLines(text) {
@@ -110,6 +112,7 @@ const DISCOVERY = [
   ['dashboard', {}],
   ['methodology', {}],
   ['appradar', {}],
+  ['appradar2', {}],
   ['export', {}],
   ['alerts', {}],
 ];
@@ -155,6 +158,7 @@ const DAILY = [
   ['dashboard', {}],
   ['methodology', {}],
   ['appradar', {}],
+  ['appradar2', {}],
   ['export', {}],
   ['alerts', {}],
 ];

@@ -1,0 +1,1199 @@
+<title>AppRadar 2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f3f4f8; --card: #ffffff; --text: #23262f; --muted: #6f768a;
+    --border: #e7e9f1; --hover: #f7f8fc; --head: #fafbfe; --input: #ffffff;
+    --side: #171927; --side-2: #232639; --side-text: #cfd3e1; --side-muted: #8b90a6;
+    --accent: #3d5afe; --accent-soft: #eaeeff; --green: #148a5b; --green-soft: #e4f7ee;
+    --orange: #b86a06; --orange-soft: #fdf1e0; --red: #d23a3e; --red-soft: #fdeaea;
+    --purple: #6a4be8; --purple-soft: #efeafe; --neutral: #9aa1b3;
+    --shadow: 0 1px 2px rgba(25,28,40,.06), 0 8px 24px rgba(25,28,40,.05);
+    --overlay: rgba(16,18,32,.46);
+    --f-ui: Manrope, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --f-num: "JetBrains Mono", ui-monospace, Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #101220; --card: #191c2b; --text: #e8eaf2; --muted: #969db2;
+      --border: #262a3b; --hover: #1f2334; --head: #1c2030; --input: #14172a;
+      --side: #0c0e18; --side-2: #1a1d2c; --side-text: #cfd3e1; --side-muted: #7d8399;
+      --accent: #6d84ff; --accent-soft: #1e2547; --green: #2ecc8f; --green-soft: #14322a;
+      --orange: #f0a13a; --orange-soft: #33270f; --red: #f0666a; --red-soft: #351a1c;
+      --purple: #a58fff; --purple-soft: #2a2350; --neutral: #5c6378;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.28);
+      --overlay: rgba(0,0,0,.6);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #101220; --card: #191c2b; --text: #e8eaf2; --muted: #969db2;
+    --border: #262a3b; --hover: #1f2334; --head: #1c2030; --input: #14172a;
+    --side: #0c0e18; --side-2: #1a1d2c; --side-text: #cfd3e1; --side-muted: #7d8399;
+    --accent: #6d84ff; --accent-soft: #1e2547; --green: #2ecc8f; --green-soft: #14322a;
+    --orange: #f0a13a; --orange-soft: #33270f; --red: #f0666a; --red-soft: #351a1c;
+    --purple: #a58fff; --purple-soft: #2a2350; --neutral: #5c6378;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.28);
+    --overlay: rgba(0,0,0,.6);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--f-ui); font-size: 14px; line-height: 1.45; }
+  button { font: inherit; color: inherit; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  ::-webkit-scrollbar { height: 10px; width: 10px; }
+  ::-webkit-scrollbar-thumb { background: rgba(130,140,165,.45); border-radius: 8px; }
+  .num { font-family: var(--f-num); font-variant-numeric: tabular-nums; }
+
+  .app { display: flex; min-height: 100vh; }
+  .side { width: 244px; flex: 0 0 244px; background: var(--side); display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 20px 20px 22px; }
+  .brand-mark { width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, #3d5afe, #7a5cf0); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 13px; }
+  .brand-name { color: #fff; font-weight: 800; font-size: 17px; letter-spacing: -0.3px; }
+  .side-label { padding: 0 20px 6px; color: var(--side-muted); font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+  .side-nav { display: flex; flex-direction: column; gap: 2px; padding: 4px 10px 16px; }
+  .nav-item { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border-radius: 9px; cursor: pointer; color: var(--side-text); background: transparent; border: 0; text-align: left; font-weight: 600; font-size: 14px; width: 100%; }
+  .nav-item:hover { background: var(--side-2); }
+  .nav-item[aria-current="page"] { background: #3d5afe; color: #fff; }
+  .nav-count { margin-left: auto; background: var(--side-2); color: var(--side-text); border-radius: 20px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
+  .nav-item[aria-current="page"] .nav-count { background: rgba(255,255,255,.2); color: #fff; }
+  .side-note { margin: 0 20px 16px; color: var(--side-muted); font-size: 12px; line-height: 1.5; }
+  .side-note b { color: var(--side-text); }
+  .side-foot { margin-top: auto; padding: 16px 18px 20px; border-top: 1px solid rgba(255,255,255,.07); display: flex; align-items: center; gap: 10px; }
+  .side-avatar { width: 32px; height: 32px; border-radius: 50%; background: #2b3047; color: #cfd3e1; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; font-family: var(--f-num); flex: 0 0 32px; }
+  .side-foot-title { color: #fff; font-size: 13px; font-weight: 700; }
+  .side-foot-sub { color: var(--side-muted); font-size: 11.5px; }
+
+  main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .topbar { position: sticky; top: 0; z-index: 20; background: var(--card); border-bottom: 1px solid var(--border); padding: 14px 26px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .search { display: flex; align-items: center; gap: 9px; background: var(--hover); border: 1px solid var(--border); border-radius: 10px; padding: 9px 13px; flex: 1 1 320px; min-width: 220px; max-width: 520px; }
+  .search input { border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; width: 100%; }
+  .search:focus-within { border-color: var(--accent); }
+  .top-right { display: flex; align-items: center; gap: 10px; margin-left: auto; flex-wrap: wrap; }
+  .chip-btn { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); font-weight: 700; font-size: 13px; cursor: pointer; }
+  .chip-btn:hover { border-color: var(--accent); }
+  .chip-static { cursor: default; }
+  .chip-static:hover { border-color: var(--border); }
+  .geo-code { background: var(--accent-soft); color: var(--accent); border-radius: 5px; padding: 2px 6px; font-size: 11px; font-weight: 800; font-family: var(--f-num); }
+  .geo-wrap { position: relative; }
+  .geo-menu { position: absolute; right: 0; top: 46px; width: 280px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 6px; z-index: 40; max-height: 440px; overflow-y: auto; }
+  .geo-opt { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; width: 100%; border: 0; background: transparent; text-align: left; }
+  .geo-opt:hover, .geo-opt[aria-selected="true"] { background: var(--hover); }
+  .geo-opt[aria-selected="true"] { color: var(--accent); }
+  .geo-opt .code { font-family: var(--f-num); font-size: 11px; font-weight: 800; color: var(--muted); width: 26px; }
+  .geo-opt .cnt { margin-left: auto; color: var(--muted); font-size: 12px; font-family: var(--f-num); }
+  .icon-btn { width: 38px; height: 37px; border: 1px solid var(--border); border-radius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; background: var(--card); padding: 0; }
+  .icon-btn:hover { border-color: var(--accent); }
+
+  .page { padding: 26px; display: flex; flex-direction: column; gap: 18px; }
+  .page-head { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+  .eyebrow { color: var(--accent); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
+  h1 { margin: 0 0 6px; font-size: 25px; font-weight: 800; letter-spacing: -0.5px; text-wrap: balance; }
+  .lead { margin: 0; color: var(--muted); font-size: 13.5px; max-width: 78ch; text-wrap: pretty; }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+  .kpi { padding: 16px 18px; border-radius: 13px; }
+  .kpi-label { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+  .kpi-row { display: flex; align-items: baseline; gap: 9px; margin-top: 9px; flex-wrap: wrap; }
+  .kpi-value { font-size: 24px; font-weight: 800; font-family: var(--f-num); letter-spacing: -1px; }
+  .kpi-delta { font-size: 12.5px; font-weight: 800; }
+  .kpi-hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+  .toolbar { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .toolbar.first { background: var(--head); }
+  .pill { padding: 7px 13px; border-radius: 20px; cursor: pointer; font-size: 12.5px; font-weight: 700; background: var(--card); color: var(--text); border: 1px solid var(--border); }
+  .pill:hover { border-color: var(--accent); }
+  .pill[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .toolbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  select, .inp { padding: 8px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--input); color: var(--text); font: inherit; font-size: 13px; font-weight: 600; }
+  .check { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; cursor: pointer; user-select: none; }
+  .check input { width: 16px; height: 16px; accent-color: var(--accent); margin: 0; }
+  .field { display: inline-flex; align-items: center; gap: 6px; }
+  .field label { color: var(--muted); font-size: 12px; font-weight: 700; }
+  .filter-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 6px 5px 11px; border-radius: 20px; background: var(--accent-soft); color: var(--accent); font-weight: 800; font-size: 12.5px; }
+  .filter-chip button { border: 0; background: transparent; cursor: pointer; color: inherit; font-weight: 800; padding: 0 5px; }
+
+  .tbl-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: var(--head); }
+  th { text-align: left; padding: 12px 10px; font-size: 11.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+  th:first-child { padding-left: 16px; }
+  th:last-child { padding-right: 16px; }
+  td { padding: 10px; font-size: 13px; vertical-align: middle; }
+  td:first-child { padding-left: 16px; }
+  td:last-child { padding-right: 16px; }
+  tbody tr { border-top: 1px solid var(--border); }
+  tbody tr:hover { background: var(--hover); }
+  tr.hl { background: var(--green-soft); }
+  .r { text-align: right; }
+  .muted { color: var(--muted); }
+  .small { font-size: 11.5px; }
+  .strong { font-weight: 700; }
+  .nowrap { white-space: nowrap; }
+
+  .app-cell { display: flex; align-items: center; gap: 11px; cursor: pointer; background: none; border: 0; padding: 0; text-align: left; min-width: 0; }
+  .app-icon { width: 36px; height: 36px; border-radius: 9px; flex: 0 0 36px; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; }
+  .app-name { font-weight: 700; font-size: 13.5px; }
+  .app-cell:hover .app-name { color: var(--accent); }
+  .app-pkg { color: var(--muted); font-size: 11.5px; font-family: var(--f-num); overflow: hidden; text-overflow: ellipsis; max-width: 250px; white-space: nowrap; }
+  .niche-cell { cursor: pointer; background: none; border: 0; padding: 0; text-align: left; min-width: 0; }
+  .niche-cell:hover .strong { color: var(--accent); }
+  .star { cursor: pointer; background: none; border: 0; padding: 0; display: flex; color: var(--neutral); }
+  .star[aria-pressed="true"] { color: var(--orange); }
+  .tag { padding: 4px 9px; border-radius: 6px; background: var(--hover); border: 1px solid var(--border); font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .badge { padding: 3px 9px; border-radius: 6px; font-size: 12px; font-weight: 800; white-space: nowrap; display: inline-block; }
+  .b-green { background: var(--green-soft); color: var(--green); }
+  .b-orange { background: var(--orange-soft); color: var(--orange); }
+  .b-red { background: var(--red-soft); color: var(--red); }
+  .b-purple { background: var(--purple-soft); color: var(--purple); }
+  .b-accent { background: var(--accent-soft); color: var(--accent); }
+  .b-muted { background: var(--hover); color: var(--muted); border: 1px solid var(--border); }
+  .meter { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+  .meter-track { width: 60px; height: 6px; border-radius: 4px; background: var(--border); overflow: hidden; }
+  .meter-fill { height: 6px; }
+  .meter-val { font-family: var(--f-num); font-weight: 800; font-size: 13px; width: 26px; text-align: right; }
+  .checks { display: inline-flex; gap: 3px; }
+  .chk { width: 12px; height: 12px; border-radius: 3px; display: inline-block; flex: 0 0 12px; }
+  .chk-1 { background: var(--green); }
+  .chk-0 { background: var(--red); }
+  .chk-n { background: transparent; border: 1.5px solid var(--neutral); }
+  .chk-b { outline: 1.5px dashed var(--accent); outline-offset: 1px; }
+
+  .pager { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+  .pager-btns { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .pg { min-width: 32px; height: 32px; padding: 0 8px; display: flex; align-items: center; justify-content: center; border-radius: 8px; cursor: pointer; font-size: 12.5px; font-weight: 700; background: var(--card); color: var(--text); border: 1px solid var(--border); }
+  .pg[aria-current="page"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .pg:disabled { opacity: .45; cursor: default; }
+
+  .split { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 14px; }
+  .panel { padding: 18px; }
+  .panel-title { font-weight: 800; font-size: 15px; }
+  .panel-sub { color: var(--muted); font-size: 12.5px; margin-top: 2px; text-wrap: pretty; }
+  .chart { width: 100%; height: auto; display: block; margin-top: 14px; }
+  .chart text { font-family: var(--f-num); font-size: 11px; fill: var(--muted); }
+  .chart .val { fill: var(--text); font-weight: 700; }
+  .chart .grid { stroke: var(--border); stroke-width: 1; }
+  .bars { display: flex; flex-direction: column; gap: 11px; margin-top: 12px; }
+  .bar-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 5px; }
+  .bar-label { font-size: 13px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-val { margin-left: auto; font-family: var(--f-num); font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+  .bar-track { height: 7px; border-radius: 5px; background: var(--border); overflow: hidden; }
+  .bar-fill { height: 7px; }
+  .table-head { display: flex; align-items: center; gap: 12px; padding: 15px 18px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .note { color: var(--muted); font-size: 12.5px; text-wrap: pretty; }
+  .empty { padding: 40px 24px; text-align: center; color: var(--muted); }
+  .dashed { border: 1px dashed var(--border); border-radius: 14px; background: var(--card); }
+
+  /* ---------- матрица решения ---------- */
+  .matrix-wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, 320px); gap: 14px; }
+  .matrix { display: grid; grid-template-columns: 34px 1fr 1fr; grid-template-rows: 1fr 1fr 28px; gap: 8px; padding: 16px; }
+  .mx-axis { color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; display: flex; align-items: center; justify-content: center; }
+  .mx-axis.y { writing-mode: vertical-rl; transform: rotate(180deg); }
+  .mx-cell { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; text-align: left; cursor: pointer; background: var(--card); display: flex; flex-direction: column; gap: 4px; min-height: 104px; }
+  .mx-cell:hover { border-color: var(--accent); }
+  .mx-cell[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft) inset; }
+  .mx-count { font-family: var(--f-num); font-weight: 800; font-size: 26px; letter-spacing: -1px; }
+  .mx-name { font-weight: 800; font-size: 13.5px; }
+  .mx-what { color: var(--muted); font-size: 12px; text-wrap: pretty; }
+  .mx-cell.target { background: var(--green-soft); }
+  .mx-cell.target .mx-count, .mx-cell.target .mx-name { color: var(--green); }
+  .mx-cell.bought .mx-count, .mx-cell.bought .mx-name { color: var(--orange); }
+  .mx-cell.mature .mx-count, .mx-cell.mature .mx-name { color: var(--accent); }
+  .mx-cell.pass .mx-count, .mx-cell.pass .mx-name { color: var(--muted); }
+
+  /* ---------- четыре числа ниши ---------- */
+  .four { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; }
+  .four > div { padding: 14px 16px; border-right: 1px solid var(--border); }
+  .four > div:last-child { border-right: 0; }
+  .four-label { color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+  .four-val { font-family: var(--f-num); font-weight: 800; font-size: 22px; letter-spacing: -0.8px; margin-top: 6px; }
+  .four-hint { color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+
+  .overlay { position: fixed; inset: 0; background: var(--overlay); z-index: 60; display: flex; justify-content: flex-end; }
+  .drawer { width: min(720px, 100%); height: 100%; background: var(--bg); overflow-y: auto; box-shadow: var(--shadow); }
+  .drawer-head { position: sticky; top: 0; background: var(--card); border-bottom: 1px solid var(--border); padding: 18px 22px; display: flex; gap: 14px; align-items: center; z-index: 2; }
+  .drawer-body { padding: 20px 22px 40px; display: flex; flex-direction: column; gap: 14px; }
+  .check-list { display: flex; flex-direction: column; }
+  .check-row { display: grid; grid-template-columns: 14px 1fr auto; gap: 4px 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--border); font-size: 13.5px; }
+  .check-row:first-child { border-top: 0; }
+  .check-row .why { grid-column: 2 / 4; color: var(--muted); font-size: 12px; font-family: var(--f-num); }
+  .kv { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; margin-top: 12px; }
+  .kv dt { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+  .kv dd { margin: 2px 0 0; font-family: var(--f-num); font-weight: 700; font-size: 13px; overflow-wrap: anywhere; }
+  .mini { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  .mini th, .mini td { padding: 7px 8px; font-size: 12.5px; }
+  .mini th:first-child, .mini td:first-child { padding-left: 0; }
+  .mini th:last-child, .mini td:last-child { padding-right: 0; }
+  .mini thead tr { background: transparent; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .btn { padding: 8px 13px; border-radius: 9px; border: 1px solid var(--border); background: var(--card); font-weight: 700; font-size: 13px; cursor: pointer; }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .calc { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 12px; }
+  .calc label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+  .calc .inp { font-family: var(--f-num); width: 100%; }
+  .calc-out { margin-top: 12px; padding: 12px 14px; border-radius: 10px; background: var(--hover); border: 1px solid var(--border); font-size: 13px; }
+  .calc-out b { font-family: var(--f-num); }
+  .manual li { margin: 6px 0; }
+
+  .ready-table td .badge { font-size: 11.5px; }
+  .fav-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+  .fav-card { padding: 16px; }
+  .trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 14px; }
+  .trio-label { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; }
+  .trio-val { font-family: var(--f-num); font-weight: 700; font-size: 13px; }
+
+  .cal { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 8px; padding: 16px; }
+  .cal-day { border: 1px solid var(--border); border-radius: 10px; padding: 8px; min-height: 84px; background: var(--card); }
+  .cal-day.today { border-color: var(--accent); background: var(--accent-soft); }
+  .cal-day.weekend { background: var(--hover); }
+  .cal-dn { display: flex; justify-content: space-between; font-family: var(--f-num); font-size: 11px; color: var(--muted); }
+  .cal-dn b { color: var(--text); }
+  .marks { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 7px; }
+  .mark { font-family: var(--f-num); font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 5px; line-height: 1.5; }
+  .mark.full { background: var(--accent); color: #fff; }
+  .mark.light { background: var(--green-soft); color: var(--green); }
+  .mark.k7 { background: var(--orange-soft); color: var(--orange); }
+  .mark.month { background: var(--purple-soft); color: var(--purple); }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; padding: 0 16px 16px; font-size: 12px; color: var(--muted); align-items: center; }
+
+  @media (max-width: 1100px) { .split, .matrix-wrap { grid-template-columns: 1fr; } .cal { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+  @media (max-width: 900px) {
+    .app { flex-direction: column; }
+    .side { width: 100%; flex: none; height: auto; position: static; }
+    .side-nav { flex-direction: row; overflow-x: auto; padding-bottom: 10px; }
+    .nav-item { width: auto; white-space: nowrap; }
+    .side-label, .side-foot, .side-note { display: none; }
+    .topbar { position: static; padding: 12px 16px; }
+    .page { padding: 18px 16px; }
+    .four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .four > div:nth-child(2) { border-right: 0; }
+    .four > div:nth-child(-n+2) { border-bottom: 1px solid var(--border); }
+  }
+  @media (max-width: 600px) { .cal { grid-template-columns: repeat(3, minmax(0, 1fr)); } .kv { grid-template-columns: 1fr; } .matrix { grid-template-columns: 22px 1fr 1fr; padding: 10px; } }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="app">
+  <aside class="side" aria-label="Разделы">
+    <div class="brand"><div class="brand-mark">A2</div><div class="brand-name">AppRadar 2</div></div>
+    <div class="side-label">Разделы</div>
+    <nav class="side-nav" id="nav"></nav>
+    <p class="side-note">Методика <b>v2.0</b>: ниша — это <b>свобода</b>, <b>ёмкость</b>, <b>чистота</b> и <b>срок</b>; образец — семь проверок. Композитный ранг — только ключ сортировки.</p>
+    <div class="side-foot">
+      <div class="side-avatar">PR</div>
+      <div style="min-width:0">
+        <div class="side-foot-title">Play Radar</div>
+        <div class="side-foot-sub" id="foot-sub"></div>
+      </div>
+    </div>
+  </aside>
+
+  <main>
+    <header class="topbar">
+      <label class="search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="color:var(--muted)"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        <input id="q" type="search" placeholder="Приложение, package, разработчик, ниша или ключ…" aria-label="Поиск">
+      </label>
+      <div class="top-right">
+        <div class="chip-btn chip-static" id="date-chip"></div>
+        <div class="geo-wrap">
+          <button class="chip-btn" id="geo-btn" aria-haspopup="listbox" aria-expanded="false"></button>
+          <div class="geo-menu" id="geo-menu" role="listbox" hidden></div>
+        </div>
+        <button class="icon-btn" id="theme-btn" aria-label="Переключить тему"></button>
+      </div>
+    </header>
+    <div id="view"></div>
+  </main>
+</div>
+<div id="drawer-root"></div>
+
+<script id="radar-data" type="application/json">__RADAR_DATA__</script>
+<script>
+(function () {
+  __UNPACK_JS__
+  var D = unpackRows(JSON.parse(document.getElementById('radar-data').textContent));
+  var M = D.meta, REF = M.reference_geo, WW = 'WW', PAGE = 25;
+
+  // ---------------- справочники ----------------
+  var GEO_NAMES = { US: 'США', AU: 'Австралия', GB: 'Великобритания', CA: 'Канада', DE: 'Германия', JP: 'Япония',
+    FR: 'Франция', KR: 'Южная Корея', CH: 'Швейцария', NL: 'Нидерланды', SE: 'Швеция', NO: 'Норвегия', DK: 'Дания',
+    FI: 'Финляндия', NZ: 'Новая Зеландия', AT: 'Австрия', BE: 'Бельгия', IE: 'Ирландия', SG: 'Сингапур', AE: 'ОАЭ',
+    IL: 'Израиль', IT: 'Италия', ES: 'Испания', SA: 'Саудовская Аравия', PT: 'Португалия', BR: 'Бразилия',
+    TW: 'Тайвань', PL: 'Польша', MX: 'Мексика', TR: 'Турция' };
+  var GENRES = { TOOLS: 'Инструменты', PRODUCTIVITY: 'Продуктивность', PHOTOGRAPHY: 'Фото', HEALTH_AND_FITNESS: 'Здоровье',
+    MUSIC_AND_AUDIO: 'Музыка и аудио', VIDEO_PLAYERS: 'Видео', EDUCATION: 'Образование', LIFESTYLE: 'Стиль жизни',
+    MAPS_AND_NAVIGATION: 'Навигация', BUSINESS: 'Бизнес', MEDICAL: 'Медицина', SHOPPING: 'Покупки', FINANCE: 'Финансы',
+    COMMUNICATION: 'Связь', ART_AND_DESIGN: 'Дизайн', TRAVEL_AND_LOCAL: 'Путешествия', PERSONALIZATION: 'Персонализация',
+    ENTERTAINMENT: 'Развлечения', BOOKS_AND_REFERENCE: 'Справочники', HOUSE_AND_HOME: 'Дом', SOCIAL: 'Соцсети',
+    PARENTING: 'Родителям', WEATHER: 'Погода', AUTO_AND_VEHICLES: 'Авто', NEWS_AND_MAGAZINES: 'Новости',
+    SPORTS: 'Спорт', FOOD_AND_DRINK: 'Еда', BEAUTY: 'Красота', DATING: 'Знакомства', EVENTS: 'События',
+    COMICS: 'Комиксы', LIBRARIES_AND_DEMO: 'Библиотеки' };
+  var LEVEL = {
+    found: ['Закупка найдена', 'b-red'], confirmed: ['Органика подтверждена', 'b-green'],
+    no_signs: ['Признаков закупки нет', 'b-accent'], stale: ['Улика протухла', 'b-orange'], unchecked: ['Не проверено', 'b-muted']
+  };
+  var QUAD = {
+    target: ['Цель', 'b-green', 'Свобода ≥ 75 и чистота ≥ p50: проверять образцы'],
+    bought: ['Трафик выкуплен', 'b-orange', 'Место есть, но спрос уходит закупающим: входить только через чистый хвост'],
+    mature: ['Зрелая ASO-ниша', 'b-accent', 'Чисто, но тесно: вход через новый кластер ключей или гео-арбитраж'],
+    pass: ['Мимо', 'b-muted', 'Тесно и выкуплено'],
+    undetermined: ['Не определено', 'b-muted', 'Нет свободы или чистоты: не хватает данных']
+  };
+  var TRAFFIC = { search: ['Поиск', 'b-green'], external: ['Внешний', 'b-purple'] };
+  var CHECKS = ['Спрос органический', 'Инкумбент побеждаем', 'Вырос без закупки', 'Трафик поисковый (3b)',
+    'Дёшев в повторении', 'Монетизация доказана', 'Переживёт модерацию'];
+  var COMP = {
+    free_demand_share: ['Свободный спрос', 'доля спроса ядра за дешёвыми дверями'],
+    relevance_gap: ['Пустота выдачи', 'доля нерелевантных в топ-20'],
+    aso_saturation: ['Незанятость ASO', 'обратная доле топ-10 с ключом в заголовке'],
+    demand_per_app: ['Спрос на конкурента', 'log10 установок топа на приложение'],
+    entry_rate: ['Входы в топ-10', 'новички в топ-10 ядра за окно'],
+    turnover_up_new: ['Оборот за счёт новых', 'смена топ-10 приложениями не из топ-50'],
+    clone_density: ['Мало клонов', 'обратная доле портфельных разработчиков в топ-50']
+  };
+  var MISSING = {
+    free_demand_share: 'door по ключам есть меньше чем у половины ядра', relevance_gap: 'нет разброса по нишам гео',
+    aso_saturation: 'карточек в топ-10 головного ключа меньше 5', demand_per_app: 'нет спроса ниши',
+    entry_rate: 'копится история выдачи', turnover_up_new: 'копится история выдачи',
+    clone_density: 'разработчик известен меньше чем у половины', organic_purity: 'реклама проверена меньше чем у 60 % трафика',
+    organic_capacity: 'нет курса гео', core_keywords: 'в ядре меньше 3 ключей'
+  };
+  var MISSING_SHORT = { free_demand_share: 'свободный спрос', relevance_gap: 'пустота выдачи', aso_saturation: 'загруженность ASO',
+    demand_per_app: 'спрос', entry_rate: 'входы', turnover_up_new: 'оборот', clone_density: 'клоны', organic_purity: 'чистота',
+    organic_capacity: 'ёмкость', core_keywords: 'узкое ядро' };
+  var MONET = { subscription: 'Подписка', iap: 'Покупки', ads: 'Реклама', hybrid: 'Гибрид', paid: 'Платное', free: 'Бесплатно', none: 'Нет' };
+  var PAIN = { money: 'Деньги', ads: 'Реклама', broken: 'Не работает', missing: 'Не хватает функции', trust: 'Доверие' };
+
+  // ---------------- утилиты ----------------
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function isNum(n) { return typeof n === 'number' && isFinite(n); }
+  function short(n) {
+    if (!isNum(n)) return '—';
+    var a = Math.abs(n), s = n < 0 ? '-' : '';
+    if (a >= 1e9) return s + (a / 1e9).toFixed(a >= 1e10 ? 0 : 1).replace('.0', '') + 'B';
+    if (a >= 1e6) return s + (a / 1e6).toFixed(a >= 1e7 ? 0 : 1).replace('.0', '') + 'M';
+    if (a >= 1e3) return s + (a / 1e3).toFixed(a >= 1e4 ? 0 : 1).replace('.0', '') + 'K';
+    return s + String(Math.round(a));
+  }
+  function int(n) { return isNum(n) ? Math.round(n).toLocaleString('ru-RU') : '—'; }
+  function fix(n, d) { return isNum(n) ? n.toFixed(d == null ? 1 : d) : '—'; }
+  function pct(n, d) { return isNum(n) ? (n * 100).toFixed(d == null ? 0 : d) + '%' : '—'; }
+  function dash(title) { return '<span class="muted" title="' + esc(title || '') + '">—</span>'; }
+  function median(arr) { var a = arr.filter(isNum).sort(function (x, y) { return x - y; }); if (!a.length) return null; var m = Math.floor(a.length / 2); return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; }
+  function dmy(s) { return s ? s.slice(8, 10) + '.' + s.slice(5, 7) + '.' + s.slice(0, 4) : '—'; }
+  function addDays(s, n) { var d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+  function genre(id) { if (!id) return '—'; if (id.indexOf('GAME') === 0) return 'Игры'; return GENRES[id] || id.toLowerCase().replace(/_/g, ' '); }
+  function geoName(g) { return g === WW ? 'Ворлдвайд' : (GEO_NAMES[g] || g); }
+  function hash(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); }
+  var ICON_BG = [['#3d5afe', '#7a5cf0'], ['#1faa72', '#0f766e'], ['#e8890c', '#d9482b'], ['#7a5cf0', '#b3479f'], ['#0ea5e9', '#3d5afe'], ['#e0484c', '#9d2f5e'], ['#14b8a6', '#1f7a4d'], ['#f59e0b', '#c2410c']];
+  function icon(a) {
+    var words = String(a.title || a.app_id || '?').replace(/[^\p{L}\p{N}\s]/gu, ' ').trim().split(/\s+/);
+    var ini = ((words[0] || '?')[0] + ((words[1] || '')[0] || '')).toUpperCase();
+    var c = ICON_BG[hash(a.app_id || ini) % ICON_BG.length];
+    return '<div class="app-icon" style="background:linear-gradient(135deg,' + c[0] + ',' + c[1] + ')" aria-hidden="true">' + esc(ini) + '</div>';
+  }
+  function load(key, def) { try { var v = localStorage.getItem(key); return v == null ? def : JSON.parse(v); } catch (e) { return def; } }
+  function save(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* хранилище недоступно */ } }
+
+  // ---------------- индексы ----------------
+  var GEO = {}; D.geos.forEach(function (g) { GEO[g.geo] = g; });
+  var appByKey = {}, appsById = {}, appsByGeo = {}, appsByNiche = {};
+  D.apps.forEach(function (a) {
+    appByKey[a.geo + '|' + a.app_id] = a;
+    (appsById[a.app_id] = appsById[a.app_id] || []).push(a);
+    (appsByGeo[a.geo] = appsByGeo[a.geo] || []).push(a);
+    if (a.niche_id) (appsByNiche[a.geo + '|' + a.niche_id] = appsByNiche[a.geo + '|' + a.niche_id] || []).push(a);
+  });
+  var nicheByKey = {}, nichesByGeo = {}, nichesByConcept = {};
+  D.niches.forEach(function (n) {
+    nicheByKey[n.geo + '|' + n.niche_id] = n;
+    (nichesByGeo[n.geo] = nichesByGeo[n.geo] || []).push(n);
+    if (n.concept) (nichesByConcept[n.concept] = nichesByConcept[n.concept] || []).push(n);
+    var genres = {};
+    (appsByNiche[n.geo + '|' + n.niche_id] || []).forEach(function (a) { if (a.genre_id) { var k = a.genre_id.indexOf('GAME') === 0 ? 'GAME' : a.genre_id; genres[k] = (genres[k] || 0) + 1; } });
+    n._genre = Object.keys(genres).sort(function (x, y) { return genres[y] - genres[x]; })[0] || null;
+  });
+  var keysByNiche = {};
+  D.keys.forEach(function (k) { (keysByNiche[k.geo + '|' + k.niche_id] = keysByNiche[k.geo + '|' + k.niche_id] || []).push(k); });
+  var worldAppById = {}; D.worldApps.forEach(function (w) { worldAppById[w.app_id] = w; });
+  var worldNicheByConcept = {}; D.worldNiches.forEach(function (w) { worldNicheByConcept[w.concept] = w; });
+
+  // ---------------- состояние ----------------
+  var state = {
+    view: 'apps', geo: WW, q: '', page: 1,
+    af: { cat: 'all', level: 'all', traffic: 'all', minPassed: 0, quad: 'all', age: 'all', monet: 'all', sort: 'checks', niche: null },
+    nf: { cat: 'all', quad: 'all', freedom: 'all', purity: 'all', young: false, cand: false, full: false, sort: 'rank' },
+    hidePaid: !!load('appradar2-hide-paid', false), showDisq: false,
+    favs: load('appradar2-favs', []), nfavs: load('appradar2-nfavs', [])
+  };
+  var themeSaved = load('appradar-theme', null);
+  if (themeSaved === 'light' || themeSaved === 'dark') document.documentElement.setAttribute('data-theme', themeSaved);
+  function isDark() { var t = document.documentElement.getAttribute('data-theme'); if (t) return t === 'dark'; return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; }
+  function matchesQ(parts) { if (!state.q) return true; var q = state.q.toLowerCase(); return parts.some(function (p) { return p && String(p).toLowerCase().indexOf(q) >= 0; }); }
+
+  // ---------------- куски разметки ----------------
+  function kpiCards(list) {
+    return '<div class="kpis">' + list.map(function (k) {
+      return '<div class="card kpi"><div class="kpi-label">' + esc(k.label) + '</div><div class="kpi-row"><div class="kpi-value">' + esc(k.value) + '</div>' +
+        (k.delta ? '<div class="kpi-delta" style="color:' + (k.deltaColor || 'var(--muted)') + '">' + esc(k.delta) + '</div>' : '') + '</div>' +
+        (k.hint ? '<div class="kpi-hint">' + esc(k.hint) + '</div>' : '') + '</div>';
+    }).join('') + '</div>';
+  }
+  function tableHtml(cols, rows, opt) {
+    opt = opt || {};
+    if (!rows.length) return '<div class="empty">' + esc(opt.empty || 'Ничего не найдено') + '</div>';
+    return '<div class="tbl-scroll"><table class="' + (opt.cls || '') + '" style="min-width:' + (opt.minWidth || 600) + 'px"><thead><tr>' +
+      cols.map(function (c) { return '<th class="' + (c.r ? 'r' : '') + '"' + (c.title ? ' title="' + esc(c.title) + '"' : '') + '>' + esc(c.t) + '</th>'; }).join('') +
+      '</tr></thead><tbody>' + rows.map(function (r, i) {
+        return '<tr' + (opt.rowCls ? ' class="' + opt.rowCls(r) + '"' : '') + '>' + cols.map(function (c) { return '<td class="' + (c.r ? 'r ' : '') + (c.cls || '') + '">' + c.v(r, i) + '</td>'; }).join('') + '</tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+  function pager(total, page) {
+    var pages = Math.max(1, Math.ceil(total / PAGE));
+    if (page > pages) page = pages;
+    var from = total ? (page - 1) * PAGE + 1 : 0, to = Math.min(total, page * PAGE), nums = [];
+    for (var p = 1; p <= pages; p++) { if (p === 1 || p === pages || Math.abs(p - page) <= 1) nums.push(p); else if (nums[nums.length - 1] !== '…') nums.push('…'); }
+    return '<div class="pager"><span class="note">Показано ' + from + '–' + to + ' из ' + int(total) + '</span><div class="pager-btns">' +
+      '<button class="pg" data-act="page" data-page="' + (page - 1) + '"' + (page <= 1 ? ' disabled' : '') + ' aria-label="Предыдущая">‹</button>' +
+      nums.map(function (p) { return p === '…' ? '<span class="pg" style="border:0;background:none">…</span>' : '<button class="pg" data-act="page" data-page="' + p + '"' + (p === page ? ' aria-current="page"' : '') + '>' + p + '</button>'; }).join('') +
+      '<button class="pg" data-act="page" data-page="' + (page + 1) + '"' + (page >= pages ? ' disabled' : '') + ' aria-label="Следующая">›</button></div></div>';
+  }
+  function pageHead(eyebrow, title, lead) {
+    return '<div class="page-head"><div>' + (eyebrow ? '<div class="eyebrow">' + esc(eyebrow) + '</div>' : '') + '<h1>' + esc(title) + '</h1><p class="lead">' + lead + '</p></div></div>';
+  }
+  function appCell(a) {
+    return '<button class="app-cell" data-act="open-app" data-app="' + esc(a.app_id) + '" data-geo="' + esc(a.geo) + '">' + icon(a) +
+      '<div style="min-width:0"><div class="app-name">' + esc(a.title || a.app_id) + '</div><div class="app-pkg">' + esc(a.app_id) + (a.developer ? ' · ' + esc(a.developer) : '') + '</div></div></button>';
+  }
+  function starBtn(kind, id) {
+    var list = kind === 'n' ? state.nfavs : state.favs, on = list.indexOf(id) >= 0;
+    return '<button class="star" data-act="fav" data-kind="' + kind + '" data-id="' + esc(id) + '" aria-pressed="' + on + '" aria-label="' + (on ? 'Убрать из избранного' : 'В избранное') + '">' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="' + (on ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l2.7 5.7 6.3.8-4.6 4.3 1.2 6.2L12 17l-5.6 3 1.2-6.2L3 9.5l6.3-.8z"/></svg></button>';
+  }
+  function levelBadge(a) {
+    var l = LEVEL[a.level] || LEVEL.unchecked, tip = [];
+    if (a.evidence_date) tip.push('улика ' + dmy(a.evidence_date) + ', ' + a.evidence_age + ' дн. из ' + M.ttl);
+    if (a.g_last) tip.push('последний показ в Google ' + dmy(a.g_last) + (a.g_active ? ' (активна)' : ''));
+    if (a.tracking) tip.push('трекер: ' + a.tracking);
+    return '<span class="badge ' + l[1] + '"' + (tip.length ? ' title="' + esc(tip.join('\n')) + '"' : '') + '>' + l[0] + '</span>';
+  }
+  function trafficBadge(a) {
+    if (!a.traffic) return dash(GEO[a.geo] && GEO[a.geo].k_status ? 'нет курса гео: ' + GEO[a.geo].k_status : 'нет прироста за окно');
+    var t = TRAFFIC[a.traffic];
+    return '<span class="badge ' + t[1] + '" title="aso_share ' + fix(a.aso_share, 2) + '">' + t[0] + '</span>';
+  }
+  function quadBadge(q, extra) {
+    var x = QUAD[q] || QUAD.undetermined;
+    return '<span class="badge ' + x[1] + '" title="' + esc(x[2]) + '">' + x[0] + '</span>' + (extra || '');
+  }
+  function meter(v, color) {
+    var w = isNum(v) ? Math.max(0, Math.min(100, v)) : 0;
+    return '<div class="meter"><div class="meter-track"><div class="meter-fill" style="width:' + w + '%;background:' + color + '"></div></div><span class="meter-val" style="color:' + color + '">' + fix(v, 0) + '</span></div>';
+  }
+  function freedomColor(v) { return !isNum(v) ? 'var(--neutral)' : v >= 75 ? 'var(--green)' : v >= 50 ? 'var(--accent)' : v >= 25 ? 'var(--orange)' : 'var(--red)'; }
+  function checksHtml(a) {
+    var c = a.checks || [];
+    return '<span class="checks" title="' + esc(c.map(function (v, i) { return CHECKS[i] + ': ' + (v === 1 ? 'пройдена' : v === 0 ? 'провалена' : 'не проверена'); }).join('\n')) + '">' +
+      c.map(function (v, i) { return '<i class="chk ' + (v === 1 ? 'chk-1' : v === 0 ? 'chk-0' : 'chk-n') + (i === 3 ? ' chk-b' : '') + '"></i>'; }).join('') + '</span>';
+  }
+  function capacityText(n) {
+    if (!n) return dash();
+    if (isNum(n.capacity)) return '≈ ' + short(n.capacity) + '/мес';
+    var g = GEO[n.geo];
+    return '<span class="muted" title="' + esc(g && g.k_status ? g.k_status : 'нет курса гео') + '">копится</span>';
+  }
+  function ttoText(n) {
+    if (!n || !isNum(n.tto)) return dash('нет молодых органиков с известным входом');
+    return (n.tto_kind === 'upper' ? '≤ ' : '≈ ') + fix(n.tto, 1) + ' мес';
+  }
+  function geoPlus(code, count, list) {
+    return '<span class="geo-code">' + esc(code) + '</span>' + (count > 1 ? ' <span class="muted small" title="' + esc(list || '') + '">+' + (count - 1) + '</span>' : '');
+  }
+  function doorHtml(n) {
+    if (!n || !isNum(n.door)) return dash('door не посчитан: мало карточек в топ-10');
+    return '<span class="num strong" title="голова ' + short(n.door_head) + ' · хвост ' + short(n.door_tail) + '">' + short(n.door) + '</span>';
+  }
+
+  // ---------------- меню и шапка ----------------
+  function renderNav() {
+    var items = [
+      { id: 'apps', title: 'Топ приложений', svg: '<path d="M4 19V10M10 19V5M16 19v-7M22 19H2"/>', count: D.worldApps.length },
+      { id: 'niches', title: 'Топ ниш', svg: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.6"/>', count: D.worldNiches.length },
+      { id: 'fav', title: 'Избранное', svg: '<path d="M12 3l2.7 5.7 6.3.8-4.6 4.3 1.2 6.2L12 17l-5.6 3 1.2-6.2L3 9.5l6.3-.8z"/>', count: state.favs.length + state.nfavs.length },
+      { id: 'collection', title: 'Сбор и планы', svg: '<rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>' }
+    ];
+    $('nav').innerHTML = items.map(function (c) {
+      return '<button class="nav-item" data-act="view" data-view="' + c.id + '"' + (state.view === c.id ? ' aria-current="page"' : '') + '>' +
+        '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + c.svg + '</svg>' +
+        '<span>' + esc(c.title) + '</span>' + (c.count != null ? '<span class="nav-count">' + int(c.count) + '</span>' : '') + '</button>';
+    }).join('');
+    $('foot-sub').textContent = 'собрано ' + M.generated_at + ' · база ' + M.db_size_mb + ' МБ';
+  }
+  function renderHeader() {
+    $('geo-btn').innerHTML = '<span class="geo-code">' + state.geo + '</span><span>' + esc(geoName(state.geo)) + '</span>' +
+      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true" style="color:var(--muted)"><path d="M6 9l6 6 6-6"/></svg>';
+    var niches = state.view === 'niches';
+    var opts = '<button class="geo-opt" role="option" data-act="geo" data-geo="WW" aria-selected="' + (state.geo === WW) + '"><span class="code">WW</span><span>Ворлдвайд</span><span class="cnt">' + int(niches ? D.worldNiches.length : D.worldApps.length) + '</span></button>';
+    D.geos.forEach(function (g) {
+      var cnt = niches ? g.niches : g.apps;
+      opts += '<button class="geo-opt" role="option" data-act="geo" data-geo="' + g.geo + '" aria-selected="' + (state.geo === g.geo) + '"' + (g.date ? '' : ' disabled') + '>' +
+        '<span class="code">' + g.geo + '</span><span>' + esc(GEO_NAMES[g.geo] || g.geo) + (g.is_reference ? ' · референс' : '') + '</span><span class="cnt">' + (g.date ? int(cnt) : '—') + '</span></button>';
+    });
+    $('geo-menu').innerHTML = opts;
+    var g = GEO[state.geo];
+    $('date-chip').innerHTML = '<span class="muted small">данные</span> <span class="num">' + (state.geo === WW
+      ? esc(dmy(D.geos.map(function (x) { return x.date; }).filter(Boolean).sort()[0]) + ' – ' + dmy(M.date))
+      : esc(dmy(g && g.date))) + '</span>';
+    $('theme-btn').innerHTML = isDark()
+      ? '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--orange)" aria-hidden="true"><circle cx="12" cy="12" r="4.4"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>'
+      : '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 14.5A8.6 8.6 0 0 1 9.5 4a8.6 8.6 0 1 0 10.5 10.5z"/></svg>';
+  }
+
+  // ---------------- топ приложений ----------------
+  function appRowsBase() {
+    if (state.geo === WW) {
+      return D.worldApps.map(function (w) {
+        var r = appByKey[w.geo + '|' + w.app_id];
+        return Object.assign({}, r, { geos_count: w.geos_count, geos: w.geos, us_prescore: w.us_prescore });
+      });
+    }
+    return (appsByGeo[state.geo] || []).map(function (a) { return Object.assign({}, a, { geos_count: (appsById[a.app_id] || []).length, geos: (appsById[a.app_id] || []).map(function (x) { return x.geo; }).join(',') }); });
+  }
+  function applyAppFilters(rows, ignorePaid) {
+    var f = state.af;
+    return rows.filter(function (a) {
+      if (!state.showDisq && (a.disq.indexOf('fraud') >= 0 || a.disq.indexOf('wall') >= 0)) return false;
+      if (!ignorePaid && state.hidePaid && a.level === 'found') return false;
+      if (f.niche) {
+        if (f.niche.concept) { if (a.concept !== f.niche.concept) return false; }
+        else if (a.niche_id !== f.niche.niche_id || a.geo !== f.niche.geo) return false;
+      }
+      var gk = a.genre_id && a.genre_id.indexOf('GAME') === 0 ? 'GAME' : a.genre_id;
+      if (f.cat !== 'all' && gk !== f.cat) return false;
+      if (f.level !== 'all' && a.level !== f.level) return false;
+      if (f.traffic !== 'all' && (f.traffic === 'none' ? a.traffic : a.traffic !== f.traffic)) return false;
+      if (a.passed < f.minPassed) return false;
+      if (f.quad !== 'all' && (a.niche_quadrant || 'undetermined') !== f.quad) return false;
+      if (f.age !== 'all' && !(isNum(a.age_months) && a.age_months < Number(f.age))) return false;
+      if (f.monet !== 'all' && a.monetization_type !== f.monet) return false;
+      return matchesQ([a.title, a.app_id, a.developer, a.concept, a.niche_head]);
+    });
+  }
+  var APP_SORT = {
+    checks: function (a, b) { return (b.passed - a.passed) || ((b.prescore ?? -1) - (a.prescore ?? -1)); },
+    prescore: function (a, b) { return (b.prescore ?? -1) - (a.prescore ?? -1); },
+    delta: function (a, b) { return (b.delta30 ?? -Infinity) - (a.delta30 ?? -Infinity); },
+    young: function (a, b) { return (a.age_months ?? Infinity) - (b.age_months ?? Infinity); },
+    freedom: function (a, b) { return (b.niche_freedom ?? -1) - (a.niche_freedom ?? -1); },
+    breadth: function (a, b) { return (b.geos_count - a.geos_count) || ((b.prescore ?? -1) - (a.prescore ?? -1)); }
+  };
+
+  function renderApps() {
+    var base = appRowsBase(), f = state.af;
+    var noPaid = applyAppFilters(base, true);
+    var hiddenPaid = state.hidePaid ? noPaid.filter(function (a) { return a.level === 'found'; }).length : 0;
+    var rows = state.hidePaid ? noPaid.filter(function (a) { return a.level !== 'found'; }) : noPaid;
+    rows.sort(APP_SORT[f.sort] || APP_SORT.checks);
+    var pages = Math.max(1, Math.ceil(rows.length / PAGE));
+    if (state.page > pages) state.page = pages;
+    var slice = rows.slice((state.page - 1) * PAGE, state.page * PAGE);
+    var disqHidden = state.showDisq ? 0 : base.filter(function (a) { return a.disq.indexOf('fraud') >= 0 || a.disq.indexOf('wall') >= 0; }).length;
+
+    var cats = {}, monets = {};
+    base.forEach(function (a) { var k = a.genre_id && a.genre_id.indexOf('GAME') === 0 ? 'GAME' : a.genre_id; if (k) cats[k] = (cats[k] || 0) + 1; if (a.monetization_type) monets[a.monetization_type] = 1; });
+    var catList = Object.keys(cats).sort(function (a, b) { return cats[b] - cats[a]; }).slice(0, 7);
+    if (f.cat !== 'all' && catList.indexOf(f.cat) < 0) catList.push(f.cat);
+
+    var cnt = function (fn) { return noPaid.filter(fn).length; };
+    var clean = cnt(function (a) { return a.level === 'no_signs' || a.level === 'confirmed'; });
+    var kpis = [
+      { label: 'В выборке', value: int(rows.length), delta: hiddenPaid ? 'скрыто ' + int(hiddenPaid) : '', deltaColor: 'var(--orange)', hint: state.geo === WW ? 'уникальных приложений, прошедших воронку' : 'прошли воронку в ' + geoName(state.geo) },
+      { label: 'Без признаков закупки', value: int(clean), delta: pct(noPaid.length ? clean / noPaid.length : null), deltaColor: 'var(--green)', hint: 'обе библиотеки пусты, трекера нет, улика свежая' },
+      { label: 'Закупка найдена', value: int(cnt(function (a) { return a.level === 'found'; })), hint: 'реклама Google или Meta, трекер атрибуции' },
+      { label: 'Молодые органики', value: int(cnt(function (a) { return a.young && (a.level === 'no_signs' || a.level === 'confirmed'); })), hint: 'моложе ' + M.young_months + ' мес и без закупки' },
+      { label: 'Прошли 4+ из 7', value: int(cnt(function (a) { return a.passed >= 4; })), hint: 'непроверенное пройденным не считается' }
+    ];
+    var lead = state.geo === WW
+      ? 'Каждое приложение — одной строкой, в гео, где у него выше индекс копируемости с небольшой поправкой на деньги гео. Квадраты — семь проверок методики v2.0: зелёный пройдена, красный провалена, пустой не проверена; пунктир — проверка 3b «трафик поисковый».'
+      : 'Приложения, прошедшие воронку в ' + esc(geoName(state.geo)) + ', снимок ' + esc(dmy(GEO[state.geo].date)) + '. Квадраты — семь проверок методики v2.0.';
+
+    var sel = function (act, label, cur, options) {
+      return '<span class="field"><label for="f-' + act + '">' + label + '</label><select id="f-' + act + '" data-act="af" data-key="' + act + '">' +
+        options.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (String(cur) === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></span>';
+    };
+    var cols = [
+      { t: '#', v: function (a, i) { return '<div style="display:flex;align-items:center;gap:7px">' + starBtn('a', a.app_id) + '<span class="num muted strong" style="font-size:12.5px">' + ((state.page - 1) * PAGE + i + 1) + '</span></div>'; } },
+      { t: 'Приложение', v: function (a) { return appCell(a); } },
+      { t: 'Ниша', v: function (a) {
+        if (!a.niche_id) return dash('ниша не определена');
+        return '<button class="niche-cell" data-act="open-niche" data-geo="' + esc(a.geo) + '" data-niche="' + esc(a.niche_id) + '"><div class="strong nowrap">' + esc(a.concept || a.niche_head) + '</div><div style="margin-top:3px">' + quadBadge(a.niche_quadrant) + '</div></button>';
+      } }
+    ];
+    if (state.geo === WW) cols.push({ t: 'Гео', v: function (a) { return geoPlus(a.geo, a.geos_count, a.geos); } });
+    cols = cols.concat([
+      { t: 'Установки', r: true, v: function (a) { return '<div class="num strong">' + short(a.installs) + '</div><div class="muted small">' + fix(a.score, 1) + ' ★</div>'; } },
+      { t: 'Возраст', r: true, v: function (a) {
+        if (!isNum(a.age_months)) return dash('дата релиза не разобрана');
+        return '<div class="num strong">' + fix(a.age_months, 0) + ' мес</div>' + (a.young ? '<span class="badge b-green" style="margin-top:3px">&lt; ' + M.young_months + ' мес</span>' : '<div class="muted small">' + esc(a.released ? a.released.slice(0, 7) : '') + '</div>');
+      } },
+      { t: 'Прирост 30 дн.', r: true, v: function (a) {
+        if (isNum(a.delta30)) return '<span class="num strong" style="color:' + (a.delta30 > 0 ? 'var(--green)' : 'var(--muted)') + '">' + (a.delta30 > 0 ? '+' : '') + short(a.delta30) + '</span>' + (a.delta_partial ? '<div class="muted small">окно ' + a.delta_w + ' дн.</div>' : '');
+        var g = GEO[a.geo];
+        return '<span class="muted small" title="нужно окно ' + M.min_window + ' дней между снимками">копится: ' + Math.min(g.k_window || 0, M.min_window) + ' из ' + M.min_window + ' дн.</span>';
+      } },
+      { t: 'Органика', v: function (a) { return levelBadge(a); } },
+      { t: 'Источник', v: function (a) { return trafficBadge(a); } },
+      { t: 'Проверки', v: function (a) { return checksHtml(a) + '<div class="muted small num" style="margin-top:3px">' + a.passed + ' из 7</div>'; } },
+      { t: 'Монетизация', v: function (a) { return '<span class="tag">' + esc(MONET[a.monetization_type] || a.monetization_type || '—') + '</span>' + (isNum(a.iap_max_usd) ? '<div class="muted small num" style="margin-top:3px">до $' + fix(a.iap_max_usd, 0) + '</div>' : ''); } },
+      { t: 'Свобода ниши', r: true, v: function (a) { return isNum(a.niche_freedom) ? meter(a.niche_freedom, freedomColor(a.niche_freedom)) : dash('свобода ниши не посчитана'); } },
+      { t: 'Индекс', r: true, title: 'prescore — индекс копируемости 0–100', v: function (a) { return '<span class="num strong">' + fix(a.prescore, 0) + '</span>'; } }
+    ]);
+
+    var nicheChip = f.niche ? '<span class="filter-chip">Ниша: ' + esc(f.niche.label) + '<button data-act="clear-niche" aria-label="Снять фильтр ниши">×</button></span>' : '';
+    $('view').innerHTML = '<section class="page">' +
+      pageHead('Методика v2.0 · ' + geoName(state.geo), 'Топ приложений на копирование', lead) +
+      kpiCards(kpis) +
+      '<div class="card" style="overflow:hidden">' +
+        '<div class="toolbar first">' +
+          '<label class="check"><input type="checkbox" data-act="hide-paid"' + (state.hidePaid ? ' checked' : '') + '> Скрыть выросших на покупном трафике</label>' +
+          '<span class="note">' + (state.hidePaid ? 'скрыто ' + int(hiddenPaid) : int(cnt(function (a) { return a.level === 'found'; })) + ' с найденной закупкой в выборке') + '</span>' +
+          nicheChip +
+          '<div class="toolbar-right"><label class="check"><input type="checkbox" data-act="show-disq"' + (state.showDisq ? ' checked' : '') + '> Показать отсеянных</label>' +
+            '<span class="note">' + (state.showDisq ? 'накрутка и стена авторитета видны' : 'скрыто ' + int(disqHidden) + ': накрутка, стена') + '</span></div>' +
+        '</div>' +
+        '<div class="toolbar">' +
+          '<button class="pill" data-act="af-cat" data-cat="all" aria-pressed="' + (f.cat === 'all') + '">Все</button>' +
+          catList.map(function (c) { return '<button class="pill" data-act="af-cat" data-cat="' + esc(c) + '" aria-pressed="' + (f.cat === c) + '">' + esc(c === 'GAME' ? 'Игры' : genre(c)) + ' <span class="num" style="opacity:.7">' + (cats[c] || 0) + '</span></button>'; }).join('') +
+        '</div>' +
+        '<div class="toolbar">' +
+          sel('level', 'Органика', f.level, [['all', 'любая'], ['no_signs', 'Признаков закупки нет'], ['confirmed', 'Подтверждена'], ['stale', 'Улика протухла'], ['unchecked', 'Не проверено'], ['found', 'Закупка найдена']]) +
+          sel('traffic', 'Источник', f.traffic, [['all', 'любой'], ['search', 'Поиск'], ['external', 'Внешний'], ['none', 'Не проверено']]) +
+          sel('minPassed', 'Пройдено', f.minPassed, [0, 1, 2, 3, 4, 5, 6, 7].map(function (n) { return [n, '≥ ' + n]; })) +
+          sel('quad', 'Квадрант ниши', f.quad, [['all', 'все']].concat(Object.keys(QUAD).map(function (k) { return [k, QUAD[k][0]]; }))) +
+          sel('age', 'Возраст', f.age, [['all', 'любой'], ['12', '< 12 мес'], ['24', '< 24 мес']]) +
+          sel('monet', 'Монетизация', f.monet, [['all', 'все']].concat(Object.keys(monets).map(function (k) { return [k, MONET[k] || k]; }))) +
+          '<div class="toolbar-right">' + sel('sort', 'Сортировка', f.sort, [['checks', 'Пройдено проверок'], ['prescore', 'Индекс копируемости'], ['delta', 'Прирост за 30 дней'], ['young', 'Сначала молодые'], ['freedom', 'Свобода ниши'], ['breadth', 'Широта по гео']]) + '</div>' +
+        '</div>' +
+        tableHtml(cols, slice, { minWidth: state.geo === WW ? 1500 : 1440, empty: 'Под фильтры ничего не попало' }) +
+        pager(rows.length, state.page) +
+      '</div>' +
+      '<p class="note">Проверка 3 «вырос без закупки» пройдена только при разборе APK (установочного файла приложения) без SDK атрибуции — сейчас таких нет, поэтому рабочая ступень «признаков закупки нет». Прирост, курс «спрос → установки» и проверка 3b появятся, когда между снимками гео будет ' + M.min_window + ' дней. Выручки нет: Play её не публикует.</p>' +
+    '</section>';
+  }
+
+  // ---------------- топ ниш ----------------
+  function nicheRowsBase() {
+    if (state.geo === WW) {
+      return D.worldNiches.map(function (w) {
+        var n = nicheByKey[w.geo + '|' + w.niche_id];
+        return Object.assign({}, n, { _w: w, geos_count: w.geos_count });
+      });
+    }
+    return (nichesByGeo[state.geo] || []).map(function (n) { return Object.assign({}, n, { _w: n.concept ? worldNicheByConcept[n.concept] : null, geos_count: n.concept ? (nichesByConcept[n.concept] || []).length : 1 }); });
+  }
+  var NICHE_SORT = {
+    // Лучшая ниша каждого гео имеет процентиль 100, поэтому ворлдвайд при равенстве выше та,
+    // что в квадранте «Цель» в большем числе гео, затем — свободнее.
+    rank: function (a, b) { return (b.rank_pct ?? -1) - (a.rank_pct ?? -1) || ((b._w || {}).target_geos || 0) - ((a._w || {}).target_geos || 0) || (b.freedom ?? -1) - (a.freedom ?? -1); },
+    freedom: function (a, b) { return (b.freedom ?? -1) - (a.freedom ?? -1); },
+    capacity: function (a, b) { return (b.capacity ?? -1) - (a.capacity ?? -1) || (b.freedom ?? -1) - (a.freedom ?? -1); },
+    purity: function (a, b) { return (b.purity ?? -1) - (a.purity ?? -1); },
+    tto: function (a, b) { return (a.tto ?? Infinity) - (b.tto ?? Infinity); },
+    young: function (a, b) { return (b.young ?? -1) - (a.young ?? -1); },
+    door: function (a, b) { return (a.door ?? Infinity) - (b.door ?? Infinity); }
+  };
+  function applyNicheFilters(rows, ignoreQuad) {
+    var f = state.nf;
+    return rows.filter(function (n) {
+      if (!ignoreQuad && f.quad !== 'all' && n.quadrant !== f.quad) return false;
+      if (f.cat !== 'all' && n._genre !== f.cat) return false;
+      if (f.freedom !== 'all' && !(isNum(n.freedom) && n.freedom >= Number(f.freedom))) return false;
+      if (f.purity === 'p50') { var g = GEO[n.geo]; if (!(isNum(n.purity) && isNum(g.purityP50) && n.purity >= g.purityP50)) return false; }
+      if (f.young && !(n.young >= 1)) return false;
+      if (f.cand && !(n.cand_organic >= 1)) return false;
+      if (f.full && n.incomplete.length) return false;
+      var usHead = n.concept && nicheByKey[REF + '|' + ((worldNicheByConcept[n.concept] || {}).us_niche_id)];
+      return matchesQ([n.concept, n.head, usHead && usHead.head]);
+    });
+  }
+  function renderNiches() {
+    var base = nicheRowsBase(), f = state.nf;
+    var forMatrix = applyNicheFilters(base, true);
+    var rows = applyNicheFilters(base, false);
+    rows.sort(NICHE_SORT[f.sort] || NICHE_SORT.rank);
+    var pages = Math.max(1, Math.ceil(rows.length / PAGE));
+    if (state.page > pages) state.page = pages;
+    var slice = rows.slice((state.page - 1) * PAGE, state.page * PAGE);
+    var q = {}; forMatrix.forEach(function (n) { q[n.quadrant] = (q[n.quadrant] || 0) + 1; });
+    var cats = {}; base.forEach(function (n) { if (n._genre) cats[n._genre] = (cats[n._genre] || 0) + 1; });
+    var catList = Object.keys(cats).sort(function (a, b) { return cats[b] - cats[a]; }).slice(0, 7);
+    if (f.cat !== 'all' && catList.indexOf(f.cat) < 0) catList.push(f.cat);
+    var geosIn = state.geo === WW ? D.geos.filter(function (g) { return g.date; }) : [GEO[state.geo]];
+    var full = geosIn.filter(function (g) { return isNum(g.k_geo); }).length;
+
+    var kpis = [
+      { label: 'Ниш в выборке', value: int(rows.length), hint: state.geo === WW ? 'концептов каталога, одна строка на концепт' : 'кластеров ключей в ' + geoName(state.geo) },
+      { label: 'Квадрант «Цель»', value: int(q.target || 0), deltaColor: 'var(--green)', hint: 'свобода ≥ 75 и чистота ≥ p50 гео' },
+      { label: 'С молодыми органиками', value: int(forMatrix.filter(function (n) { return n.young >= 1; }).length), hint: 'зашли в топ-20 моложе ' + M.young_months + ' мес без закупки' },
+      { label: 'Медиана свободы · чистоты', value: fix(median(forMatrix.map(function (n) { return n.freedom; })), 0) + ' · ' + pct(median(forMatrix.map(function (n) { return n.purity; }))), hint: 'по нишам выборки' },
+      { label: 'Основа ранга', value: full ? 'полная' : 'без ёмкости', hint: 'полная в ' + full + ' гео, без ёмкости в ' + (geosIn.length - full) + ': курс копится' }
+    ];
+    var cell = function (key, cls) {
+      var x = QUAD[key];
+      return '<button class="mx-cell ' + cls + '" data-act="nf-quad" data-quad="' + key + '" aria-pressed="' + (f.quad === key) + '"><span class="mx-count">' + int(q[key] || 0) + '</span><span class="mx-name">' + x[0] + '</span><span class="mx-what">' + esc(x[2]) + '</span></button>';
+    };
+    var matrix = '<div class="matrix-wrap"><div class="card"><div class="matrix">' +
+      '<div class="mx-axis y">свобода ≥ 75</div>' + cell('bought', 'bought') + cell('target', 'target') +
+      '<div class="mx-axis y">свобода &lt; 75</div>' + cell('pass', 'pass') + cell('mature', 'mature') +
+      '<div></div><div class="mx-axis">чистота &lt; p50</div><div class="mx-axis">чистота ≥ p50</div>' +
+      '</div></div>' +
+      '<div class="card panel"><div class="panel-title">Как читать</div><div class="panel-sub" style="margin-top:8px">' +
+        '<b>Свобода</b> — есть ли куда встать: свободный спрос, пустота выдачи, незанятость ASO, спрос на конкурента, входы новичков, оборот и клоны.<br><br>' +
+        '<b>Ёмкость</b> — сколько установок в месяц даст свободное место (оценка порядка).<br><br>' +
+        '<b>Чистота</b> — доля спроса, которая уходит приложениям без закупки, с весом по месту в топ-10.<br><br>' +
+        '<b>Срок</b> — через сколько месяцев после релиза молодые органики вошли в топ-10.</div>' +
+        '<div class="actions">' + (q.undetermined ? '<button class="btn" data-act="nf-quad" data-quad="undetermined">Не определено: ' + int(q.undetermined) + '</button>' : '') +
+        (f.quad !== 'all' ? '<button class="btn" data-act="nf-quad" data-quad="all">Все квадранты</button>' : '') + '</div></div></div>';
+
+    var sel = function (act, label, cur, options) {
+      return '<span class="field"><label for="n-' + act + '">' + label + '</label><select id="n-' + act + '" data-act="nf" data-key="' + act + '">' +
+        options.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (String(cur) === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></span>';
+    };
+    var chk = function (key, label) { return '<label class="check"><input type="checkbox" data-act="nf-check" data-key="' + key + '"' + (f[key] ? ' checked' : '') + '> ' + label + '</label>'; };
+    var cols = [
+      { t: '#', v: function (n, i) { return '<div style="display:flex;align-items:center;gap:7px">' + starBtn('n', n.concept || (n.geo + '|' + n.niche_id)) + '<span class="num muted strong" style="font-size:12.5px">' + ((state.page - 1) * PAGE + i + 1) + '</span></div>'; } },
+      { t: 'Ниша', v: function (n) {
+        var us = n.concept && n._w && n._w.us_niche_id ? nicheByKey[REF + '|' + n._w.us_niche_id] : null;
+        return '<button class="niche-cell" data-act="open-niche" data-geo="' + esc(n.geo) + '" data-niche="' + esc(n.niche_id) + '"><div class="strong">' + esc(n.concept || n.head) + '</div>' +
+          '<div class="muted small">' + esc(n.head) + (us && n.geo !== REF ? ' · US: ' + esc(us.head) : '') + (n.concept ? '' : ' · вне каталога') + '</div></button>';
+      } },
+      { t: 'Квадрант', v: function (n) {
+        var extra = (n.closed ? ' <span class="badge b-red">ниша закрыта</span>' : '') + (n.tail_clean ? ' <span class="badge b-green">хвост чист</span>' : '') +
+          (n.incomplete.length ? '<div class="muted small" title="' + esc(n.incomplete.map(function (k) { return MISSING[k] || k; }).join('\n')) + '" style="margin-top:3px">неполные: ' + esc(n.incomplete.map(function (k) { return MISSING_SHORT[k] || k; }).join(', ')) + '</div>' : '');
+        return quadBadge(n.quadrant, extra);
+      } }
+    ];
+    if (state.geo === WW) cols.push({ t: 'Гео', v: function (n) {
+      var w = n._w || {}, us = w.us_niche_id ? nicheByKey[REF + '|' + w.us_niche_id] : null;
+      var tip = 'В US: ' + (us ? (QUAD[us.quadrant] || QUAD.undetermined)[0] + ', свобода ' + fix(us.freedom, 0) + ', чистота ' + pct(us.purity) : 'нет ниши') +
+        '\nСамое дешёвое гео: ' + (w.cheapest_geo ? w.cheapest_geo + ', door ' + short(w.cheapest_door) : '—');
+      return '<div title="' + esc(tip) + '">' + geoPlus(n.geo, n.geos_count, (nichesByConcept[n.concept] || []).map(function (x) { return x.geo; }).join(',')) +
+        '<div class="muted small nowrap" style="margin-top:3px">«Цель» в ' + int(w.target_geos) + ' · дешевле всего ' + esc(w.cheapest_geo || '—') + '</div></div>';
+    } });
+    cols = cols.concat([
+      { t: 'Свобода', r: true, v: function (n) {
+        if (!isNum(n.freedom)) return dash('компонент с данными меньше половины веса');
+        var top = n.components.filter(function (c) { return isNum(c.contrib); }).sort(function (a, b) { return b.contrib - a.contrib; }).slice(0, 3);
+        return '<div title="' + esc(top.map(function (c) { return (COMP[c.name] || [c.name])[0] + ': ' + fix(c.contrib, 2); }).join('\n')) + '">' + meter(n.freedom, freedomColor(n.freedom)) + '</div>';
+      } },
+      { t: 'Ёмкость', r: true, v: function (n) { return '<span class="num strong">' + capacityText(n) + '</span>'; } },
+      { t: 'Чистота', r: true, v: function (n) { return isNum(n.purity) ? '<span class="num strong" title="проверено ' + pct(n.purity_cov) + ' трафика ядра">' + pct(n.purity) + '</span>' : dash('проверено ' + pct(n.purity_cov) + ' трафика ядра, нужно ' + pct(M.purity_min)); } },
+      { t: 'Срок', r: true, v: function (n) { return '<span class="num">' + ttoText(n) + '</span>'; } },
+      { t: 'Свободных ключей', r: true, v: function (n) { return isNum(n.free_keys) ? '<span class="num strong">' + n.free_keys + '</span><span class="muted num"> / ' + n.keywords_count + '</span>' : dash('door по ключам есть меньше чем у половины ядра'); } },
+      { t: 'door', r: true, v: function (n) { return doorHtml(n); } },
+      { t: 'Молодые органики', r: true, v: function (n) { return isNum(n.young) ? '<span class="num strong" style="color:' + (n.young > 0 ? 'var(--green)' : 'var(--muted)') + '">' + n.young + '</span>' : dash('возраст известен меньше чем у половины топ-20'); } },
+      { t: 'Кандидаты', r: true, title: 'без закупки / всего прошедших воронку', v: function (n) { return '<span class="num strong">' + int(n.cand_organic) + '</span><span class="muted num"> / ' + int(n.cand) + '</span>'; } },
+      { t: 'Деньги', r: true, title: 'money_ratio гео к US', v: function (n) { return '<span class="num">' + fix(n.money_ratio, 2) + '</span>'; } },
+      { t: 'Ранг', r: true, title: 'процентиль ранга среди ниш гео', v: function (n) { return isNum(n.rank_pct) ? '<span class="num strong">' + fix(n.rank_pct, 0) + '</span>' : dash(); } }
+    ]);
+
+    $('view').innerHTML = '<section class="page">' +
+      pageHead('Методика v2.0 · ' + geoName(state.geo), 'Топ ниш', state.geo === WW
+        ? 'Концепты каталога ворлдвайд: каждая ниша — в гео, где её ранг выше, с небольшой поправкой на деньги гео. Ранг — ключ сортировки; решение принимается по четырём числам и матрице.'
+        : 'Ниши ' + esc(geoName(state.geo)) + ' на ' + esc(dmy(GEO[state.geo].date)) + '. Ранг — ключ сортировки; решение принимается по четырём числам и матрице.') +
+      kpiCards(kpis) + matrix +
+      '<div class="card" style="overflow:hidden">' +
+        '<div class="toolbar first">' + chk('young', 'Есть молодые органики') + chk('cand', 'Есть кандидаты без закупки') + chk('full', 'Только полные данные') + '</div>' +
+        (catList.length ? '<div class="toolbar"><button class="pill" data-act="nf-cat" data-cat="all" aria-pressed="' + (f.cat === 'all') + '">Все категории</button>' +
+          catList.map(function (c) { return '<button class="pill" data-act="nf-cat" data-cat="' + esc(c) + '" aria-pressed="' + (f.cat === c) + '">' + esc(c === 'GAME' ? 'Игры' : genre(c)) + ' <span class="num" style="opacity:.7">' + cats[c] + '</span></button>'; }).join('') + '</div>' : '') +
+        '<div class="toolbar">' +
+          sel('quad', 'Квадрант', f.quad, [['all', 'все']].concat(Object.keys(QUAD).map(function (k) { return [k, QUAD[k][0]]; }))) +
+          sel('freedom', 'Свобода', f.freedom, [['all', 'любая'], ['75', '≥ 75'], ['50', '≥ 50']]) +
+          sel('purity', 'Чистота', f.purity, [['all', 'любая'], ['p50', '≥ p50 гео']]) +
+          '<div class="toolbar-right">' + sel('sort', 'Сортировка', f.sort, [['rank', 'Ранг'], ['freedom', 'Свобода'], ['capacity', 'Ёмкость'], ['purity', 'Чистота'], ['tto', 'Срок'], ['young', 'Молодые органики'], ['door', 'door']]) + '</div>' +
+        '</div>' +
+        tableHtml(cols, slice, { minWidth: state.geo === WW ? 1480 : 1400, empty: 'Под фильтры ничего не попало' }) +
+        pager(rows.length, state.page) +
+      '</div>' +
+      '<p class="note">Ёмкость пуста, пока у гео нет курса «спрос → установки»: для него нужно окно ' + M.min_window + ' дней между снимками и ' + M.calib_min + ' органических приложений в топ-10. До этого ранг считается без ёмкости — свобода × чистота. «≤» у срока — верхняя граница: приложение уже было в топ-10 на первом снимке.</p>' +
+    '</section>';
+  }
+
+  // ---------------- карточка ниши ----------------
+  function openNiche(geo, nicheId) {
+    var n = nicheByKey[geo + '|' + nicheId];
+    if (!n) return;
+    var g = GEO[geo], keys = (keysByNiche[geo + '|' + nicheId] || []).slice().sort(function (a, b) { return (b.sug || 0) - (a.sug || 0); });
+    var siblings = n.concept ? (nichesByConcept[n.concept] || []).slice().sort(function (a, b) { return (b.rank_pct ?? -1) - (a.rank_pct ?? -1); }) : [n];
+    var comps = n.components.map(function (c) {
+      var name = COMP[c.name] || [c.name, ''];
+      return '<tr><td><div class="strong">' + esc(name[0]) + '</div><div class="muted small">' + esc(name[1]) + '</div></td>' +
+        '<td class="r num">' + (isNum(c.raw) ? fix(c.raw, 3) : '—') + '</td><td class="r num">' + (isNum(c.n) ? fix(c.n, 2) : '—') + '</td><td class="r num">' + fix(c.w, 2) + '</td>' +
+        '<td class="r">' + (isNum(c.contrib) ? '<span class="num strong">' + fix(c.contrib, 3) + '</span>' : '<span class="muted small">' + esc(MISSING[c.name] || 'нет данных') + '</span>') + '</td></tr>';
+    }).join('');
+    var top10 = n.top10.filter(function (x) { return !(state.hidePaid && x.level === 'found'); });
+    var hidden = n.top10.length - top10.length;
+    var young = [];
+    siblings.forEach(function (s) { s.young_apps.forEach(function (y) { young.push(Object.assign({ geo: s.geo }, y)); }); });
+    var seen = {};
+    young = young.filter(function (y) { if (seen[y.app_id]) return false; seen[y.app_id] = 1; return true; });
+    var cands = (appsByNiche[geo + '|' + nicheId] || []).filter(function (a) { return !(state.hidePaid && a.level === 'found'); }).sort(APP_SORT.checks);
+    var spikes = (appsByNiche[geo + '|' + nicheId] || []).map(function (a) { return a.spike; }).filter(isNum);
+    var pain = n.pain;
+    var starId = n.concept || (n.geo + '|' + n.niche_id);
+
+    var html = '<div class="overlay" data-act="close"><div class="drawer" role="dialog" aria-modal="true" aria-label="' + esc(n.concept || n.head) + '" data-stop="1">' +
+      '<div class="drawer-head"><div style="min-width:0;flex:1"><div class="app-name" style="font-size:17px">' + esc(n.concept || n.head) + '</div>' +
+        '<div class="app-pkg" style="max-width:none">' + esc(geoName(geo)) + ': ' + esc(n.head) + ' · ' + n.keywords_count + ' ключей в ядре · снимок ' + esc(dmy(g.date)) + '</div></div>' +
+        starBtn('n', starId) +
+        '<button class="icon-btn" data-act="close" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>' +
+      '<div class="drawer-body">' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="geo-code">' + esc(geo) + '</span>' + quadBadge(n.quadrant) +
+          (n.closed ? '<span class="badge b-red">ниша закрыта</span>' : '') + (n.tail_clean ? '<span class="badge b-green">хвост чист</span>' : '') +
+          (n.incomplete.length ? '<span class="badge b-orange" title="' + esc(n.incomplete.map(function (k) { return MISSING[k] || k; }).join('\n')) + '">неполные данные</span>' : '') +
+          '<span class="badge b-muted">ранг ' + (isNum(n.rank_pct) ? fix(n.rank_pct, 0) : '—') + ' · ' + (n.rank_basis === 'full' ? 'полная основа' : 'без ёмкости') + '</span></div>' +
+        '<div class="card four">' +
+          '<div><div class="four-label">Свобода</div><div class="four-val" style="color:' + freedomColor(n.freedom) + '">' + fix(n.freedom, 0) + '</div><div class="four-hint">процентиль среди ниш гео</div></div>' +
+          '<div><div class="four-label">Ёмкость</div><div class="four-val">' + (isNum(n.capacity) ? '≈ ' + short(n.capacity) : '—') + '</div><div class="four-hint">' + (isNum(n.capacity) ? short(n.capacity_lo) + '–' + short(n.capacity_hi) + ' установок/мес' : esc(g.k_status || 'нет курса гео')) + '</div></div>' +
+          '<div><div class="four-label">Чистота</div><div class="four-val">' + pct(n.purity) + '</div><div class="four-hint">проверено ' + pct(n.purity_cov) + ' трафика</div></div>' +
+          '<div><div class="four-label">Срок</div><div class="four-val">' + (isNum(n.tto) ? (n.tto_kind === 'upper' ? '≤' : '≈') + fix(n.tto, 1) : '—') + '</div><div class="four-hint">' + (n.tto_kind === 'upper' ? 'верхняя граница, мес' : n.tto_kind === 'measured' ? 'измерено, мес' : 'нет молодых органиков') + '</div></div>' +
+        '</div>' +
+        '<div class="card panel"><div class="panel-title">Из чего сложилась свобода</div><div class="panel-sub">n — нормировка по нишам гео (p10–p90), вклад = n × вес / сумма весов непустых компонент. Сумма вкладов = ' + fix(n.freedom_raw, 3) + '</div>' +
+          '<div class="tbl-scroll"><table class="mini" style="min-width:520px"><thead><tr><th>Компонента</th><th class="r">Значение</th><th class="r">n</th><th class="r">Вес</th><th class="r">Вклад</th></tr></thead><tbody>' + comps + '</tbody></table></div></div>' +
+        '<div class="card panel"><div class="panel-title">Ключи ядра</div><div class="panel-sub">свободный ключ — door ключа ≤ p25 гео (' + short(g.doorKeyP25) + ') и спрос не ниже медианы ниши; закупка — доля трафика топ-10 у закупающих</div>' +
+          '<div class="tbl-scroll"><table class="mini" style="min-width:560px"><thead><tr><th>Ключ</th><th class="r">Спрос</th><th class="r">door ключа</th><th>Свободен</th><th class="r">Закупка</th><th class="r">Проверено</th></tr></thead><tbody>' +
+          (keys.length ? keys.map(function (k) {
+            return '<tr><td><span class="strong">' + esc(k.keyword) + '</span>' + (k.head ? ' <span class="badge b-accent">головной</span>' : '') + '</td><td class="r num">' + fix(k.sug, 2) + '</td><td class="r num">' + short(k.door_key) + '</td>' +
+              '<td>' + (k.free ? '<span class="badge b-green">да</span>' : '<span class="muted">нет</span>') + '</td><td class="r num">' + pct(k.paid) + '</td><td class="r num">' + pct(k.checked) + '</td></tr>';
+          }).join('') : '<tr><td colspan="6" class="muted">ядро не сохранено</td></tr>') + '</tbody></table></div>' +
+          '<div class="kv"><div><dt>door ниши · голова · хвост</dt><dd>' + short(n.door) + ' · ' + short(n.door_head) + ' · ' + short(n.door_tail) + '</dd></div>' +
+          '<div><dt>До уровня door</dt><dd>' + (isNum(n.time_to_door) ? '≈ ' + fix(n.time_to_door, 1) + ' мес' : '—') + '</dd></div>' +
+          '<div><dt>Скорость door за 30 дн.</dt><dd>' + (isNum(n.door_velocity) ? short(n.door_velocity) : 'копится') + '</dd></div>' +
+          '<div><dt>Входы в топ-10 · последний</dt><dd>' + (isNum(n.entry_rate) ? n.entry_rate + ' · ' + (isNum(n.last_entry_days) ? n.last_entry_days + ' дн. назад' : 'не было') : 'копится: ' + n.history_days + ' из ' + M.min_window + ' дн.') + '</dd></div>' +
+          '<div><dt>Доля лидера · HHI топ-10</dt><dd>' + pct(n.leader_share) + ' · ' + fix(n.hhi, 2) + '</dd></div>' +
+          '<div><dt>Новичков 18 мес · слабых</dt><dd>' + pct(n.new_share_18m) + ' · ' + pct(n.weak_share) + '</dd></div></div></div>' +
+        '<div class="card panel"><div class="panel-title">Топ-10 по «' + esc(n.head) + '»</div><div class="panel-sub">зелёным — молодые органики' + (hidden ? ' · скрыто ' + hidden + ' с закупкой' : '') + '</div>' +
+          '<div class="tbl-scroll"><table class="mini" style="min-width:560px"><thead><tr><th>#</th><th>Приложение</th><th class="r">Установки</th><th class="r">Возраст</th><th>Органика</th><th>Воронка</th></tr></thead><tbody>' +
+          top10.map(function (x) {
+            var row = appByKey[geo + '|' + x.app_id];
+            var title = row ? '<button class="niche-cell" data-act="open-app" data-app="' + esc(x.app_id) + '" data-geo="' + esc(geo) + '"><span class="strong">' + esc(x.title || x.app_id) + '</span></button>' : '<span class="strong">' + esc(x.title || x.app_id) + '</span>';
+            return '<tr' + (x.young && (x.level === 'no_signs' || x.level === 'confirmed') ? ' class="hl"' : '') + '><td class="num">' + x.pos + '</td><td>' + title + '</td><td class="r num">' + short(x.installs) + '</td>' +
+              '<td class="r num">' + (isNum(x.age) ? fix(x.age, 0) + ' мес' : '—') + '</td><td>' + levelBadge(x) + '</td><td>' + (x.passed ? '<span class="badge b-green">прошло</span>' : '<span class="muted small">нет</span>') + '</td></tr>';
+          }).join('') + '</tbody></table></div></div>' +
+        '<div class="card panel"><div class="panel-title">Кто зашёл органикой</div><div class="panel-sub">моложе ' + M.young_months + ' мес, без найденной закупки, в топ-20 ядра' + (n.concept ? ' — по всем гео концепта' : '') + '</div>' +
+          (young.length ? '<table class="mini"><thead><tr><th>Приложение</th><th>Гео</th><th class="r">Возраст</th><th class="r">Установки</th></tr></thead><tbody>' + young.slice(0, 20).map(function (y) {
+            return '<tr><td class="strong">' + esc(y.title || y.app_id) + '</td><td><span class="geo-code">' + y.geo + '</span></td><td class="r num">' + fix(y.age, 1) + ' мес</td><td class="r num">' + short(y.installs) + '</td></tr>';
+          }).join('') + '</tbody></table>' : '<div class="empty" style="padding:18px">Не найдено ни одного — вход без закупки в этой нише пока не доказан</div>') + '</div>' +
+        '<div class="card panel"><div class="panel-title">Гео-разрез</div><div class="panel-sub">' + (n.concept ? 'все гео, где есть этот концепт' : 'ниша вне каталога — только это гео') + '</div>' +
+          '<div class="tbl-scroll"><table class="mini" style="min-width:600px"><thead><tr><th>Гео</th><th>Квадрант</th><th class="r">Свобода</th><th class="r">Ёмкость</th><th class="r">Чистота</th><th class="r">door</th><th class="r">Деньги</th><th class="r">Снимок</th></tr></thead><tbody>' +
+          siblings.map(function (s) {
+            return '<tr' + (s.geo === geo ? ' class="hl"' : '') + '><td><button class="niche-cell" data-act="open-niche" data-geo="' + s.geo + '" data-niche="' + esc(s.niche_id) + '"><span class="geo-code">' + s.geo + '</span></button></td><td>' + quadBadge(s.quadrant) + '</td>' +
+              '<td class="r num">' + fix(s.freedom, 0) + '</td><td class="r num">' + capacityText(s) + '</td><td class="r num">' + pct(s.purity) + '</td><td class="r num">' + short(s.door) + '</td><td class="r num">' + fix(s.money_ratio, 2) + '</td><td class="r num">' + esc(dmy(GEO[s.geo].date)) + '</td></tr>';
+          }).join('') + '</tbody></table></div></div>' +
+        '<div class="card panel"><div class="panel-title">Деньги</div><dl class="kv">' +
+          '<div><dt>Деньги гео к US</dt><dd>' + fix(n.money_ratio, 2) + '</dd></div>' +
+          '<div><dt>Ёмкость × деньги</dt><dd>' + (isNum(n.money_capacity) ? '≈ ' + short(n.money_capacity) + ' уст. US/мес' : '—') + '</dd></div>' +
+          '<div><dt>Монетизация у топ-10</dt><dd>' + pct(n.monetized) + '</dd></div>' +
+          '<div><dt>Закупка у топ-10 головного</dt><dd>' + pct(n.top10_ads_share) + '</dd></div>' +
+          '<div><dt>Жалобы лидеров: деньги · реклама · не работает</dt><dd>' + (pain ? pct(pain.money) + ' · ' + pct(pain.ads) + ' · ' + pct(pain.broken) : '—') + '</dd></div>' +
+          '<div><dt>УБТ-сигнал: всплески без обновления</dt><dd>' + (spikes.length ? pct(median(spikes)) : 'копится: нужно 20 дневных точек') + '</dd></div>' +
+        '</dl></div>' +
+        '<div class="card panel"><div class="panel-title">Кандидаты</div><div class="panel-sub">прошли воронку в ' + esc(geoName(geo)) + ': ' + int(n.cand_organic) + ' без закупки из ' + int(n.cand) + (state.hidePaid ? ' · закупающие скрыты' : '') + '</div>' +
+          (cands.length ? '<table class="mini"><thead><tr><th>Приложение</th><th>Органика</th><th>Проверки</th><th class="r">Индекс</th></tr></thead><tbody>' + cands.slice(0, 12).map(function (a) {
+            return '<tr><td><button class="niche-cell" data-act="open-app" data-app="' + esc(a.app_id) + '" data-geo="' + esc(a.geo) + '"><span class="strong">' + esc(a.title || a.app_id) + '</span></button></td><td>' + levelBadge(a) + '</td><td>' + checksHtml(a) + '</td><td class="r num">' + fix(a.prescore, 0) + '</td></tr>';
+          }).join('') + '</tbody></table>' : '<div class="empty" style="padding:18px">Кандидатов нет</div>') +
+          '<div class="actions"><button class="btn primary" data-act="niche-apps" data-geo="' + esc(geo) + '" data-niche="' + esc(nicheId) + '">Показать в «Топ приложений»</button></div></div>' +
+      '</div></div></div>';
+    $('drawer-root').innerHTML = html;
+    var btn = $('drawer-root').querySelector('.drawer [data-act="close"]'); if (btn) btn.focus();
+  }
+
+  // ---------------- карточка приложения ----------------
+  function checkNotes(a) {
+    var g = GEO[a.geo];
+    return [
+      'demand ' + fix(a.demand, 2) + ': пройдена ≥ 0,50, провалена < 0,25 · src_ads_pct ' + pct(a.src_ads_pct, 1) + ' при p95 ниши ' + pct(a.p95src, 1),
+      'слабых в топ-10 ' + pct(a.niche_weak) + ' (верхняя треть гео ≥ ' + pct(g.weakT) + ') · дыра лидера ' + pct(a.niche_gap) + ' (≥ ' + pct(g.gapT) + ') · или лидер без обновлений дольше p90 гео = ' + int(g.updP90) + ' дн.',
+      (LEVEL[a.level] || LEVEL.unchecked)[0] + (a.level === 'no_signs' ? ' — без разбора APK пройденной не считается' : a.level === 'stale' ? ' — улика старше ' + M.ttl + ' дн.' : ''),
+      ['found', 'unchecked'].indexOf(a.level) >= 0 ? 'не проверяется: ' + (LEVEL[a.level] || LEVEL.unchecked)[0].toLowerCase()
+        : isNum(a.aso_share) ? 'aso_share ' + fix(a.aso_share, 2) + ': провалена < p25 гео = ' + fix(g.asoP25, 2) : 'нет курса гео: ' + (g.k_status || '—'),
+      'feasibility ' + fix(a.feasibility, 2) + ': пройдена ≥ 0,75, провалена ≤ 0,25',
+      'monetization_proof ' + (a.monetization_proof == null ? '—' : a.monetization_proof) + (isNum(a.iap_max_usd) ? ' · покупки до $' + fix(a.iap_max_usd, 2) : ''),
+      'policy_ok ' + (a.policy_ok == null ? '—' : a.policy_ok) + ' · автогейт ' + (a.policy_auto_ok == null ? '—' : a.policy_auto_ok) + ' · ручной гейт E7'
+    ];
+  }
+  function calcOut(a) {
+    var c = load('appradar2-calc', {});
+    var inst = Number(c['inst|' + a.geo + '|' + a.app_id] || (a.niche_capacity || 0));
+    var conv = Number(c.conv || 0) / 100, arpu = Number(c.arpu || 0), dev = Number(c.dev || 0), sup = Number(c.sup || 0);
+    var money = GEO[a.geo].money_ratio || 1;
+    var income = inst * conv * arpu * money;
+    if (!(inst > 0 && conv > 0 && arpu > 0)) return 'Заполните установки в месяц, конверсию и ARPU — доход считается как установки × конверсия × ARPU × деньги гео (' + fix(money, 2) + ').';
+    var net = income - sup, months = net > 0 && dev > 0 ? dev / net : null;
+    var ok = income * 12 > dev + sup * 12;
+    return 'Доход ≈ <b>$' + int(income) + '/мес</b> · за год <b>$' + int(income * 12) + '</b> против разработки и поддержки <b>$' + int(dev + sup * 12) + '</b>' +
+      '<br><span class="badge ' + (ok ? 'b-green' : 'b-red') + '" style="margin-top:6px">' + (ok ? 'окупается за год' + (months ? ' · ≈ ' + fix(months, 1) + ' мес' : '') : 'за год не окупается') + '</span>';
+  }
+  function openApp(id, geo) {
+    var a = appByKey[geo + '|' + id];
+    if (!a) { var list = appsById[id]; if (!list) return; a = list[0]; geo = a.geo; }
+    var g = GEO[geo], n = a.niche_id ? nicheByKey[geo + '|' + a.niche_id] : null;
+    var notes = checkNotes(a), c = load('appradar2-calc', {});
+    var ttlLeft = isNum(a.evidence_age) ? M.ttl - a.evidence_age : null;
+    var metaFound = a.ads_found === 'meta' || a.ads_found === 'both';
+    var instKey = 'inst|' + geo + '|' + id;
+    var html = '<div class="overlay" data-act="close"><div class="drawer" role="dialog" aria-modal="true" aria-label="' + esc(a.title || id) + '" data-stop="1">' +
+      '<div class="drawer-head">' + icon(a) + '<div style="min-width:0;flex:1"><div class="app-name" style="font-size:16px">' + esc(a.title || id) + '</div>' +
+        '<div class="app-pkg" style="max-width:none">' + esc(id) + ' · ' + esc(a.developer || '') + '</div></div>' + starBtn('a', id) +
+        '<button class="icon-btn" data-act="close" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>' +
+      '<div class="drawer-body">' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="geo-code">' + esc(geo) + '</span>' + (a.genre_id ? '<span class="tag">' + esc(genre(a.genre_id)) + '</span>' : '') +
+          levelBadge(a) + trafficBadge(a) + a.disq.filter(function (x) { return x === 'fraud' || x === 'wall'; }).map(function (x) { return '<span class="badge b-red">' + (x === 'fraud' ? 'накрутка' : 'стена авторитета') + '</span>'; }).join('') +
+          '<a style="margin-left:auto;font-weight:700;font-size:13px" href="https://play.google.com/store/apps/details?id=' + encodeURIComponent(id) + '&gl=' + encodeURIComponent(geo) + '" target="_blank" rel="noopener">Открыть в Google Play ↗</a></div>' +
+        kpiCards([
+          { label: 'Индекс', value: fix(a.prescore, 0), hint: 'prescore · пройдено ' + a.passed + ' из 7' },
+          { label: 'Установки', value: short(a.installs), hint: fix(a.score, 1) + ' ★ · ' + short(a.ratings_count) + ' оценок' },
+          { label: 'Прирост 30 дн.', value: isNum(a.delta30) ? short(a.delta30) : '—', hint: isNum(a.delta30) ? 'окно ' + a.delta_w + ' дн.' : 'копится: нужно ' + M.min_window + ' дн.' },
+          { label: 'Возраст', value: isNum(a.age_months) ? fix(a.age_months, 0) + ' мес' : '—', hint: a.released ? 'релиз ' + dmy(a.released) : 'дата не разобрана' }
+        ]) +
+        '<div class="card panel"><div class="panel-title">Семь проверок</div><div class="panel-sub">образец годится, когда проходит все; непроверенное пройденным не считается</div><div class="check-list" style="margin-top:8px">' +
+          a.checks.map(function (v, i) {
+            var lab = v === 1 ? ['пройдена', 'b-green'] : v === 0 ? ['провалена', 'b-red'] : ['не проверена', 'b-muted'];
+            return '<div class="check-row"><i class="chk ' + (v === 1 ? 'chk-1' : v === 0 ? 'chk-0' : 'chk-n') + '"></i><span class="strong">' + esc(CHECKS[i]) + '</span><span class="badge ' + lab[1] + '">' + lab[0] + '</span><span class="why">' + esc(notes[i]) + '</span></div>';
+          }).join('') + '</div></div>' +
+        '<div class="card panel"><div class="panel-title">Органика и история рекламы</div><dl class="kv">' +
+          '<div><dt>Ступень</dt><dd>' + (LEVEL[a.level] || LEVEL.unchecked)[0] + '</dd></div>' +
+          '<div><dt>Улика отсутствия рекламы</dt><dd>' + (a.evidence_date ? dmy(a.evidence_date) + ' · ' + a.evidence_age + ' дн.' + (isNum(ttlLeft) ? (ttlLeft >= 0 ? ' · протухнет через ' + ttlLeft + ' дн.' : ' · протухла') : '') : '—') + '</dd></div>' +
+          '<div><dt>Google Ads Transparency</dt><dd>' + (a.g_checked ? esc(a.g_host) + ' · проверено ' + dmy(a.g_checked) : 'не проверено') + '</dd></div>' +
+          '<div><dt>Объявления Google</dt><dd>' + (isNum(a.g_creatives) ? a.g_creatives + ' · показы ' + dmy(a.g_first) + ' – ' + dmy(a.g_last) + (a.g_active ? ' · активна' : ' · в прошлом') : (a.g_checked ? 'не найдены' : '—')) + '</dd></div>' +
+          '<div><dt>Meta Ad Library</dt><dd>' + (a.m_checked ? (metaFound ? 'найдена · ' : 'не найдена · ') + 'проверено ' + dmy(a.m_checked) : 'не проверено') + '</dd></div>' +
+          '<div><dt>Трекер атрибуции в тексте</dt><dd>' + esc(a.tracking || (a.attribution_sdk === 0 ? 'нет (APK)' : 'не найден')) + '</dd></div>' +
+          '<div><dt>Разбор APK</dt><dd>' + (a.apk ? 'разобран' : 'не разобран') + '</dd></div>' +
+          '<div><dt>Реклама в библиотеках</dt><dd>' + esc(a.ads_found) + '</dd></div>' +
+        '</dl></div>' +
+        '<div class="card panel"><div class="panel-title">Источник трафика</div><div class="panel-sub">сколько прироста объясняет поиск: курс гео × вес приложения в выдаче; ниже p25 гео — внешний источник</div><dl class="kv">' +
+          '<div><dt>Прирост за окно, к 30 дн.</dt><dd>' + (isNum(a.delta30) ? short(a.delta30) + ' · окно ' + a.delta_w + ' дн.' : 'копится') + '</dd></div>' +
+          '<div><dt>Вес в поиске гео</dt><dd>' + fix(a.weight, 2) + '</dd></div>' +
+          '<div><dt>Курс гео</dt><dd>' + (isNum(g.k_geo) ? fix(g.k_geo, 1) + ' · наблюдений ' + g.k_obs : esc(g.k_status || '—')) + '</dd></div>' +
+          '<div><dt>Объяснено поиском</dt><dd>' + (isNum(a.explained) ? short(a.explained) : '—') + '</dd></div>' +
+          '<div><dt>aso_share · p25 гео</dt><dd>' + fix(a.aso_share, 2) + ' · ' + fix(g.asoP25, 2) + '</dd></div>' +
+          '<div><dt>Всплески без обновления листинга</dt><dd>' + (isNum(a.spike) ? pct(a.spike) : 'копится') + '</dd></div>' +
+        '</dl></div>' +
+        '<div class="card panel"><div class="panel-title">Ключи, где приложение в топ-50</div><div class="panel-sub">вклад = спрос ключа × CTR места; топ-8 по вкладу · в топ-10 по ' + (a.kw_top10 ?? '—') + ', в топ-50 по ' + (a.kw_top50 ?? '—') + ' ключам</div>' +
+          (a.kw.length ? '<table class="mini"><thead><tr><th>Ключ</th><th class="r">Место</th><th class="r">Вклад</th></tr></thead><tbody>' + a.kw.map(function (k) { return '<tr><td class="strong">' + esc(k[0]) + '</td><td class="r num">' + k[1] + '</td><td class="r num">' + fix(k[2], 2) + '</td></tr>'; }).join('') + '</tbody></table>' : '<div class="empty" style="padding:18px">Нет ключей ядра с этим приложением в топ-50</div>') + '</div>' +
+        (n ? '<div class="card panel"><div class="panel-title">Ниша: ' + esc(n.concept || n.head) + '</div><div class="panel-sub">' + esc(n.head) + ' · ' + (QUAD[n.quadrant] || QUAD.undetermined)[0] + '</div>' +
+          '<div class="kv"><div><dt>Свобода</dt><dd>' + fix(n.freedom, 0) + '</dd></div><div><dt>Ёмкость</dt><dd>' + capacityText(n) + '</dd></div>' +
+          '<div><dt>Чистота</dt><dd>' + pct(n.purity) + '</dd></div><div><dt>Срок</dt><dd>' + ttoText(n) + '</dd></div></div>' +
+          '<div class="actions"><button class="btn" data-act="open-niche" data-geo="' + esc(geo) + '" data-niche="' + esc(n.niche_id) + '">Открыть карточку ниши</button></div></div>' : '') +
+        '<div class="card panel"><div class="panel-title">Деньги и окупаемость</div><div class="panel-sub">ставка — ASO и УБТ без закупки: порог сводится к разработке и поддержке. Установки подставлены из ёмкости ниши' + (isNum(a.ipm) ? '; верхняя граница — средняя скорость этого приложения ' + short(a.ipm) + '/мес' : '') + '</div>' +
+          '<dl class="kv"><div><dt>Модель</dt><dd>' + esc(MONET[a.monetization_type] || a.monetization_type || '—') + '</dd></div>' +
+          '<div><dt>Покупки</dt><dd>' + (isNum(a.iap_max_usd) ? '$' + fix(a.iap_min_usd, 2) + ' – $' + fix(a.iap_max_usd, 2) : '—') + '</dd></div></dl>' +
+          '<div class="calc">' +
+            '<label>Установок в месяц<input class="inp" type="number" min="0" step="100" data-act="calc" data-key="' + esc(instKey) + '" value="' + esc(c[instKey] != null ? c[instKey] : (isNum(a.niche_capacity) ? Math.round(a.niche_capacity) : '')) + '" placeholder="ёмкость копится"></label>' +
+            '<label>Конверсия в оплату, %<input class="inp" type="number" min="0" step="0.1" data-act="calc" data-key="conv" value="' + esc(c.conv != null ? c.conv : '') + '" placeholder="например 2"></label>' +
+            '<label>ARPU, $ в месяц<input class="inp" type="number" min="0" step="0.5" data-act="calc" data-key="arpu" value="' + esc(c.arpu != null ? c.arpu : '') + '" placeholder="например 4"></label>' +
+            '<label>Разработка, $<input class="inp" type="number" min="0" step="500" data-act="calc" data-key="dev" value="' + esc(c.dev != null ? c.dev : '') + '" placeholder="например 8000"></label>' +
+            '<label>Поддержка, $ в месяц<input class="inp" type="number" min="0" step="100" data-act="calc" data-key="sup" value="' + esc(c.sup != null ? c.sup : '') + '" placeholder="например 300"></label>' +
+          '</div><div class="calc-out" id="calc-out">' + calcOut(a) + '</div></div>' +
+        '<div class="card panel"><div class="panel-title">Присутствие по гео</div>' +
+          '<table class="mini"><thead><tr><th>Гео</th><th class="r">Индекс</th><th>Органика</th><th class="r">Пройдено</th><th>Ниша</th></tr></thead><tbody>' +
+          (appsById[id] || []).slice().sort(function (x, y) { return (y.prescore ?? -1) - (x.prescore ?? -1); }).map(function (x) {
+            return '<tr' + (x.geo === geo ? ' class="hl"' : '') + '><td><button class="niche-cell" data-act="open-app" data-app="' + esc(id) + '" data-geo="' + x.geo + '"><span class="geo-code">' + x.geo + '</span></button></td><td class="r num">' + fix(x.prescore, 0) + '</td><td>' + levelBadge(x) + '</td><td class="r num">' + x.passed + ' из 7</td><td>' + quadBadge(x.niche_quadrant) + '</td></tr>';
+          }).join('') + '</tbody></table></div>' +
+        '<div class="card panel"><div class="panel-title">Что проверить вручную</div><ul class="manual note">' +
+          '<li><b>policy_ok</b> — гейт E7: клон переживёт модерацию Play.</li>' +
+          '<li><b>Разбор APK</b> (установочного файла приложения) — нет ли SDK атрибуции; только он переводит ступень в «органика подтверждена».</li>' +
+          '<li><b>Показываемость за 3 секунды</b> — понятна ли механика с одного ролика (задел под УБТ).</li></ul></div>' +
+      '</div></div></div>';
+    $('drawer-root').innerHTML = html;
+    $('drawer-root').setAttribute('data-app', id); $('drawer-root').setAttribute('data-geo', geo);
+    var btn = $('drawer-root').querySelector('.drawer [data-act="close"]'); if (btn) btn.focus();
+  }
+  function closeDrawer() { $('drawer-root').innerHTML = ''; $('drawer-root').removeAttribute('data-app'); }
+
+  // ---------------- избранное ----------------
+  function renderFav() {
+    var apps = state.favs.map(function (id) { var w = worldAppById[id]; return w ? appByKey[w.geo + '|' + id] : null; }).filter(Boolean)
+      .filter(function (a) { return matchesQ([a.title, a.app_id, a.developer, a.concept]); });
+    var niches = state.nfavs.map(function (key) {
+      if (key.indexOf('|') >= 0) return nicheByKey[key] || null;
+      var w = worldNicheByConcept[key]; return w ? nicheByKey[w.geo + '|' + w.niche_id] : null;
+    }).filter(Boolean).filter(function (n) { return matchesQ([n.concept, n.head]); });
+    $('view').innerHTML = '<section class="page">' + pageHead('', 'Избранное', 'Приложения и ниши, отмеченные звездой. Список хранится в этом браузере.') +
+      '<div class="panel-title">Ниши</div>' +
+      (niches.length ? '<div class="fav-grid">' + niches.map(function (n) {
+        return '<div class="card fav-card"><div style="display:flex;align-items:center;gap:10px"><button class="niche-cell" data-act="open-niche" data-geo="' + esc(n.geo) + '" data-niche="' + esc(n.niche_id) + '"><div class="strong">' + esc(n.concept || n.head) + '</div><div class="muted small">' + esc(n.geo) + ' · ' + esc(n.head) + '</div></button><span style="margin-left:auto">' + starBtn('n', n.concept || (n.geo + '|' + n.niche_id)) + '</span></div>' +
+          '<div style="margin-top:10px">' + quadBadge(n.quadrant) + '</div>' +
+          '<div class="trio"><div><div class="trio-label">Свобода</div><div class="trio-val">' + fix(n.freedom, 0) + '</div></div><div><div class="trio-label">Чистота</div><div class="trio-val">' + pct(n.purity) + '</div></div><div><div class="trio-label">Срок</div><div class="trio-val">' + ttoText(n) + '</div></div></div></div>';
+      }).join('') + '</div>' : '<div class="dashed empty">Отметьте нишу звездой в «Топ ниш»</div>') +
+      '<div class="panel-title">Приложения</div>' +
+      (apps.length ? '<div class="fav-grid">' + apps.map(function (a) {
+        return '<div class="card fav-card"><div style="display:flex;align-items:center;gap:12px">' + appCell(a) + '<span style="margin-left:auto">' + starBtn('a', a.app_id) + '</span></div>' +
+          '<div class="trio"><div><div class="trio-label">Установки</div><div class="trio-val">' + short(a.installs) + '</div></div><div><div class="trio-label">Гео</div><div class="trio-val">' + esc(a.geo) + '</div></div><div><div class="trio-label">Индекс</div><div class="trio-val">' + fix(a.prescore, 0) + '</div></div></div>' +
+          '<div style="display:flex;gap:8px;align-items:center;margin-top:12px">' + checksHtml(a) + '<span style="margin-left:auto">' + levelBadge(a) + '</span></div></div>';
+      }).join('') + '</div>' : '<div class="dashed empty">Отметьте приложение звездой в «Топ приложений»</div>') +
+    '</section>';
+  }
+
+  // ---------------- сбор и планы ----------------
+  var READY = { 'собрано': 'b-green', 'собирается': 'b-orange', 'недостаточно': 'b-red', 'нет данных': 'b-muted' };
+  var WD = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+  function niceMax(v) { if (!(v > 0)) return 1; var p = Math.pow(10, Math.floor(Math.log10(v))), n = v / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p; }
+  function columns(items) {
+    var W = 640, H = 230, L = 52, R = 10, T = 22, B = 36, n = items.length || 1, cw = (W - L - R) / n, bw = Math.min(40, cw * 0.62);
+    var mx = niceMax(Math.max.apply(null, items.map(function (i) { return i.value || 0; }).concat([1]))), ph = H - T - B;
+    var s = '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="карточек по дням">';
+    for (var k = 0; k <= 4; k++) { var t = mx * k / 4, y = T + ph - (t / mx) * ph; s += '<line class="grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + y.toFixed(1) + '" y2="' + y.toFixed(1) + '"/><text x="' + (L - 8) + '" y="' + (y + 4).toFixed(1) + '" text-anchor="end">' + short(t) + '</text>'; }
+    items.forEach(function (it, i) {
+      var h = Math.max(it.value > 0 ? 2 : 0, (it.value / mx) * ph), x = L + cw * i + (cw - bw) / 2, y = T + ph - h;
+      s += '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + h.toFixed(1) + '" rx="5" style="fill:var(--accent)"><title>' + esc(it.label + ': ' + int(it.value)) + '</title></rect>';
+      s += '<text class="val" x="' + (x + bw / 2).toFixed(1) + '" y="' + (y - 6).toFixed(1) + '" text-anchor="middle">' + short(it.value) + '</text><text x="' + (x + bw / 2).toFixed(1) + '" y="' + (H - B + 18) + '" text-anchor="middle">' + esc(it.label) + '</text>';
+    });
+    return s + '</svg>';
+  }
+  function etaCell(g, need) {
+    if (!g.date) return dash();
+    var have = g.history_days || 0;
+    return have >= need ? '<span class="badge b-green">✓ ' + have + ' дн.</span>' : '<span class="num small">с ' + esc(dmy(addDays(g.date, need - have)).slice(0, 5)) + '</span> <span class="muted small">(' + have + '/' + need + ')</span>';
+  }
+  function covBadge(v) { return isNum(v) ? '<span class="badge num ' + (v >= 0.9 ? 'b-green' : v >= 0.6 ? 'b-orange' : 'b-red') + '">' + pct(v) + '</span>' : dash(); }
+  function renderCollection() {
+    var C = D.collection, byDate = {};
+    D.timeline.forEach(function (t) { byDate[t.date] = (byDate[t.date] || 0) + t.cards; });
+    var dates = Object.keys(byDate).sort();
+    var geos = D.geos.filter(function (g) { return matchesQ([g.geo, GEO_NAMES[g.geo]]); });
+    var count = function (r) { return C.status.filter(function (s) { return s.readiness === r; }).length; };
+    var withK = D.geos.filter(function (g) { return isNum(g.k_geo); }).length;
+    var expiring = D.geos.reduce(function (s, g) { return s + (g.expiring7 || 0); }, 0);
+    var cal = C.plan.map(function (day, i) {
+      var marks = [];
+      if (day.items.some(function (it) { return it.kind === 'light_crawl'; })) marks.push('<span class="mark light">D1+D2</span>');
+      day.items.forEach(function (it) {
+        if (it.kind === 'full_crawl') marks.push('<span class="mark full">' + esc(it.geo) + '</span>');
+        if (it.kind === 'k7_a') marks.push('<span class="mark k7">K7·A</span>');
+        if (it.kind === 'k7_b') marks.push('<span class="mark k7">K7·B</span>');
+        if (it.kind === 'monthly') marks.push('<span class="mark month">10.6</span>');
+      });
+      var weekend = day.weekday === 0 || day.weekday === 6;
+      return '<div class="cal-day' + (i === 0 ? ' today' : weekend ? ' weekend' : '') + '"><div class="cal-dn"><b>' + day.date.slice(8, 10) + '.' + day.date.slice(5, 7) + '</b><span>' + WD[day.weekday] + '</span></div><div class="marks">' + marks.join('') + '</div></div>';
+    }).join('');
+    $('view').innerHTML = '<section class="page">' +
+      pageHead('', 'Сбор и планы', 'Что уже собрано, какие величины методики v2.0 считаются и когда включатся остальные. Величины, которым нужна история, пусты с подписью «копится» — не нули.') +
+      kpiCards([
+        { label: 'Гео собрано сегодня', value: String(count('собрано')), delta: 'из ' + C.status.length, hint: 'все обязательные стадии дня закрыты' },
+        { label: 'Курс «спрос → установки»', value: withK + ' из ' + D.geos.length, hint: 'нужно окно ' + M.min_window + ' дн. и ' + M.calib_min + ' органиков в топ-10' },
+        { label: 'Улики протухнут за 7 дней', value: int(expiring), hint: 'проверка рекламы старше ' + (M.ttl - 7) + ' дн.: нужна перепроверка' },
+        { label: 'Возраст известен', value: pct(median(D.geos.map(function (g) { return g.age_cov; }))), hint: 'медиана по гео, цель ≥ 95 %' }
+      ]) +
+      '<div class="card" style="overflow:hidden"><div class="table-head"><div class="panel-title">Готовность методики v2.0 по гео</div><span class="note" style="margin-left:auto">окна считаются от первого снимка выдачи гео; «с дд.мм» — если гео снимается каждый день</span></div>' +
+        tableHtml([
+          { t: 'Гео', v: function (g) { return '<span class="geo-code">' + g.geo + '</span> <span class="strong">' + esc(GEO_NAMES[g.geo] || g.geo) + '</span>'; } },
+          { t: 'Снимок', cls: 'num', v: function (g) { return esc(dmy(g.date)); } },
+          { t: 'Курс, 3b, прирост', title: 'окно ' + M.min_window + ' дней', v: function (g) { return isNum(g.k_geo) ? '<span class="badge b-green">курс ' + fix(g.k_geo, 1) + '</span>' : etaCell(g, M.min_window); } },
+          { t: 'Оборот, 30 дн.', v: function (g) { return etaCell(g, M.full_window); } },
+          { t: 'Входы, 90 дн.', v: function (g) { return etaCell(g, M.entry_window); } },
+          { t: 'Возраст', r: true, v: function (g) { return covBadge(g.age_cov); } },
+          { t: 'door', r: true, v: function (g) { return covBadge(g.door_cov); } },
+          { t: 'Свобода', r: true, v: function (g) { return covBadge(g.freedom_cov); } },
+          { t: 'Чистота', r: true, v: function (g) { return covBadge(g.purity_cov); } },
+          { t: 'Реклама', r: true, title: 'доля прошедших воронку с известной ступенью органики', v: function (g) { return covBadge(g.ads_cov); } },
+          { t: 'Протухнут · протухли', r: true, cls: 'num', v: function (g) { return int(g.expiring7) + ' · ' + int(g.stale); } }
+        ], geos, { minWidth: 1180, cls: 'ready-table' }) + '</div>' +
+      '<div class="split">' +
+        '<div class="card panel"><div class="panel-title">Снято карточек по дням</div><div class="panel-sub">сумма по всем гео</div>' + columns(dates.map(function (dt) { return { label: dt.slice(8, 10) + '.' + dt.slice(5, 7), value: byDate[dt] }; })) + '</div>' +
+        '<div class="card panel"><div class="panel-title">Готовность дня</div><div class="panel-sub">правило последнего полного дня</div>' +
+          '<div class="bars">' + C.status.filter(function (s) { return matchesQ([s.geo, GEO_NAMES[s.geo]]); }).map(function (s) {
+            return '<div class="bar-head"><span class="geo-code">' + s.geo + '</span><span class="bar-label">' + esc(s.why) + '</span><span class="bar-val"><span class="badge ' + (READY[s.readiness] || 'b-muted') + '">' + esc(s.readiness) + '</span></span></div>';
+          }).join('') + '</div></div>' +
+      '</div>' +
+      '<div class="card" style="overflow:hidden"><div class="table-head"><div class="panel-title">План на месяц</div><span class="note" style="margin-left:auto">' + C.plan.length + ' дней вперёд</span></div>' +
+        '<div class="cal">' + cal + '</div><div class="legend"><span><span class="mark full">US</span> полный обход гео</span><span><span class="mark light">D1+D2</span> облегчённый обход</span><span><span class="mark k7">K7</span> проверка рекламных библиотек</span><span><span class="mark month">10.6</span> месячная задача</span></div></div>' +
+      '<div class="card" style="overflow:hidden"><div class="table-head"><div class="panel-title">Гео</div><span class="note" style="margin-left:auto">референс — ' + REF + ' · деньги гео — приоры справочника, не измерения</span></div>' +
+        tableHtml([
+          { t: 'Гео', v: function (g) { return '<span class="geo-code">' + g.geo + '</span> <span class="strong">' + esc(GEO_NAMES[g.geo] || g.geo) + '</span>' + (g.is_reference ? ' <span class="badge b-accent">референс</span>' : ''); } },
+          { t: 'Тир', r: true, cls: 'num', v: function (g) { return g.tier; } },
+          { t: 'Снимков', r: true, cls: 'num', v: function (g) { return g.snapshots; } },
+          { t: 'Найдено', r: true, cls: 'num', v: function (g) { return int(g.discovered); } },
+          { t: 'Ключей', r: true, cls: 'num', v: function (g) { return int(g.keywords_total); } },
+          { t: 'Ниш', r: true, cls: 'num', v: function (g) { return int(g.niches); } },
+          { t: 'Прошли воронку', r: true, cls: 'num strong', v: function (g) { return int(g.apps); } },
+          { t: 'Деньги к US', r: true, cls: 'num', v: function (g) { return fix(g.money_ratio, 2); } }
+        ], geos, { minWidth: 860 }) + '</div>' +
+    '</section>';
+  }
+
+  // ---------------- отрисовка и события ----------------
+  function render() {
+    renderNav(); renderHeader();
+    if (state.view === 'apps') renderApps();
+    else if (state.view === 'niches') renderNiches();
+    else if (state.view === 'fav') renderFav();
+    else renderCollection();
+  }
+  document.addEventListener('click', function (e) {
+    var menu = $('geo-menu');
+    if (!e.target.closest('.geo-wrap')) { menu.hidden = true; $('geo-btn').setAttribute('aria-expanded', 'false'); }
+    if (e.target.closest('#geo-btn')) { menu.hidden = !menu.hidden; $('geo-btn').setAttribute('aria-expanded', String(!menu.hidden)); return; }
+    if (e.target.closest('#theme-btn')) { var next = isDark() ? 'light' : 'dark'; document.documentElement.setAttribute('data-theme', next); save('appradar-theme', next); renderHeader(); return; }
+    var t = e.target.closest('[data-act]');
+    if (!t) return;
+    var act = t.getAttribute('data-act');
+    if (t.tagName === 'INPUT' || t.tagName === 'SELECT') return;
+    if (act === 'close') { if (t.classList.contains('overlay') && e.target.closest('[data-stop]')) return; closeDrawer(); return; }
+    if (act === 'view') { state.view = t.getAttribute('data-view'); state.page = 1; closeDrawer(); render(); window.scrollTo(0, 0); return; }
+    if (act === 'geo') { state.geo = t.getAttribute('data-geo'); state.page = 1; state.af.cat = 'all'; state.nf.cat = 'all'; menu.hidden = true; render(); return; }
+    if (act === 'page') { state.page = Number(t.getAttribute('data-page')); render(); var head = document.querySelector('.card .toolbar'); if (head) head.scrollIntoView({ block: 'start' }); return; }
+    if (act === 'af-cat') { state.af.cat = t.getAttribute('data-cat'); state.page = 1; render(); return; }
+    if (act === 'nf-cat') { state.nf.cat = t.getAttribute('data-cat'); state.page = 1; render(); return; }
+    if (act === 'nf-quad') { var qd = t.getAttribute('data-quad'); state.nf.quad = state.nf.quad === qd ? 'all' : qd; state.page = 1; render(); return; }
+    if (act === 'clear-niche') { state.af.niche = null; state.page = 1; render(); return; }
+    if (act === 'fav') {
+      var kind = t.getAttribute('data-kind'), id = t.getAttribute('data-id'), list = kind === 'n' ? state.nfavs : state.favs, i = list.indexOf(id);
+      if (i >= 0) list.splice(i, 1); else list.push(id);
+      save(kind === 'n' ? 'appradar2-nfavs' : 'appradar2-favs', list);
+      t.setAttribute('aria-pressed', String(i < 0)); t.querySelector('svg').setAttribute('fill', i < 0 ? 'currentColor' : 'none');
+      renderNav(); if (state.view === 'fav' && !e.target.closest('.drawer')) renderFav();
+      return;
+    }
+    if (act === 'open-app') { openApp(t.getAttribute('data-app'), t.getAttribute('data-geo')); return; }
+    if (act === 'open-niche') { $('drawer-root').removeAttribute('data-app'); openNiche(t.getAttribute('data-geo'), t.getAttribute('data-niche')); return; }
+    if (act === 'niche-apps') {
+      var ng = t.getAttribute('data-geo'), nid = t.getAttribute('data-niche'), nn = nicheByKey[ng + '|' + nid];
+      state.view = 'apps'; state.page = 1;
+      if (state.geo === WW && nn.concept) state.af.niche = { concept: nn.concept, label: nn.concept };
+      else { state.geo = ng; state.af.niche = { geo: ng, niche_id: nid, label: (nn.concept || nn.head) + ' · ' + ng }; }
+      closeDrawer(); render(); window.scrollTo(0, 0); return;
+    }
+  });
+  document.addEventListener('change', function (e) {
+    var t = e.target, act = t.getAttribute('data-act');
+    if (act === 'hide-paid') { state.hidePaid = t.checked; save('appradar2-hide-paid', state.hidePaid); state.page = 1; render(); return; }
+    if (act === 'show-disq') { state.showDisq = t.checked; state.page = 1; render(); return; }
+    if (act === 'af') { var k = t.getAttribute('data-key'); state.af[k] = k === 'minPassed' ? Number(t.value) : t.value; state.page = 1; render(); return; }
+    if (act === 'nf') { state.nf[t.getAttribute('data-key')] = t.value; state.page = 1; render(); return; }
+    if (act === 'nf-check') { state.nf[t.getAttribute('data-key')] = t.checked; state.page = 1; render(); return; }
+  });
+  document.addEventListener('input', function (e) {
+    var t = e.target;
+    if (t.getAttribute('data-act') !== 'calc') return;
+    var c = load('appradar2-calc', {}); c[t.getAttribute('data-key')] = t.value; save('appradar2-calc', c);
+    var root = $('drawer-root'), a = appByKey[root.getAttribute('data-geo') + '|' + root.getAttribute('data-app')];
+    if (a && $('calc-out')) $('calc-out').innerHTML = calcOut(a);
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeDrawer(); $('geo-menu').hidden = true; } });
+  var qTimer = null;
+  $('q').addEventListener('input', function (e) { clearTimeout(qTimer); qTimer = setTimeout(function () { state.q = e.target.value.trim(); state.page = 1; render(); }, 160); });
+  if (window.matchMedia) { var mq = window.matchMedia('(prefers-color-scheme: dark)'); if (mq.addEventListener) mq.addEventListener('change', renderHeader); }
+  render();
+})();
+</script>
