@@ -80,10 +80,15 @@ async function stepDaily() {
   }
 }
 
+// --meta-only / --google-only: когда одна из библиотек отказывает, вторую незачем ждать.
+const metaOnly = process.argv.includes('--meta-only');
+const googleOnly = process.argv.includes('--google-only');
+
 async function adsPass(label) {
   for (const geo of geos) {
     try {
-      await checkAds.run({ geo, date: todayUTC(), runId: runId(geo, `ads-${label}`), cycle: 'daily', scope: 'core-top', useBrowser: true });
+      await checkAds.run({ geo, date: todayUTC(), runId: runId(geo, `ads-${label}`), cycle: 'daily', scope: 'core-top',
+        useBrowser: true, skipGoogle: metaOnly, skipMeta: googleOnly });
     } catch (e) {
       warn(`реклама ${geo} (${label}): ${e.message}`);
     }
