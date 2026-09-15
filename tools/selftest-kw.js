@@ -149,6 +149,88 @@ test('перцентильная нормировка: группа и отка�
   assert.equal(res.get(rows[44]).group, '*', 'маленькая категория сравнивается со всем гео');
 });
 
+test('изотоническая регрессия: PAV сливает нарушения порядка и не ломает монотонность', async () => {
+  const { isotonicFit, isotonicPredict } = await import('../src/lib/kw/models.js');
+  const m = isotonicFit([1, 2, 3, 4, 5], [1, 3, 2, 4, 4]);
+  assert.deepEqual(m.blocks.map((b) => b[2]), [1, 2.5, 4]);
+  assert.equal(isotonicPredict(m, 0), 1);
+  assert.equal(isotonicPredict(m, 2.5), 2.5);
+  assert.equal(isotonicPredict(m, 9), 4);
+  const r = rng(3);
+  const xs = [], ys = [];
+  for (let i = 0; i < 300; i++) { const x = r() * 100; xs.push(x); ys.push(Math.log1p(x * 5) + (r() - 0.5)); }
+  const big = isotonicFit(xs, ys);
+  let prev = -Infinity;
+  for (let x = 0; x <= 100; x += 0.5) {
+    const v = isotonicPredict(big, x);
+    assert.ok(v >= prev - 1e-12, `немонотонно в ${x}`);
+    prev = v;
+  }
+});
+
+test('квантильный бустинг: p50 ранжирует, p10–p90 накрывают большую часть отложенных точек', async () => {
+  const { gbmFit, gbmPredict } = await import('../src/lib/kw/models.js');
+  const r = rng(11);
+  const gen = (n) => {
+    const X = [], y = [];
+    for (let i = 0; i < n; i++) {
+      const a = r() * 10, b = r() * 5, noise = r() < 0.1 ? null : r();
+      const e = (r() + r() + r() - 1.5) * 1.2;   // шум с конечной дисперсией
+      X.push([a, b, noise]);
+      y.push(0.8 * a + Math.sin(b) * 2 + e);
+    }
+    return { X, y };
+  };
+  const train = gen(1500), test = gen(600);
+  const cfg = { nEstimators: 150, learningRate: 0.1, maxDepth: 3, minLeaf: 20, bins: 32 };
+  const t0 = Date.now();
+  const p50 = gbmFit(train.X, train.y, { ...cfg, alpha: 0.5 });
+  const p10 = gbmFit(train.X, train.y, { ...cfg, alpha: 0.1 });
+  const p90 = gbmFit(train.X, train.y, { ...cfg, alpha: 0.9 });
+  const ms = Date.now() - t0;
+  const pred = test.X.map((x) => gbmPredict(p50, x));
+  let covered = 0;
+  test.X.forEach((x, i) => { if (test.y[i] >= gbmPredict(p10, x) && test.y[i] <= gbmPredict(p90, x)) covered++; });
+  const rho = spearman(pred, test.y), cover = covered / test.y.length;
+  console.log(`      ρ p50 ${rho.toFixed(3)}, покрытие p10–p90 ${(cover * 100).toFixed(1)} %, обучение трёх моделей ${ms} мс`);
+  assert.ok(rho > 0.85);
+  // На отложенных точках квантильные модели обычно недокрывают номинальные 80 %: деревья подстраиваются под обучение.
+  assert.ok(cover > 0.65 && cover < 0.9);
+  // JSON-круг: модель хранится в kw_models.params и должна предсказывать так же.
+  const restored = JSON.parse(JSON.stringify(p50));
+  assert.equal(gbmPredict(restored, test.X[0]), pred[0]);
+});
+
+test('кривая CTR: подгонка восстанавливает CTR₁ и α, при нехватке данных — приор', async () => {
+  const { fitCtrCurve, ctrAt, bucketIndex, bucketLabel, validationMetrics } = await import('../src/lib/kw/models.js');
+  const r = rng(5);
+  const rows = [];
+  for (let k = 0; k < 400; k++) {
+    const position = 1 + Math.floor(r() * 20), impressions = 200 + Math.floor(r() * 2000);
+    const ctr = 0.27 / Math.pow(position, 0.85) * (0.9 + r() * 0.2);
+    rows.push({ position, impressions, visitors: Math.max(1, Math.round(impressions * ctr)) });
+  }
+  const fit = fitCtrCurve(rows);
+  assert.equal(fit.source, 'fit');
+  assert.ok(Math.abs(fit.ctr1 - 0.27) < 0.03, `CTR₁ ${fit.ctr1}`);
+  assert.ok(Math.abs(fit.alpha - 0.85) < 0.08, `α ${fit.alpha}`);
+  assert.ok(Math.abs(ctrAt(fit, 1) - fit.ctr1) < 1e-12);
+  const prior = fitCtrCurve(rows.slice(0, 10));
+  assert.equal(prior.source, 'prior');
+  assert.equal(prior.ctr1, 0.28);
+  assert.equal(bucketIndex(99), 0);
+  assert.equal(bucketIndex(100), 1);
+  assert.equal(bucketIndex(4999), 3);
+  assert.equal(bucketIndex(250000), 6);
+  assert.equal(bucketLabel(3), '1–5К в мес');
+  const v = validationMetrics([
+    { pred: 10, actual: 12, app: 'a' }, { pred: 20, actual: 25, app: 'a' }, { pred: 30, actual: 28, app: 'b' },
+    { pred: 40, actual: 55, app: 'b' }, { pred: 50, actual: 60, app: 'b' },
+  ]);
+  assert.equal(v.spearman, 1);
+  assert.equal(v.n, 5);
+});
+
 test('кэш подсказок в базе: пустой ответ запоминается, ошибка — нет', async () => {
   const { play } = await import('../src/lib/play.js');
   const { suggestCache } = await import('../src/lib/kw/suggest-cache.js');
