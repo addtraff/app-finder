@@ -90,6 +90,56 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
   }
   const clusters = uf.groups().filter((c) => c.length >= cl.min_cluster_keywords);
 
+  // Остаток. Порог «от min_cluster_keywords ключей» оставлял в нишах только то, что склеилось
+  // по выдаче: в US это 19 из 69 ниш каталога, остальные ключи молча выпадали. Ключ не
+  // выбрасывается:
+  //  - с концептом — присоединяется к кластеру, где ключей этого концепта больше всего,
+  //    а если такого кластера нет, все оставшиеся ключи концепта образуют нишу концепта;
+  //  - без концепта (подсказки по префиксу вроде «duplo world») — только к кластеру, с которым
+  //    делит не меньше leftover_min_shared_top10 приложений топ-10. Иначе он остаётся вне
+  //    ниш: из случайной подсказки получается шум, а не ниша.
+  // Склейка по выдаче не меняется: кластеры остаются как были, к ним только добавляется остаток.
+  const leftover = { to_cluster: 0, concept_niches: 0, by_serp: 0, dropped: 0 };
+  if (cl.leftover_to_concept) {
+    const inCluster = new Set(clusters.flat());
+    const conceptOf = (k) => sugScore.get(k)?.concept || null;
+    const clusterOfConcept = new Map();
+    clusters.forEach((core, i) => {
+      const cnt = new Map();
+      for (const k of core) { const c = conceptOf(k); if (c) cnt.set(c, (cnt.get(c) || 0) + 1); }
+      for (const [c, n] of cnt) {
+        const best = clusterOfConcept.get(c);
+        if (!best || n > best.n) clusterOfConcept.set(c, { i, n });
+      }
+    });
+    const clusterApps = clusters.map((core) => new Set(core.flatMap((k) => top10.get(k) || [])));
+    const conceptNiches = new Map();
+    for (const kw of keywords) {
+      if (inCluster.has(kw)) continue;
+      const c = conceptOf(kw);
+      if (c) {
+        const best = clusterOfConcept.get(c);
+        if (best) { clusters[best.i].push(kw); leftover.to_cluster++; }
+        else {
+          if (!conceptNiches.has(c)) conceptNiches.set(c, []);
+          conceptNiches.get(c).push(kw);
+        }
+        continue;
+      }
+      let bestI = -1, bestShared = 0;
+      const mine = top10.get(kw) || [];
+      clusterApps.forEach((apps, i) => {
+        let shared = 0;
+        for (const a of mine) if (apps.has(a)) shared++;
+        if (shared > bestShared) { bestShared = shared; bestI = i; }
+      });
+      if (bestI >= 0 && bestShared >= cl.leftover_min_shared_top10) { clusters[bestI].push(kw); leftover.by_serp++; }
+      else leftover.dropped++;
+    }
+    for (const core of conceptNiches.values()) clusters.push(core);
+    leftover.concept_niches = conceptNiches.size;
+  }
+
   // Установки по последней известной карточке гео.
   // Строки, где оценок больше, чем установок, — артефакт Play, а не измерение:
   // так выглядят приложения с ограниченным распространением (Google Recorder на Pixel
@@ -136,6 +186,12 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
   const usedIds = new Set();
   const doors = [];
   let nicheCount = 0;
+
+  // Метрики ниш за этот день пересчитываются целиком. Без очистки при смене состава ниш
+  // (новый порог, остаток по концептам) рядом с новыми нишами оставались бы строки ниш,
+  // которых в этом дне уже нет, и отчёты показывали бы их дважды. Это производная таблица —
+  // сырьё (выдача, карточки) не трогается.
+  d.prepare(`DELETE FROM metrics_niche_geo WHERE geo=? AND snapshot_date=?`).run(geo, date);
 
   for (const core of clusters) {
     // Головной ключ: больше всего подсказочного веса, при равенстве — самый короткий.
@@ -284,9 +340,12 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
     }
   }
 
+  const leftoverNote = cl.leftover_to_concept
+    ? `; остаток: в кластеры своего концепта ${leftover.to_cluster}, ниш концептов ${leftover.concept_niches}, по выдаче ${leftover.by_serp}, вне ниш ${leftover.dropped}`
+    : '';
   finishRun(runId, 'niche-doors', geo, {
-    notes: `${nicheCount} ниш из ${keywords.length} ключей, вездесущих отброшено ${ubiquitous.size} (лимит ${ubiqLimit}), из door исключено ${implausible.size} строк с оценок > установок`,
+    notes: `${nicheCount} ниш из ${keywords.length} ключей, вездесущих отброшено ${ubiquitous.size} (лимит ${ubiqLimit}), из door исключено ${implausible.size} строк с оценок > установок${leftoverNote}`,
   });
-  log(`  ${geo}: ниш ${nicheCount}, ключей ${keywords.length}, вездесущих отброшено ${ubiquitous.size}, из door исключено ${implausible.size} артефактов`);
-  return { niches: nicheCount, keywords: keywords.length, ubiquitous: ubiquitous.size };
+  log(`  ${geo}: ниш ${nicheCount}, ключей ${keywords.length}, вездесущих отброшено ${ubiquitous.size}, из door исключено ${implausible.size} артефактов${leftoverNote}`);
+  return { niches: nicheCount, keywords: keywords.length, ubiquitous: ubiquitous.size, leftover };
 }

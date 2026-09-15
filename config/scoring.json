@@ -19,7 +19,10 @@
     "ubiquitous_min_abs": 8,
     "ubiquitous_pct": 0.04,
     "min_cluster_keywords": 3,
-    "similar_edge_bonus": 3
+    "similar_edge_bonus": 3,
+    "_leftover_note": "Ключи вне кластеров по выдаче не выбрасываются: с концептом — в кластер своего концепта или в нишу концепта; без концепта — в кластер, с которым делят не меньше leftover_min_shared_top10 приложений топ-10.",
+    "leftover_to_concept": true,
+    "leftover_min_shared_top10": 2
   },
   "monetization_proof": { "ok": 1.0, "weak": 0.4, "iap_max_usd_prior": 20 },
   "in_score_features": ["demand", "growth_s", "weakness", "openness", "feasibility", "organic"],
