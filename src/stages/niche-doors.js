@@ -6,6 +6,7 @@ import { config, geoConf } from '../lib/config.js';
 import { qv } from './quantiles.js';
 import { setWatchLevel } from '../lib/registry.js';
 import { UnionFind, jaccard, median, md5, quantile, log } from '../lib/util.js';
+import { ageMonthsAt } from '../lib/dates.js';
 
 const DAY_MS = 86400000;
 
@@ -146,7 +147,7 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
   // отдаёт «1+ установок» при 15 793 оценках). Оценок не может быть больше установок,
   // поэтому такие строки в door не участвуют — иначе один OEM-эксклюзив обнуляет нишу.
   const installs = new Map(d.prepare(
-    `SELECT p.app_id, p.max_installs, p.score, p.ratings_count, p.released, p.updated_ts, p.title, p.summary
+    `SELECT p.app_id, p.max_installs, p.score, p.ratings_count, p.released, p.hl, p.updated_ts, p.title, p.summary
        FROM raw_app_page p
        JOIN (SELECT app_id, MAX(snapshot_date) md FROM raw_app_page WHERE geo=? GROUP BY app_id) f
          ON f.app_id=p.app_id AND f.md=p.snapshot_date
@@ -244,7 +245,7 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
     }).length;
     const weakShare = headApps.length ? weak / headApps.length : null;
 
-    const young = headApps.filter((a) => a.released && (Date.now() - Date.parse(a.released)) / 86400000 < 548).length;
+    const young = headApps.filter((a) => { const m = ageMonthsAt(a.released, a.hl, date); return m != null && m < 18; }).length;
     const newShare = headApps.length ? young / headApps.length : null;
 
     const headToks = tokens(head);

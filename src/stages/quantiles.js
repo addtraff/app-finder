@@ -4,6 +4,7 @@
 import { db, startRun, finishRun } from '../lib/db.js';
 import { referenceGeo } from '../lib/config.js';
 import { quantileSet, log } from '../lib/util.js';
+import { ageMonthsAt } from '../lib/dates.js';
 
 const GEO_METRICS = [
   'installs', 'score', 'ratings_count', 'installs_per_rating', 'days_since_update',
@@ -47,13 +48,15 @@ export function geoRows(d, geo, date) {
             p.ratings_count,
             CASE WHEN p.ratings_count > 0 THEN CAST(p.max_installs AS REAL) / p.ratings_count END AS installs_per_rating,
             CASE WHEN p.updated_ts IS NOT NULL THEN (julianday(?) - julianday(p.updated_ts/1000, 'unixepoch')) END AS days_since_update,
-            CASE WHEN p.released IS NOT NULL THEN (julianday(?) - julianday(p.released)) / 30.44 END AS age_months,
+            p.released, p.hl,
             p.size_mb, p.description_len, p.screenshots_count, p.iap_max_usd
        FROM raw_app_page p
        LEFT JOIN loc ON loc.app_id = p.app_id
        LEFT JOIN refcard ON refcard.app_id = p.app_id
       WHERE p.geo=? AND p.snapshot_date=? AND p.hl=(SELECT MIN(hl) FROM raw_app_page x WHERE x.app_id=p.app_id AND x.geo=p.geo AND x.snapshot_date=p.snapshot_date)`
-  ).all(ref, ref, date, date, geo, date);
+  ).all(ref, ref, date, geo, date)
+    // Возраст — в JS: julianday() не понимает ни «May 23, 2025», ни локализованные даты.
+    .map(({ released, hl, ...r }) => ({ ...r, age_months: ageMonthsAt(released, hl, date) }));
 }
 
 function write(d, scope, scopeId, geo, date, rows, metrics) {

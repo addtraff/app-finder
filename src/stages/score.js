@@ -7,6 +7,7 @@ import { resolveInstallsSource } from '../lib/installs.js';
 import { setWatchLevel } from '../lib/registry.js';
 import { norm, clamp, median, log } from '../lib/util.js';
 import { hostOf, META_DETECTOR } from './check-ads.js';
+import { ageMonthsAt } from '../lib/dates.js';
 
 const DAY = 86400000;
 
@@ -286,7 +287,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     const installs = srcInfo ? srcInfo.installs : (c.max_installs ?? null);
     const ratings = c.ratings_count ?? null;
     const ipr = ratings > 0 && installs != null ? installs / ratings : null;
-    const ageMonths = c.released ? (Date.parse(date) - Date.parse(c.released)) / DAY / 30.44 : null;
+    const ageMonths = ageMonthsAt(c.released, c.hl, date);
     const daysUpd = c.updated_ts ? (Date.parse(date) - c.updated_ts) / DAY : null;
     const p90upd = Q('days_since_update', 'p90');
     const hist = c.histogram ? JSON.parse(c.histogram) : null;

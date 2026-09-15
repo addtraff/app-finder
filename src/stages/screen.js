@@ -6,6 +6,7 @@ import { config, geoConf } from '../lib/config.js';
 import { qv, geoRows } from './quantiles.js';
 import { setWatchLevel } from '../lib/registry.js';
 import { log } from '../lib/util.js';
+import { ageMonthsAt } from '../lib/dates.js';
 
 const REF_CHART_GEOS = ['US', 'GB', 'DE', 'FR', 'CA', 'AU'];
 
@@ -104,7 +105,7 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
     const devDomain = domainOf(c.developer_website);
     const legal = `${c.developer_legal_name || ''} ${c.developer || ''}`;
     const daysUpd = c.updated_ts ? (Date.now() - c.updated_ts) / 86400000 : null;
-    const ageMonths = c.released ? (Date.now() - Date.parse(c.released)) / 86400000 / 30.44 : null;
+    const ageMonths = ageMonthsAt(c.released, c.hl, date);
     const ipr = c.ratings_count > 0 ? c.max_installs / c.ratings_count : null;
     const perms = c.permissions ? JSON.parse(c.permissions) : null;
 
