@@ -265,6 +265,76 @@ test('кэш подсказок в базе: пустой ответ запом�
   }
 });
 
+// Сквозная проверка калибровки: синтетическая выгрузка Console четырёх приложений разной силы,
+// позиции в трекере, слова ниже порога. Истинный объём известен, поэтому видно, восстанавливает
+// ли цепочка CTR -> объём -> модель порядок слов и включаются ли модели по порогам.
+test('калибровка: CTR, цензурирование, S2 и S3 на синтетической выгрузке Console', async () => {
+  const { kwDb, keywordId } = await import('../src/lib/kw/schema.js');
+  const calibrate = await import('../src/stages/kw-calibrate.js');
+  const metrics = await import('../src/stages/kw-metrics.js');
+  const d = kwDb();
+  const r = rng(21);
+  const gauss = () => (r() + r() + r() - 1.5) / 0.5;
+  const terms = [];
+  for (let i = 0; i < 400; i++) {
+    const volume = Math.exp(1 + r() * 5.5);                 // истинные поиски в день: ~3–650
+    const term = `synthetic term ${i}`;
+    terms.push({ term, volume });
+    d.prepare(`INSERT OR REPLACE INTO kw_signals (keyword_id, geo, day, score_raw, score_raw_norm, min_prefix_len, avg_suggest_pos,
+        prefix_hit_share, top10_installs_median, words, chars, is_brand, is_translit, category, score_method, tracked)
+      VALUES (?, 'US', '2026-09-01', ?, ?, ?, ?, ?, ?, 3, ?, 0, 0, 'TOOLS', 'binary', 1)`)
+      .run(keywordId(d, term), Math.max(0.01, Math.log(volume) + gauss() * 0.6), Math.max(0.001, (Math.log(volume) + gauss() * 0.6) / 8),
+        Math.max(3, Math.round(12 - Math.log(volume))), 1 + r() * 4, r(), Math.round(volume * 1e3 * (0.5 + r())), term.length);
+  }
+  const apps = [['com.test.strong', 1, 5], ['com.test.mid', 6, 10], ['com.test.weak', 16, 20], ['com.test.tail', 36, 15]];
+  const insConsole = d.prepare(`INSERT INTO console_search_terms (app_id, geo, lang, term, day, impressions, visitors, unique_clicks, metric_kind, is_censored)
+    VALUES (?, 'US', 'en', ?, ?, ?, ?, ?, 'acquisitions', 0)`);
+  const insSerp = d.prepare(`INSERT OR REPLACE INTO kw_track_serp (snapshot_date, geo, term, position, app_id) VALUES (?, 'US', ?, ?, ?)`);
+  let below = 0;
+  d.transaction(() => {
+    for (let day = 0; day < 90; day++) {
+      const date = new Date(Date.parse('2026-06-18T12:00:00Z') + day * 86400000).toISOString().slice(0, 10);
+      terms.forEach((t, i) => {
+        apps.forEach(([app, base, span], a) => {
+          if ((i * 7 + a * 13) % 10 >= 7) return;                 // приложение ранжируется по 70 % слов
+          const position = base + ((i + a) % span);
+          insSerp.run(date, t.term, position, app);
+          const searches = t.volume * (0.8 + 0.4 * r());
+          const visitors = Math.round(searches * 0.27 / Math.pow(position, 0.85) * (0.9 + 0.2 * r()));
+          if (visitors < 2) { below++; return; }                 // порог отсечения Console
+          insConsole.run(app, t.term, date, Math.round(searches), visitors, Math.round(visitors * 0.3));
+        });
+      });
+    }
+  })();
+  const t0 = Date.now();
+  const res = await calibrate.run({ geo: 'US', date: '2026-09-15' });
+  const ms = Date.now() - t0;
+  const models = d.prepare(`SELECT model_version, kind, spearman, bucket_hit, sum_ratio, censored_below_share, active, validation FROM kw_models WHERE geo='US'`).all();
+  const iso = models.find((m) => m.kind === 'isotonic'), gbm = models.find((m) => m.kind === 'gbm');
+  const censored = d.prepare(`SELECT COUNT(*) c FROM console_search_terms WHERE is_censored=1`).get().c;
+  console.log(`      CTR ${res.curve.ctr1.toFixed(3)}/p^${res.curve.alpha.toFixed(2)} (${res.curve.source}), цензурировано ${censored} из ${below} ниже порога; ` +
+    `S2 ρ ${iso?.spearman?.toFixed(3)}, бакет ${iso?.bucket_hit?.toFixed(2)}, ниже порога ${iso?.censored_below_share?.toFixed(2)}; ` +
+    `S3 ρ ${gbm?.spearman?.toFixed(3)}, бакет ${gbm?.bucket_hit?.toFixed(2)}, сумма ×${gbm?.sum_ratio?.toFixed(2)}; ${ms} мс`);
+  assert.equal(res.curve.source, 'fit');
+  assert.ok(Math.abs(res.curve.ctr1 - 0.27) < 0.04 && Math.abs(res.curve.alpha - 0.85) < 0.1);
+  assert.equal(censored, below, 'каждое слово ниже порога, где приложение в топ-50, — цензурированное');
+  assert.ok(iso && iso.spearman > 0.6, 'S2 должна пройти порог на синтетике с сильным сигналом');
+  assert.ok(gbm && gbm.spearman > 0.7, 'S3 должна пройти порог интервала');
+  assert.equal(gbm.active, 1, 'включается модель старшей стадии');
+  assert.equal(iso.active, 0);
+
+  const out = await metrics.run({ geo: 'US', date: '2026-09-15' });
+  assert.ok(out.counts.interval > 350, JSON.stringify(out.counts));
+  const bad = d.prepare(`SELECT COUNT(*) c FROM kw_metrics WHERE confidence_level='interval' AND NOT (impressions_lo <= impressions_est AND impressions_est <= impressions_hi)`).get().c;
+  assert.equal(bad, 0, 'p10 ≤ p50 ≤ p90');
+  const est = d.prepare(`SELECT k.term, m.impressions_est FROM kw_metrics m JOIN keywords k USING(keyword_id) WHERE m.geo='US'`).all();
+  const truth = new Map(terms.map((t) => [t.term, t.volume]));
+  const rho = spearman(est.map((e) => e.impressions_est), est.map((e) => truth.get(e.term)));
+  console.log(`      применение: ρ(оценка, истина) ${rho.toFixed(3)} по ${est.length} словам, уровни ${JSON.stringify(out.counts)}`);
+  assert.ok(rho > 0.7);
+});
+
 for (const [name, fn] of tests) {
   try {
     await fn();
