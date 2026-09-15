@@ -84,6 +84,22 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     `SELECT * FROM metrics_niche_geo WHERE geo=? AND snapshot_date=?`
   ).all(geo, date).map((r) => [r.niche_id, r]));
 
+  // Ниша приложения в ЭТОМ гео. apps.niche_id один на приложение и заполняется первым гео,
+  // где его нашли, а id ниш привязаны к гео — в остальных гео строка метрик ссылалась на
+  // чужую нишу и не находила ни door, ни квантилей ниши (в CA к своей нише были привязаны
+  // 4 строки из 1151). Нишей считается та из посчитанных на эту дату, где у приложения больше
+  // всего ключей ядра в топ-50; при равенстве — с меньшим ядром, то есть более узкая.
+  const nicheOfApp = new Map();
+  for (const [key, in50] of nicheInCore) {
+    if (!in50) continue;
+    const sep = key.indexOf('|');
+    const nicheId = key.slice(0, sep), appId = key.slice(sep + 1);
+    if (!nicheMetrics.has(nicheId)) continue;
+    const size = nicheCoreSize.get(nicheId) || Infinity;
+    const cur = nicheOfApp.get(appId);
+    if (!cur || in50 > cur.in50 || (in50 === cur.in50 && size < cur.size)) nicheOfApp.set(appId, { nicheId, in50, size });
+  }
+
   // --- A2: канонические установки из installs_source_geo, контроль по всем гео ---
   const installsSrc = resolveInstallsSource(date);
 
@@ -261,7 +277,8 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
   const rows = [];
 
   for (const c of cards) {
-    const nicheId = c.niche_id;
+    const nicheId = nicheOfApp.get(c.app_id)?.nicheId
+      ?? (c.niche_id && c.niche_id.startsWith(`${geo}-`) && nicheMetrics.has(c.niche_id) ? c.niche_id : null);
     const nm = nicheId ? nicheMetrics.get(nicheId) : null;
     const Q = (m, lvl) => qv(nicheId, geo, m, date, lvl);
 
