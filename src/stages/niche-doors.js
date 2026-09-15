@@ -152,13 +152,30 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
        JOIN (SELECT app_id, MAX(snapshot_date) md FROM raw_app_page WHERE geo=? GROUP BY app_id) f
          ON f.app_id=p.app_id AND f.md=p.snapshot_date
       WHERE p.geo=?`
-  ).all(geo, geo).map((r) => [r.app_id, r]));
+  ).all(geo, geo).map((r) => [r.app_id, { ...r, local: 1 }]));
+  // Карточка того же приложения в другом гео — для чисел, общих для Play (установки, оценки,
+  // рейтинг, дата релиза, обновление). Без неё door был пуст у половины ниш: в топ-10 ядра
+  // много приложений, чья карточка снята только там, где их нашли впервые. Текстовые метрики
+  // (ключ в заголовке, релевантность) по-прежнему только по карточке своего гео — заголовок
+  // локализован.
+  const anyCard = new Map();
+  for (const r of d.prepare(
+    `SELECT p.app_id, p.max_installs, p.score, p.ratings_count, p.released, p.hl, p.updated_ts, p.title, p.summary
+       FROM raw_app_page p
+       JOIN (SELECT app_id, MAX(snapshot_date) md FROM raw_app_page GROUP BY app_id) f
+         ON f.app_id=p.app_id AND f.md=p.snapshot_date`
+  ).all()) {
+    if (!installs.has(r.app_id) && !anyCard.has(r.app_id)) anyCard.set(r.app_id, { ...r, local: 0 });
+  }
+  const cardOf = (id) => installs.get(id) || anyCard.get(id);
 
   const implausible = new Set();
-  for (const [id, r] of installs) {
-    if (r.max_installs != null && r.ratings_count != null && r.ratings_count > r.max_installs) implausible.add(id);
+  for (const m of [installs, anyCard]) {
+    for (const [id, r] of m) {
+      if (r.max_installs != null && r.ratings_count != null && r.ratings_count > r.max_installs) implausible.add(id);
+    }
   }
-  const installsForDoor = (id) => (implausible.has(id) ? null : installs.get(id)?.max_installs ?? null);
+  const installsForDoor = (id) => (implausible.has(id) ? null : cardOf(id)?.max_installs ?? null);
 
   const p25_score = qv(null, geo, 'score', date, 'p25', { nicheFirst: false });
   const p75_upd = qv(null, geo, 'days_since_update', date, 'p75', { nicheFirst: false });
@@ -228,7 +245,7 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
     const door = perKwMin.length ? Math.round(median(perKwMin)) : null;
 
     const headTop10 = top10.get(head) || [];
-    const headApps = headTop10.map((id) => installs.get(id)).filter(Boolean);
+    const headApps = headTop10.map((id) => cardOf(id)).filter(Boolean);
     const wall = headApps.reduce((s, a) => s + (a.max_installs || 0), 0) || null;
     const wallRatings = headApps.reduce((s, a) => s + (a.ratings_count || 0), 0) || null;
     const leader = Math.max(0, ...headApps.map((a) => a.max_installs || 0));
@@ -236,7 +253,7 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
 
     const allApps = new Set();
     for (const kw of core) for (const id of top20.get(kw)) allApps.add(id);
-    const demandInstalls = [...allApps].reduce((s, id) => s + (installs.get(id)?.max_installs || 0), 0) || null;
+    const demandInstalls = [...allApps].reduce((s, id) => s + (cardOf(id)?.max_installs || 0), 0) || null;
 
     const weak = headApps.filter((a) => {
       const daysUpd = a.updated_ts ? (Date.now() - a.updated_ts) / 86400000 : null;
@@ -249,8 +266,9 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
     const newShare = headApps.length ? young / headApps.length : null;
 
     const headToks = tokens(head);
-    const exactInTitle = headApps.length
-      ? headApps.filter((a) => headToks.every((t) => String(a.title || '').toLowerCase().includes(t))).length / headApps.length
+    const headLocal = headApps.filter((a) => a.local);
+    const exactInTitle = headLocal.length
+      ? headLocal.filter((a) => headToks.every((t) => String(a.title || '').toLowerCase().includes(t))).length / headLocal.length
       : null;
 
     const pairs = [];
@@ -307,8 +325,8 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
     const bestDoor = door == null ? bestDoorPrev ?? null : (bestDoorPrev == null ? door : Math.min(bestDoorPrev, door));
 
     const topAppsJson = JSON.stringify(headTop10.slice(0, 10).map((id) => ({
-      app_id: id, title: installs.get(id)?.title || null, installs: installs.get(id)?.max_installs ?? null,
-      score: installs.get(id)?.score ?? null,
+      app_id: id, title: cardOf(id)?.title || null, installs: cardOf(id)?.max_installs ?? null,
+      score: cardOf(id)?.score ?? null,
     })));
 
     d.transaction(() => {

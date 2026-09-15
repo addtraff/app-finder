@@ -176,13 +176,27 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
       cardHist.get(r.app_id).set(r.snapshot_date, r);
     }
   }
+  // Карточка того же приложения из другого гео — для полей, общих для Play: установки, дата
+  // релиза, разработчик, сайт и политика (для рекламы). Заголовок локализован, поэтому
+  // загруженность ASO считается только по карточкам своего гео.
+  const anyCards = new Map();
+  for (const r of d.prepare(
+    `SELECT p.app_id, p.snapshot_date, p.hl, p.max_installs, p.score, p.ratings_count, p.released, p.updated_ts, p.title,
+            p.developer_id, p.developer_website, p.privacy_policy, p.genre_id
+       FROM raw_app_page p
+       JOIN (SELECT app_id, MAX(snapshot_date) md FROM raw_app_page WHERE snapshot_date<=? GROUP BY app_id) f
+         ON f.app_id=p.app_id AND f.md=p.snapshot_date`
+  ).all(D)) {
+    if (!cards.has(r.app_id) && !anyCards.has(r.app_id)) anyCards.set(r.app_id, r);
+  }
+  const cardOf = (id) => cards.get(id) || anyCards.get(id);
   const installsOf = (id) => {
-    const c = cards.get(id);
+    const c = cardOf(id);
     if (!c || c.max_installs == null) return null;
     if (c.ratings_count != null && c.ratings_count > c.max_installs) return null; // артефакт Play, как в niche-doors
     return c.max_installs;
   };
-  const ageOf = (id) => { const c = cards.get(id); return c ? ageMonthsAt(c.released, c.hl, D) : null; };
+  const ageOf = (id) => { const c = cardOf(id); return c ? ageMonthsAt(c.released, c.hl, D) : null; };
 
   // Метрики приложений на день и история установок (канонический источник, A2).
   const appRows = d.prepare(
@@ -230,7 +244,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
   const orgCache = new Map();
   const organicOf = (id) => {
     if (orgCache.has(id)) return orgCache.get(id);
-    const c = cards.get(id);
+    const c = cardOf(id);
     let gg = null;
     if (c) {
       for (const h of [hostOf(c.developer_website), hostOf(c.privacy_policy)]) {
@@ -422,13 +436,14 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     }
     const turnoverUpNew = turnoverWindow == null ? null : (changed ? fresh / changed : 0);
 
-    const ttd = headCards.map((x) => {
+    const headAny = headTop10.filter((x) => cardOf(x.app));
+    const ttd = headAny.map((x) => {
       const age = ageOf(x.app), inst = installsOf(x.app);
       if (age == null || !inst || n.door == null || age <= 0) return null;
       return Math.min(n.door / (inst / age), age);
     });
     const ttdKnown = ttd.filter((v) => v != null);
-    const timeToDoor = headCards.length && ttdKnown.length >= headCards.length / 2 ? median(ttdKnown) : null;
+    const timeToDoor = headAny.length && ttdKnown.length >= headAny.length / 2 ? median(ttdKnown) : null;
 
     const headInst = headTop10.map((x) => installsOf(x.app)).filter((v) => v != null);
     const wall = headInst.reduce((a, v) => a + v, 0);
@@ -436,7 +451,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
 
     const union50 = new Set(), union20 = new Set();
     for (const kw of core) { const s = latest(kw); if (s) { for (const a of s.top50) union50.add(a); for (const a of s.top20) union20.add(a); } }
-    const devOf = (a) => cards.get(a)?.developer_id || null;
+    const devOf = (a) => cardOf(a)?.developer_id || null;
     const devKnown = [...union50].filter(devOf);
     let cloneDensity = null;
     if (union50.size && devKnown.length >= union50.size / 2) {
@@ -489,7 +504,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
       headTop10: headTop10.map((x) => {
         const o = organicOf(x.app), m = metricsById.get(x.app), age = ageOf(x.app);
         return {
-          pos: x.pos, app_id: x.app, title: cards.get(x.app)?.title ?? null, installs: installsOf(x.app),
+          pos: x.pos, app_id: x.app, title: cardOf(x.app)?.title ?? null, installs: installsOf(x.app),
           age: round(age, 3), level: o.level, young: age != null && age < V.young_months ? 1 : 0,
           passed: m && m.screen_date && m.screen_reject == null ? 1 : 0,
         };
@@ -588,7 +603,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
   for (const r of nicheRows) {
     const headApps = r.headTop10.filter((x) => x.installs != null);
     const leader = headApps.length ? headApps.reduce((m, x) => (x.installs > m.installs ? x : m)) : null;
-    const upd = leader ? cards.get(leader.app_id)?.updated_ts : null;
+    const upd = leader ? cardOf(leader.app_id)?.updated_ts : null;
     leaderDaysByNiche.set(r.n.niche_id, upd ? (Date.parse(D) - upd) / DAY : null);
   }
   const fmt = (v, p = 2) => (v == null ? '—' : Number(v).toFixed(p));
@@ -714,7 +729,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
         money_ratio: round(moneyRatio), money_capacity: round(r.capacity != null && moneyRatio != null ? r.capacity * moneyRatio : null),
         organic_purity: round(r.purity), purity_coverage: round(r.coverage), top10_ads_share: round(r.top10AdsShare),
         young_organic_count: r.youngCount, young_organic_installs: r.youngInstalls,
-        young_organic_apps: JSON.stringify(r.youngApps.slice(0, 30).map((a) => ({ app_id: a, title: cards.get(a)?.title ?? null, age: round(ageOf(a), 3), installs: installsOf(a), level: organicOf(a).level }))),
+        young_organic_apps: JSON.stringify(r.youngApps.slice(0, 30).map((a) => ({ app_id: a, title: cardOf(a)?.title ?? null, age: round(ageOf(a), 3), installs: installsOf(a), level: organicOf(a).level }))),
         time_to_organic: round(r.tto, 3), time_to_organic_kind: r.ttoKind,
         candidates_count: r.candidates, candidates_organic_count: r.candidates - r.candPaid, candidates_paid_count: r.candPaid,
         monetized_share: round(r.monetizedShare), leaders_pain: r.leadersPain ? JSON.stringify(r.leadersPain) : null,

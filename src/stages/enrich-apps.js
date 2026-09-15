@@ -47,14 +47,40 @@ function pickAppsToRefresh(d, geo, date, cycle, budget, force) {
   ).all(geo, date, budget.max_apps_cards_per_geo).map((r) => r.app_id);
 }
 
-export async function run({ geo, date, runId, cycle = 'discovery', limit = null, force = false }) {
+// --scope core-top: карточки для топ-10 выдачи по ключам ядер текущих ниш гео, у которых нет
+// карточки ни в одном гео. Без них door ключа и ниши, свобода и чистота пусты: в топ-10 ниш
+// 13 тыс. приложений, у 9 тыс. карточки не было нигде — обход брал только реестр и лимит 700.
+// Одна карточка на приложение (первый hl гео): установки общие для Play, а в следующих гео
+// приложение отсеивается условием «нет карточки нигде».
+function pickCoreTop(d, geo) {
+  return d.prepare(
+    `WITH cur AS (SELECT niche_id FROM metrics_niche_geo WHERE geo=?
+                   AND snapshot_date=(SELECT MAX(snapshot_date) FROM metrics_niche_geo WHERE geo=?)),
+          latest AS (SELECT keyword, MAX(snapshot_date) md FROM raw_search WHERE geo=? GROUP BY keyword)
+     SELECT r.app_id, MIN(r.position) AS pos
+       FROM keyword_cores kc
+       JOIN cur ON cur.niche_id=kc.niche_id
+       JOIN latest l ON l.keyword=kc.keyword
+       JOIN raw_search r ON r.geo=kc.geo AND r.keyword=kc.keyword AND r.snapshot_date=l.md AND r.position<=10
+       LEFT JOIN disc_keywords k ON k.geo=kc.geo AND k.keyword=kc.keyword
+      WHERE kc.geo=? AND kc.active=1 AND COALESCE(k.is_brand, 0)=0
+        AND NOT EXISTS (SELECT 1 FROM raw_app_page p WHERE p.app_id=r.app_id)
+      GROUP BY r.app_id
+      ORDER BY pos, r.app_id`
+  ).all(geo, geo, geo, geo).map((r) => r.app_id);
+}
+
+export async function run({ geo, date, runId, cycle = 'discovery', limit = null, force = false, scope = null }) {
   const d = db();
   startRun(runId, 'enrich-apps', geo, cycle, date);
   await ensureRates(date);
 
-  const g = geoConf(geo);
+  const g0 = geoConf(geo);
+  const coreTop = scope === 'core-top';
+  const g = coreTop ? { ...g0, hl: [g0.hl[0]] } : g0;
   const budget = config().budget.discovery;
-  let todo = pickAppsToRefresh(d, geo, date, cycle, budget, force);
+  let todo = coreTop ? pickCoreTop(d, geo) : pickAppsToRefresh(d, geo, date, cycle, budget, force);
+  if (coreTop) log(`  ${geo}: топ-10 ниш без карточки нигде — ${todo.length}`);
   if (limit) todo = todo.slice(0, limit);
 
   const ins = d.prepare(`INSERT OR REPLACE INTO raw_app_page (
