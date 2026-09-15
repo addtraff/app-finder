@@ -1,0 +1,84 @@
+{
+  "_note": "Модуль объёма поиска, docs/metodika-kw-volume.md. Веса — раздел 4.2, пороги доверия — 6.3 и 8, бакеты — 8, CTR по умолчанию — 7.",
+  "score": {
+    "_note": "mode: exact — все префиксы; binary — бинарный поиск точки появления (4.3); rough — три префикса для разведочного словаря. tracked = семена, избранное и слова из Console.",
+    "min_prefix": 3,
+    "min_prefix_by_script": { "han": 1, "hiragana": 1, "katakana": 1, "hangul": 2 },
+    "max_prefix": 20,
+    "pos_exponent": 0.7,
+    "min_group_size": 30,
+    "mode_tracked": "binary",
+    "mode_explore": "rough",
+    "recompute_days": 14,
+    "suggest_cache_days": 21,
+    "max_requests_per_geo": 1500
+  },
+  "calibration": {
+    "_note": "metric_kind: auto — берётся метрика, которой в окне больше строк; смешивать acquisitions и unique_clicks нельзя (раздел 2).",
+    "window_days": 90,
+    "holdout_days": 30,
+    "metric_kind": "auto",
+    "position_max_gap_days": 0,
+    "min_rows_isotonic": 30,
+    "min_rows_gbm": 2000,
+    "min_apps_gbm": 3,
+    "reference_position": 1
+  },
+  "validation": {
+    "spearman_hide_below": 0.5,
+    "spearman_bucket": 0.6,
+    "spearman_interval": 0.7,
+    "sum_ratio_ok": [0.5, 2.0]
+  },
+  "ctr": {
+    "_note": "Приор из раздела 7 — только пока своих данных меньше min_rows_fit. Кривая пересчитывается не реже refit_days.",
+    "prior_ctr1": 0.28,
+    "prior_alpha": 0.9,
+    "min_rows_fit": 30,
+    "min_positions_fit": 3,
+    "refit_days": 92
+  },
+  "buckets_month": [100, 500, 1000, 5000, 20000, 100000],
+  "gbm": { "n_estimators": 300, "learning_rate": 0.05, "max_depth": 3, "min_leaf": 20, "bins": 32 },
+  "health": {
+    "suggest_error_share_max": 0.1,
+    "serp_empty_share_max": 0.1,
+    "model_max_age_days": 35
+  },
+  "neutral": {
+    "_note": "Проверка из раздела 10: подсказка по нейтральному слову должна прийти на языке гео. Ключ — язык интерфейса (hl без региона).",
+    "en": { "prefix": "calcu", "expect": "calculator" },
+    "de": { "prefix": "wett", "expect": "wetter" },
+    "fr": { "prefix": "calcu", "expect": "calculatrice" },
+    "es": { "prefix": "calcu", "expect": "calculadora" },
+    "pt": { "prefix": "calcu", "expect": "calculadora" },
+    "it": { "prefix": "calco", "expect": "calcolatrice" },
+    "nl": { "prefix": "rekenm", "expect": "rekenmachine" },
+    "sv": { "prefix": "miniräk", "expect": "miniräknare" },
+    "no": { "prefix": "kalkul", "expect": "kalkulator" },
+    "da": { "prefix": "lomme", "expect": "lommeregner" },
+    "fi": { "prefix": "lask", "expect": "laskin" },
+    "pl": { "prefix": "kalkul", "expect": "kalkulator" },
+    "tr": { "prefix": "hesap m", "expect": "hesap makinesi" },
+    "ja": { "prefix": "電", "expect": "電卓" },
+    "ko": { "prefix": "계산", "expect": "계산기" },
+    "zh": { "prefix": "計算", "expect": "計算機" },
+    "ar": { "prefix": "آلة", "expect": "آلة حاسبة" },
+    "he": { "prefix": "מחשב", "expect": "מחשבון" }
+  },
+  "stopwords": {
+    "en": ["a", "an", "the", "and", "or", "of", "for", "to", "in", "on", "with", "without", "my", "your", "app", "apps", "free", "best", "new", "pro", "android"],
+    "de": ["der", "die", "das", "und", "oder", "für", "mit", "ohne", "mein", "app", "kostenlos", "beste", "neu"],
+    "fr": ["le", "la", "les", "et", "ou", "de", "des", "du", "pour", "avec", "sans", "mon", "app", "gratuit", "meilleur"],
+    "es": ["el", "la", "los", "las", "y", "o", "de", "del", "para", "con", "sin", "mi", "app", "gratis", "mejor"],
+    "pt": ["o", "a", "os", "as", "e", "ou", "de", "do", "da", "para", "com", "sem", "meu", "app", "grátis", "melhor"],
+    "it": ["il", "la", "lo", "gli", "le", "e", "o", "di", "per", "con", "senza", "mio", "app", "gratis", "migliore"],
+    "nl": ["de", "het", "een", "en", "of", "van", "voor", "met", "zonder", "mijn", "app", "gratis", "beste"],
+    "sv": ["en", "ett", "och", "eller", "för", "med", "utan", "min", "app", "gratis", "bästa"],
+    "no": ["en", "et", "og", "eller", "for", "med", "uten", "min", "app", "gratis", "beste"],
+    "da": ["en", "et", "og", "eller", "for", "med", "uden", "min", "app", "gratis", "bedste"],
+    "fi": ["ja", "tai", "ilman", "sovellus", "ilmainen", "paras"],
+    "pl": ["i", "lub", "dla", "z", "bez", "mój", "aplikacja", "darmowa", "najlepsza"],
+    "tr": ["ve", "veya", "için", "ile", "olmadan", "benim", "uygulama", "ücretsiz", "en iyi"]
+  }
+}
