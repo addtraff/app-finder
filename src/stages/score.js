@@ -144,7 +144,12 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
          SELECT developer_id, MAX(snapshot_date) FROM raw_developer GROUP BY developer_id)`
   ).all().map((r) => [r.developer_id, r.apps_count]));
 
-  // Агрегаты по отзывам.
+  // Агрегаты по отзывам — по языкам гео, а не по гео строки. Play отдаёт отзывы по языку,
+  // а raw_reviews хранит отзыв один раз под гео, где его сняли первым: английские отзывы,
+  // собранные для US, у GB, CA, AU, IE, SG и половины европейских гео (en во втором языке)
+  // не находились вовсе, и src_ads_pct, жалобы, рост по отзывам были пусты у 88 % строк.
+  const geoLangs = g.review_langs;
+  const langIn = `lang IN (${geoLangs.map(() => '?').join(',')})`;
   const revAgg = new Map(d.prepare(
     `SELECT app_id,
             COUNT(*) AS n,
@@ -155,8 +160,8 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
             SUM(CASE WHEN review_date >= date(?, '-90 day') THEN 1 ELSE 0 END) AS n90,
             SUM(CASE WHEN review_date >= date(?, '-7 day') THEN 1 ELSE 0 END) AS n7,
             MIN(review_date) AS first_date, MAX(review_date) AS last_date
-       FROM raw_reviews WHERE geo=? GROUP BY app_id`
-  ).all(date, date, date, date, geo).map((r) => [r.app_id, r]));
+       FROM raw_reviews WHERE ${langIn} GROUP BY app_id`
+  ).all(date, date, date, date, ...geoLangs).map((r) => [r.app_id, r]));
 
   const labelVersion = cfg.lexicon.version;
   const labelAgg = new Map();
@@ -164,8 +169,8 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     `SELECT rv.app_id, l.label, COUNT(*) c,
             SUM(CASE WHEN rv.review_date >= date(?, '-90 day') THEN 1 ELSE 0 END) c90
        FROM review_labels l JOIN raw_reviews rv ON rv.review_id=l.review_id
-      WHERE rv.geo=? AND l.classifier_version=? GROUP BY rv.app_id, l.label`
-  ).all(date, geo, labelVersion)) {
+      WHERE rv.${langIn} AND l.classifier_version=? GROUP BY rv.app_id, l.label`
+  ).all(date, ...geoLangs, labelVersion)) {
     if (!labelAgg.has(r.app_id)) labelAgg.set(r.app_id, {});
     labelAgg.get(r.app_id)[r.label] = { c: r.c, c90: r.c90 };
   }
@@ -383,8 +388,8 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
       const coveredDays = (to - from) / DAY;
       if (coveredDays >= 4) {
         const mid = new Date(from + (to - from) / 2).toISOString().slice(0, 10);
-        const oldHalf = d.prepare(`SELECT COUNT(*) c FROM raw_reviews WHERE app_id=? AND geo=? AND review_date>=? AND review_date<?`).get(c.app_id, geo, ra.first_date, mid).c;
-        const newHalf = d.prepare(`SELECT COUNT(*) c FROM raw_reviews WHERE app_id=? AND geo=? AND review_date>=? AND review_date<?`).get(c.app_id, geo, mid, date).c;
+        const oldHalf = d.prepare(`SELECT COUNT(*) c FROM raw_reviews WHERE app_id=? AND ${langIn} AND review_date>=? AND review_date<?`).get(c.app_id, ...geoLangs, ra.first_date, mid).c;
+        const newHalf = d.prepare(`SELECT COUNT(*) c FROM raw_reviews WHERE app_id=? AND ${langIn} AND review_date>=? AND review_date<?`).get(c.app_id, ...geoLangs, mid, date).c;
         if (oldHalf > 0) growth = newHalf / oldHalf;
         growthConf = (coveredDays >= sc.growth.min_days ? 0.5 : 0) + (oldHalf >= sc.growth.min_old_half_reviews ? 0.5 : 0);
       }
@@ -402,8 +407,8 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     let burst = null;
     if (totalRev >= 30) {
       const wk = d.prepare(
-        `SELECT strftime('%Y-%W', review_date) w, COUNT(*) c FROM raw_reviews WHERE app_id=? AND geo=? AND review_date IS NOT NULL GROUP BY w ORDER BY c DESC LIMIT 1`
-      ).get(c.app_id, geo);
+        `SELECT strftime('%Y-%W', review_date) w, COUNT(*) c FROM raw_reviews WHERE app_id=? AND ${langIn} AND review_date IS NOT NULL GROUP BY w ORDER BY c DESC LIMIT 1`
+      ).get(c.app_id, ...geoLangs);
       burst = wk && wk.c / totalRev > 0.3 ? 1 : 0;
     }
 

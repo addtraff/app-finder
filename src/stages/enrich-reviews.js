@@ -3,6 +3,7 @@
 import { play } from '../lib/play.js';
 import { db, startRun, finishRun } from '../lib/db.js';
 import { config, geoConf } from '../lib/config.js';
+import { screenAsOf } from '../lib/snapshots.js';
 
 // A4 (дополнение к ТЗ): review_lang_mismatch считается только для уровня A, у которого
 // сняты все языки набора. Ниже — объединение языков отзывов по всем 30 гео.
@@ -13,12 +14,13 @@ function allReviewLangs() {
 }
 import { log } from '../lib/util.js';
 
-export async function run({ geo, date, runId, cycle = 'discovery', limit = null, force = false }) {
+export async function run({ geo, date, runId, cycle = 'discovery', limit = null, force = false, scope = null }) {
   const d = db();
   startRun(runId, 'enrich-reviews', geo, cycle, date);
   const g = geoConf(geo);
   const budget = config().budget;
   const disc = budget.discovery;
+  if (scope === 'funnel') return runFunnel({ d, geo, date, runId, g, disc, limit });
 
   // Принудительный сбор (--force): трёхдневное окно B и полное исключение C/D не
   // действуют — берём A/B/C без лимита. Та же логика, что у enrich-apps: расписание
@@ -94,5 +96,55 @@ export async function run({ geo, date, runId, cycle = 'discovery', limit = null,
 
   finishRun(runId, 'enrich-reviews', geo, { requests: apps * g.review_langs.length, errors, notes: `${saved} отзывов по ${apps} приложениям` });
   log(`  ${geo}: отзывов ${saved} по ${apps} приложениям, ошибок ${errors}`);
+  return { apps, saved, errors };
+}
+
+// --scope funnel: добор отзывов для приложений, прошедших воронку в гео, у которых на языках
+// гео меньше 20 отзывов — порог, ниже которого score не считает src_ads_pct, жалобы и рост.
+// Язык проверяется по каждому языку отдельно: если отзывов на нём ещё нет, берётся полная
+// порция, а не «до первого известного».
+async function runFunnel({ d, geo, date, runId, g, disc, limit }) {
+  const langs = g.review_langs;
+  const langIn = `lang IN (${langs.map(() => '?').join(',')})`;
+  const md = d.prepare(`SELECT MAX(snapshot_date) m FROM metrics_app_geo WHERE geo=?`).get(geo)?.m;
+  const targets = md ? d.prepare(
+    `SELECT m.app_id FROM metrics_app_geo m ${screenAsOf('s', 'm', 'JOIN')}
+      WHERE m.geo=? AND m.snapshot_date=? AND s.reject_reason IS NULL
+        AND (SELECT COUNT(*) FROM raw_reviews r WHERE r.app_id=m.app_id AND r.${langIn}) < 20
+      ORDER BY m.prescore DESC`
+  ).all(geo, md, ...langs) : [];
+  const todo = limit ? targets.slice(0, limit) : targets;
+  const ins = d.prepare(`INSERT OR IGNORE INTO raw_reviews
+    (review_id, app_id, geo, lang, review_date, rating, text, version, thumbs_up, reply_present, fetched_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
+  const known = d.prepare(`SELECT 1 FROM raw_reviews WHERE review_id=?`);
+  const hasLang = d.prepare(`SELECT 1 FROM raw_reviews WHERE app_id=? AND lang=? LIMIT 1`);
+  let apps = 0, saved = 0, errors = 0;
+  log(`  ${geo}: отзывы для воронки — ${targets.length} приложений с < 20 отзывами на ${langs.join('/')}`);
+  for (const t of todo) {
+    for (const lang of langs) {
+      const first = !hasLang.get(t.app_id, lang);
+      let list = [];
+      try {
+        list = await play.reviews(t.app_id, geo, lang, disc.reviews_first_snapshot);
+      } catch (e) {
+        errors++;
+        log(`  отзывы ${t.app_id}/${lang}: ${e.message}`);
+        continue;
+      }
+      d.transaction(() => {
+        for (const r of list) {
+          if (!first && known.get(r.id)) break;
+          ins.run(r.id, t.app_id, geo, lang, r.date ? String(r.date).slice(0, 10) : null,
+            r.score ?? null, r.text ?? null, r.version ?? null, r.thumbsUp ?? 0, r.replyText ? 1 : 0, date);
+          saved++;
+        }
+      })();
+    }
+    apps++;
+    if (apps % 20 === 0) log(`  отзывы воронки: ${apps}/${todo.length}, строк ${saved}`);
+  }
+  finishRun(runId, 'enrich-reviews', geo, { requests: apps * langs.length, errors, notes: `воронка: ${saved} отзывов по ${apps} приложениям` });
+  log(`  ${geo}: отзывы воронки — ${saved} строк по ${apps} приложениям, ошибок ${errors}`);
   return { apps, saved, errors };
 }

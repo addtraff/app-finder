@@ -2,7 +2,7 @@
 // источник прихода, missing_language, повторное использование против одного сеанса.
 // Метки пишутся с версией классификатора — переразметка задним числом возможна.
 import { db, startRun, finishRun } from '../lib/db.js';
-import { config } from '../lib/config.js';
+import { config, geoConf } from '../lib/config.js';
 import { log } from '../lib/util.js';
 
 const PAIN = ['money', 'ads', 'broken', 'missing', 'trust'];
@@ -28,13 +28,17 @@ export async function run({ geo, date, runId, cycle = 'discovery', force = false
   const version = lex.version;
   const matchers = buildMatchers(lex);
 
+  // Отзывы — по языкам гео, как их агрегирует score: отзыв хранится под гео, где его сняли
+  // первым, и разметка «только своих» оставляла строки того же языка из других гео без меток.
+  const langs = geoConf(geo).review_langs;
+  const langIn = `lang IN (${langs.map(() => '?').join(',')})`;
   const rows = force
-    ? d.prepare(`SELECT review_id, lang, text, rating FROM raw_reviews WHERE geo=?`).all(geo)
+    ? d.prepare(`SELECT review_id, lang, text, rating FROM raw_reviews WHERE ${langIn}`).all(...langs)
     : d.prepare(
         `SELECT r.review_id, r.lang, r.text, r.rating FROM raw_reviews r
-          WHERE r.geo=? AND NOT EXISTS (
+          WHERE r.${langIn} AND NOT EXISTS (
             SELECT 1 FROM review_labels l WHERE l.review_id=r.review_id AND l.classifier_version=?)`
-      ).all(geo, version);
+      ).all(...langs, version);
 
   const ins = d.prepare(`INSERT OR IGNORE INTO review_labels (review_id, label, classifier_version) VALUES (?,?,?)`);
   let labeled = 0, marks = 0;
