@@ -101,11 +101,6 @@
   h1 { margin: 0 0 6px; font-size: 25px; font-weight: 800; letter-spacing: -0.5px; text-wrap: balance; }
   .lead { margin: 0; color: var(--muted); font-size: 13.5px; max-width: 70ch; text-wrap: pretty; }
   .head-side { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
-  .mini-label { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
-  .seg { display: flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--card); flex-wrap: wrap; }
-  .seg button { padding: 8px 12px; cursor: pointer; font-size: 12.5px; font-weight: 800; font-family: var(--f-num); background: transparent; border: 0; border-right: 1px solid var(--border); color: var(--text); }
-  .seg button:last-child { border-right: 0; }
-  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
 
   .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
   .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
@@ -533,16 +528,6 @@
     return '<div class="page-head"><div>' + (eyebrow ? '<div class="eyebrow">' + esc(eyebrow) + '</div>' : '') +
       '<h1>' + esc(title) + '</h1><p class="lead">' + lead + '</p></div>' + (side ? '<div class="head-side">' + side + '</div>' : '') + '</div>';
   }
-  function geoTabs() {
-    var ranked = D.geos.filter(function (g) { return D.geoData[g.geo]; })
-      .sort(function (a, b) { return (D.geoData[b.geo].apps.length) - (D.geoData[a.geo].apps.length); })
-      .map(function (g) { return g.geo; });
-    var list = [REF].concat(ranked.filter(function (g) { return g !== REF; }).slice(0, 6));
-    if (list.indexOf(state.geo) < 0) list.push(state.geo);
-    return '<span class="mini-label">Гео отчёта</span><div class="seg">' + list.map(function (g) {
-      return '<button data-act="geo" data-geo="' + g + '" aria-pressed="' + (g === state.geo) + '">' + g + '</button>';
-    }).join('') + '</div>';
-  }
   function copyColorFor(list) {
     var vals = list.map(function (a) { return a.prescore; });
     var q75 = quantile(vals, 0.75), q50 = quantile(vals, 0.5), q25 = quantile(vals, 0.25);
@@ -736,7 +721,10 @@
 
   // ---------------- отчёты ----------------
   function reportPage(r) {
-    return '<section class="page">' + pageHead('Отчёты', r.title, r.lead, r.noGeo ? '' : geoTabs()) +
+    // Гео выбирается одним местом — списком в шапке. В заголовке отчёта оно только названо,
+    // чтобы было видно, по какой стране цифры, но второго переключателя нет.
+    var eyebrow = r.noGeo ? 'Отчёты' : 'Отчёты · ' + (GEO_NAMES[state.geo] || state.geo);
+    return '<section class="page">' + pageHead(eyebrow, r.title, r.lead, '') +
       (r.controls || '') + kpiCards(r.kpis) +
       '<div class="split">' +
         '<div class="card panel"><div class="panel-title">' + esc(r.chartTitle) + '</div><div class="panel-sub">' + esc(r.chartSub || '') + '</div>' + r.chart + '</div>' +
