@@ -61,13 +61,15 @@ CREATE TABLE IF NOT EXISTS raw_external_asa (
 -- Сигналы (раздел 11) плюс остальные признаки раздела 5 и то, как посчитан score.
 -- probes — лестница префиксов: [i, позиция или 0, s|i|a|n] (s — снято, i — выведено
 -- по соседним снятым, a — снято и фразы нет, n — не снималось, ниже точки появления).
+-- score_raw — формула 4.2; score_raw_norm — она же, делённая на максимум для длины фразы.
+-- score — перцентиль того варианта, что указан в config score.normalization.
 CREATE TABLE IF NOT EXISTS kw_signals (
   keyword_id INTEGER, geo TEXT, day TEXT,
   score REAL, min_prefix_len INTEGER, avg_suggest_pos REAL,
   kp_volume REAL, trends_index REAL, asa_popularity REAL,
   top10_installs_median REAL, top10_reviews_median REAL,
   title_match_share REAL, total_results INTEGER,
-  score_raw REAL, prefix_hit_share REAL, score_method TEXT, probes TEXT,
+  score_raw REAL, score_raw_norm REAL, prefix_hit_share REAL, score_method TEXT, probes TEXT,
   prefixes_total INTEGER, requests INTEGER,
   installs_spread REAL, suggest_geo_count INTEGER,
   words INTEGER, chars INTEGER, stopword_share REAL, is_brand INTEGER, lang TEXT, is_translit INTEGER,

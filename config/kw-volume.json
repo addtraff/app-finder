@@ -7,6 +7,8 @@
     "max_prefix": 20,
     "pos_exponent": 0.7,
     "min_group_size": 30,
+    "normalization": "spec",
+    "_normalization": "spec — score_raw ровно по формуле 4.2; max — доля от максимума для длины фразы. Формула 4.2 растёт с длиной фразы; переключать по валидации на Console, не на глаз.",
     "mode_tracked": "binary",
     "mode_explore": "rough",
     "recompute_days": 14,
