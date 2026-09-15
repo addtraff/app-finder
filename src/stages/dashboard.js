@@ -104,6 +104,35 @@ function collectStatus(d, geo, date) {
   };
 }
 
+// Сбор и планы: статус дня по активным гео, план на 30 дней, расписание и прогноз нагрузки.
+// Отдельной функцией, чтобы AppRadar показывал ровно то же, что Play Market Radar, из тех же
+// выборок, а не из скопированного SQL.
+export function collectCollection(d, date) {
+  const cfg = config();
+  const active = activeGeos();
+  const s = schedule();
+  const status = active.map((g) => collectStatus(d, g.geo, date));
+  // Прогноз запросов в день на гео: карточки A/B плюс выдача по ядру.
+  const levelAB = one(d, `SELECT COUNT(*) c FROM apps WHERE watch_level IN ('A','B')`).c;
+  const keywordsByGeo = new Map(all(d, `SELECT geo, COUNT(*) c FROM disc_keywords GROUP BY geo`).map((r) => [r.geo, r.c]));
+  const avgKeywords = active.length
+    ? Math.round(active.reduce((a, g) => a + (keywordsByGeo.get(g.geo) || 0), 0) / active.length) : 0;
+  const forecast = Math.max(1, Math.round(levelAB * 1.2) + avgKeywords);
+  return {
+    status,
+    plan: planForDays(date, 30),
+    schedule: {
+      full_crawl_cycle: s.full_crawl.cycle_days,
+      full_crawl_per_day: s.full_crawl.geos_per_day_max,
+      light_crawl_weekday: s.light_crawl.weekday,
+      k7_a: s.k7.level_a_days, k7_b: s.k7.level_b_days,
+      monthly: s.monthly, quarterly: s.quarterly,
+      forecast_requests_per_geo_day: forecast,
+    },
+    start_hour_utc: Object.fromEntries(cfg.geos.geos.map((g) => [g.geo, g.start_hour_utc])),
+  };
+}
+
 export function collect(d, selectedGeo, date) {
   const cfg = config();
   const ref = referenceGeo();
@@ -156,7 +185,7 @@ export function collect(d, selectedGeo, date) {
   // сегодняшний прогон», и подменять его прошлым днём значило бы врать про readiness.
   // collectStatus сама возвращает «нет данных» для гео без данных вообще — отдельная
   // заглушка не нужна и раньше давала гео с пустой историей две записи статуса вместо одной.
-  const status = active.map((g) => collectStatus(d, g.geo, date));
+  const collection = collectCollection(d, date);
 
   // Кросс-гео: одна и та же ниша во всех гео. Сопоставление идёт по concept,
   // потому что head_keyword в каждом гео на своём языке. Каждое гео берётся по своему
@@ -226,13 +255,6 @@ export function collect(d, selectedGeo, date) {
     verified_full: Object.values(geoData).reduce((a, g) => a + g.counts.verified_full, 0),
   };
 
-  const s = schedule();
-  const plan = planForDays(date, 30);
-  // Прогноз запросов в день на гео: карточки A/B плюс выдача по ядру.
-  const avgKeywords = active.length
-    ? Math.round(geoIndex.filter((g) => g.active).reduce((a, g) => a + g.keywords, 0) / active.length) : 0;
-  const forecast = Math.max(1, Math.round((globalCounts.level_a + globalCounts.level_b) * 1.2) + avgKeywords);
-
   const apkDone = one(d, `SELECT COUNT(*) c FROM raw_apk`).c;
   const trackScanned = one(d, `SELECT COUNT(*) c FROM raw_tracking_scan`).c;
   const trackFound = one(d, `SELECT COUNT(*) c FROM raw_tracking_scan WHERE found=1`).c;
@@ -262,15 +284,7 @@ export function collect(d, selectedGeo, date) {
       db_size_mb: fs.existsSync(DB_PATH) ? fs.statSync(DB_PATH).size / 1048576 : 0,
     },
     counts: globalCounts,
-    status, plan,
-    schedule: {
-      full_crawl_cycle: s.full_crawl.cycle_days,
-      full_crawl_per_day: s.full_crawl.geos_per_day_max,
-      light_crawl_weekday: s.light_crawl.weekday,
-      k7_a: s.k7.level_a_days, k7_b: s.k7.level_b_days,
-      monthly: s.monthly, quarterly: s.quarterly,
-      forecast_requests_per_geo_day: forecast,
-    },
+    status: collection.status, plan: collection.plan, schedule: collection.schedule,
     geoIndex, geoData, events, gaps,
     crossGeo: { geos: crossGeoGeos, rows: crossRows },
   };
