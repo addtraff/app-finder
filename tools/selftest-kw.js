@@ -335,6 +335,51 @@ test('калибровка: CTR, цензурирование, S2 и S3 на с�
   assert.ok(rho > 0.7);
 });
 
+test('импорт выгрузок: Console в UTF-16 с табуляцией, Keyword Planner, Trends, ASA', async () => {
+  const { kwDb } = await import('../src/lib/kw/schema.js');
+  const { importConsole, importPlanner, importTrends, importAsa, parseDay, countryCode, parseCsv } = await import('../src/lib/kw/imports.js');
+  const d = kwDb();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kw-import-'));
+  try {
+    assert.equal(parseDay('Sep 3, 2026'), '2026-09-03');
+    assert.equal(parseDay('03.09.2026'), '2026-09-03');
+    assert.equal(parseDay('20260903'), '2026-09-03');
+    assert.equal(countryCode('United States'), 'US');
+    assert.equal(countryCode('Германия'), 'DE');
+    assert.deepEqual(parseCsv('a,"b, c",d\n1,"x ""y""",3'), [['a', 'b, c', 'd'], ['1', 'x "y"', '3']]);
+
+    const tsv = ['Date\tPackage name\tCountry / region\tSearch term\tStore listing visitors\tStore listing acquisitions\tUnique clicks',
+      '2026-09-01\tcom.test.io\tUnited States\tPhoto Editor\t1,204\t310\t350',
+      '2026-09-01\tcom.test.io\tUnited States\tOther\t9000\t10\t12',
+      '2026-09-02\tcom.test.io\tDE\tfoto bearbeiten\t88\t20\t22'].join('\r\n');
+    const f1 = path.join(dir, 'terms.csv');
+    fs.writeFileSync(f1, Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(tsv, 'utf16le')]));
+    const res = importConsole(d, f1, { date: '2026-09-15' });
+    assert.equal(res.rows, 2);
+    assert.equal(res.skipped_aggregate, 1);
+    assert.deepEqual(res.kinds, ['unique_clicks', 'acquisitions']);
+    const row = d.prepare(`SELECT * FROM console_search_terms WHERE app_id='com.test.io' AND term='photo editor' AND metric_kind='acquisitions'`).get();
+    assert.equal(row.geo, 'US');
+    assert.equal(row.visitors, 1204);
+    assert.equal(row.unique_clicks, 310);
+
+    const f2 = path.join(dir, 'kp.csv');
+    fs.writeFileSync(f2, 'Keyword Stats 2026-09-15\nKeyword,Currency,Avg. monthly searches\nphoto editor,USD,10K – 100K\npdf reader,USD,1K – 10K\n');
+    assert.equal(importPlanner(d, f2, { geo: 'US' }).rows, 2);
+    assert.equal(d.prepare(`SELECT range_high FROM raw_external_keyword_planner WHERE geo='US' AND keyword='photo editor'`).get().range_high, 100000);
+
+    const f3 = path.join(dir, 'multiTimeline.csv');
+    fs.writeFileSync(f3, 'Category: All categories\n\nWeek,photo editor: (United States),pdf reader: (United States)\n2026-08-30,80,<1\n2026-09-06,100,3\n');
+    assert.equal(importTrends(d, f3, { geo: 'US' }).points, 4);
+
+    const f4 = path.join(dir, 'asa.csv');
+    fs.writeFileSync(f4, 'Keyword,Popularity,Country\nphoto editor,62,US\n');
+    assert.equal(importAsa(d, f4, {}).rows, 1);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 for (const [name, fn] of tests) {
   try {
     await fn();

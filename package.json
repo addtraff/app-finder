@@ -8,7 +8,9 @@
     "radar": "./src/cli.js"
   },
   "scripts": {
-    "radar": "node src/cli.js"
+    "radar": "node src/cli.js",
+    "kw": "node src/kw.js",
+    "kw:selftest": "node tools/selftest-kw.js"
   },
   "dependencies": {
     "better-sqlite3": "^12.2.0",
