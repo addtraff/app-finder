@@ -269,6 +269,55 @@ CREATE TABLE IF NOT EXISTS metrics_geo_arbitrage (
   PRIMARY KEY (niche_id, geo, snapshot_date)
 );
 
+-- ============ Методика v2.0 (ТЗ AppRadar 2, раздел 5) ============
+-- Отдельные таблицы, а не колонки metrics_niche_geo / metrics_app_geo: niche-doors и score
+-- перезаписывают свои строки целиком (INSERT OR REPLACE с явным списком колонок), и новые
+-- поля обнулялись бы при каждом их пересчёте. Пишет только стадия radar-v2.
+CREATE TABLE IF NOT EXISTS metrics_keyword_geo (
+  geo TEXT, snapshot_date TEXT, niche_id TEXT, keyword TEXT, is_head INTEGER,
+  suggest_score REAL, serp_date TEXT, top10_cards INTEGER, door_key INTEGER, door_app_id TEXT,
+  is_free INTEGER, paid_in_top10 INTEGER, paid_ctr_share REAL, ads_checked_share REAL,
+  PRIMARY KEY (geo, snapshot_date, niche_id, keyword)
+);
+CREATE TABLE IF NOT EXISTS metrics_niche_v2 (
+  niche_id TEXT, geo TEXT, snapshot_date TEXT, niche_date TEXT, concept TEXT, head_keyword TEXT,
+  keywords_count INTEGER, door INTEGER, wall_installs INTEGER,
+  free_keys_count INTEGER, free_demand_share REAL, door_head INTEGER, door_tail INTEGER, door_velocity REAL,
+  demand_per_app REAL, aso_saturation REAL, relevance_gap_pct REAL,
+  entry_rate_90d INTEGER, last_entry_days INTEGER, history_days INTEGER, time_to_door_median REAL,
+  turnover_up_new REAL, turnover_window_days INTEGER, hhi_top10 REAL, clone_density REAL,
+  freedom_components TEXT, freedom_raw REAL, freedom_pct REAL, closed_flag INTEGER,
+  organic_capacity REAL, organic_capacity_lo REAL, organic_capacity_hi REAL,
+  money_ratio REAL, money_capacity REAL,
+  organic_purity REAL, purity_coverage REAL, top10_ads_share REAL,
+  young_organic_count INTEGER, young_organic_installs INTEGER, young_organic_apps TEXT,
+  time_to_organic REAL, time_to_organic_kind TEXT,
+  candidates_count INTEGER, candidates_organic_count INTEGER, candidates_paid_count INTEGER,
+  monetized_share REAL, leaders_pain TEXT, head_top10 TEXT,
+  niche_rank REAL, rank_basis TEXT, rank_pct REAL, quadrant TEXT, tail_clean INTEGER,
+  incomplete TEXT, partial_window INTEGER,
+  PRIMARY KEY (niche_id, geo, snapshot_date)
+);
+CREATE TABLE IF NOT EXISTS metrics_app_v2 (
+  app_id TEXT, geo TEXT, snapshot_date TEXT, niche_id TEXT, passed_funnel INTEGER,
+  released TEXT, age_months REAL, young INTEGER,
+  organic_level TEXT, evidence_date TEXT, evidence_age_days INTEGER,
+  ads_found TEXT, ads_google INTEGER, ads_google_checked TEXT, ads_google_host TEXT, ads_google_creatives INTEGER,
+  ads_google_first_seen TEXT, ads_google_last_seen TEXT, ads_google_active INTEGER,
+  ads_meta INTEGER, ads_meta_checked TEXT, ads_ever_found INTEGER,
+  attribution_sdk INTEGER, tracking_names TEXT, apk_parsed INTEGER,
+  installs INTEGER, installs_delta_30d REAL, delta_window_days INTEGER, delta_partial INTEGER,
+  search_weight REAL, explained REAL, aso_share REAL, traffic_source TEXT, exogenous_spike_rate REAL,
+  keywords_json TEXT,
+  checks TEXT, check_notes TEXT, passed INTEGER, failed INTEGER, unknown INTEGER, disq TEXT,
+  PRIMARY KEY (app_id, geo, snapshot_date)
+);
+CREATE TABLE IF NOT EXISTS metrics_geo_calibration (
+  geo TEXT, snapshot_date TEXT, k_geo REAL, k_p25 REAL, k_p75 REAL, n_obs INTEGER,
+  n_candidates INTEGER, window_days INTEGER, status TEXT,
+  PRIMARY KEY (geo, snapshot_date)
+);
+
 CREATE TABLE IF NOT EXISTS review_labels (
   review_id TEXT, label TEXT, classifier_version TEXT,
   PRIMARY KEY (review_id, label, classifier_version)

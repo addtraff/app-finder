@@ -29,6 +29,7 @@ import * as analyzeApk from './stages/analyze-apk.js';
 import * as analyzeTracking from './stages/analyze-tracking.js';
 import * as methodologyReport from './stages/methodology-report.js';
 import * as appradar from './stages/appradar.js';
+import * as radarV2 from './stages/radar-v2.js';
 
 const STAGES = {
   'collect-charts': collectCharts,
@@ -52,6 +53,7 @@ const STAGES = {
   'analyze-tracking': analyzeTracking, // автоматический: то же самое по тексту, без скачивания
   'methodology': methodologyReport,     // второй отчёт: разрез по слоям методики, вкладками
   'appradar': appradar,                 // третий отчёт: те же данные в оформлении AppRadar
+  'radar-v2': radarV2,                  // методика v2.0: свобода, ёмкость, чистота, семь проверок
 };
 
 function csvLines(text) {
@@ -104,6 +106,7 @@ const DISCOVERY = [
   // Третий score — после check-ads: иначе находки K7 и Meta попадают в ads_found только
   // на следующие сутки, и отчёт этого дня показывает их как unchecked.
   ['score', {}],
+  ['radar-v2', {}],
   ['dashboard', {}],
   ['methodology', {}],
   ['appradar', {}],
@@ -148,6 +151,7 @@ const DAILY = [
   // Третий score — после check-ads: иначе находки K7 и Meta попадают в ads_found только
   // на следующие сутки, и отчёт этого дня показывает их как unchecked.
   ['score', {}],
+  ['radar-v2', {}],
   ['dashboard', {}],
   ['methodology', {}],
   ['appradar', {}],

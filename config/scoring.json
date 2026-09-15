@@ -25,6 +25,30 @@
     "leftover_min_shared_top10": 2
   },
   "monetization_proof": { "ok": 1.0, "weak": 0.4, "iap_max_usd_prior": 20 },
+  "v2": {
+    "_note": "Методика v2.0 и ТЗ AppRadar 2 (docs/tz-appradar-v2.md, 5.12). Здесь только служебные числа: окна, условия полноты данных, форма кривой CTR и веса. Пороги значений считаются квантилями в стадии radar-v2.",
+    "evidence_ttl_days": 30,
+    "young_months": 12,
+    "min_window_days": 14,
+    "full_window_days": 30,
+    "entry_window_days": 90,
+    "calibration_min_obs": 30,
+    "purity_min_checked_share": 0.6,
+    "freedom_min_weight": 0.5,
+    "clone_min_apps": 3,
+    "ads_active_days": 30,
+    "spike_min_points": 20,
+    "capacity_position": 5,
+    "_ctr_note": "Приор, не измерение Play: калибруется по приложениям, сменившим позицию при неизменном листинге (методика v2.0, P3, п. 19).",
+    "ctr_top10": [1.00, 0.55, 0.38, 0.28, 0.22, 0.18, 0.15, 0.13, 0.11, 0.10],
+    "ctr_11_20": 0.05,
+    "ctr_21_50": 0.02,
+    "freedom_weights": {
+      "free_demand_share": 0.25, "relevance_gap": 0.15, "aso_saturation": 0.15,
+      "demand_per_app": 0.15, "entry_rate": 0.15, "turnover_up_new": 0.10, "clone_density": 0.05
+    },
+    "money_weight": 0.1
+  },
   "in_score_features": ["demand", "growth_s", "weakness", "openness", "feasibility", "organic"],
   "candidate_features": [
     "portfolio_size", "locales_count", "size_mb", "wom_index", "index_breadth",
