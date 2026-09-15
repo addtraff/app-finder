@@ -388,17 +388,31 @@ async function googleTransparency(page, queue, date, c, opts) {
       if (checked % 20 === 0 && checked) log(`  Ads Transparency: ${checked}/${total}`);
     }
   } else {
-    // Окна по 14: потолок параллельности, выше — мгновенный 429.
-    for (let i = 0; i < queue.length; i += c.parallel_window) {
-      const window = queue.slice(i, i + c.parallel_window);
+    // Окна по 14: потолок параллельности, выше — мгновенный 429. На длинных очередях Google
+    // начинает отклонять запросы без CORS-заголовков («Failed to fetch»), и тогда помогает не
+    // пауза между запросами, а остывание: окно уменьшается вдвое и поток ждёт cooldown_ms.
+    let win = c.parallel_window, i = 0, num = 0;
+    while (i < queue.length) {
+      const window = queue.slice(i, i + win);
       const results = await fetchInPage(page, window.map((w) => w.domain), c);
+      let bad = 0;
       for (const r of results) {
         const res = saveResult(d, r, date);
         if (res.ok) { checked++; found += res.found; }
-        else failed.push(window.find((w) => w.domain === r.domain));
+        else { bad++; failed.push(window.find((w) => w.domain === r.domain)); }
       }
-      log(`  Ads Transparency: окно ${Math.ceil((i + window.length) / c.parallel_window)}, ` +
-          `проверено ${checked}/${total}, ошибок ${failed.length}`);
+      i += window.length;
+      num++;
+      log(`  Ads Transparency: окно ${num} (по ${win}), проверено ${checked}/${total}, ошибок ${failed.length}`);
+      if (bad > window.length / 2 && i < queue.length) {
+        win = Math.max(c.min_window || 1, Math.floor(win / 2));
+        const cd = c.cooldown_ms ?? 600000;
+        log(`  Google отклоняет запросы: окно ${win}, остываю ${Math.round(cd / 60000)} мин`);
+        await sleep(cd);
+      } else if (!bad && win < c.parallel_window) {
+        win = Math.min(c.parallel_window, win + 1);
+      }
+      await sleep(c.pause_ms);
     }
   }
 
@@ -407,10 +421,18 @@ async function googleTransparency(page, queue, date, c, opts) {
   failed = [];
   if (retry.length) {
     log(`  догоняю ${retry.length} упавших последовательно, пауза ${c.retry_pause_ms} мс`);
+    let inRow = 0;
     for (const item of retry) {
       const [r] = await fetchInPage(page, [item.domain], c);
       const res = saveResult(d, r, date);
-      if (res.ok) { checked++; found += res.found; } else failed.push({ domain: item.domain, status: r.status });
+      if (res.ok) { checked++; found += res.found; inRow = 0; }
+      else { failed.push({ domain: item.domain, status: r.status }); inRow++; }
+      // Если подряд отказывает много — Google не отдаёт вообще, и дожимать бессмысленно:
+      // домены остаются в очереди (статус не ok) и достанутся следующему проходу.
+      if (inRow >= (c.retry_stop_after_failures || 20)) {
+        warn(`подряд ${inRow} отказов — оставляю остальные домены в очереди до следующего прохода`);
+        break;
+      }
       await sleep(c.retry_pause_ms);
     }
   }
