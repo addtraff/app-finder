@@ -206,6 +206,67 @@ export function buildDomainQueue(d, geo, date, { domains = null, apps = null } =
   return queue;
 }
 
+// ---------------------------------------------------------------------------
+// --scope core-top: очереди K7 и Meta по топ-10 выдачи ключей ядер текущих ниш гео.
+// Обычные очереди берут только реестр (metrics_app_geo), а чистота ниши считается по всему
+// топ-10 её ключей: без этой очереди она пуста у 1 300 ниш из 2 084. Сначала места 1–5 —
+// на них приходится около 80 % трафика ключа по кривой CTR. Карточка — последняя в любом гео,
+// название для Meta — из US-карточки, если она есть.
+// ---------------------------------------------------------------------------
+export function buildCoreTopQueues(d, geo) {
+  const c = cfg();
+  const doneDomains = new Set(d.prepare(`SELECT DISTINCT developer_domain FROM raw_ads_google WHERE status='ok'`).all().map((r) => r.developer_domain));
+  const doneMeta = new Set(d.prepare(
+    `SELECT DISTINCT app_id FROM raw_ads_meta WHERE note LIKE ? OR found_by_package_id=1`
+  ).all(`${META_DETECTOR}%`).map((r) => r.app_id));
+  const rows = d.prepare(
+    `WITH cur AS (SELECT niche_id FROM metrics_niche_geo WHERE geo=?
+                   AND snapshot_date=(SELECT MAX(snapshot_date) FROM metrics_niche_geo WHERE geo=?)),
+          latest AS (SELECT keyword, MAX(snapshot_date) md FROM raw_search WHERE geo=? GROUP BY keyword),
+          top AS (SELECT r.app_id, MIN(r.position) AS pos
+                    FROM keyword_cores kc
+                    JOIN cur ON cur.niche_id=kc.niche_id
+                    JOIN latest l ON l.keyword=kc.keyword
+                    JOIN raw_search r ON r.geo=kc.geo AND r.keyword=kc.keyword AND r.snapshot_date=l.md AND r.position<=10
+                    LEFT JOIN disc_keywords k ON k.geo=kc.geo AND k.keyword=kc.keyword
+                   WHERE kc.geo=? AND kc.active=1 AND COALESCE(k.is_brand, 0)=0
+                   GROUP BY r.app_id)
+     SELECT top.app_id, top.pos,
+            (SELECT p.developer_website FROM raw_app_page p WHERE p.app_id=top.app_id ORDER BY (p.geo=?) DESC, p.snapshot_date DESC LIMIT 1) AS site,
+            (SELECT p.privacy_policy FROM raw_app_page p WHERE p.app_id=top.app_id ORDER BY (p.geo=?) DESC, p.snapshot_date DESC LIMIT 1) AS privacy,
+            (SELECT p.developer FROM raw_app_page p WHERE p.app_id=top.app_id ORDER BY (p.geo=?) DESC, p.snapshot_date DESC LIMIT 1) AS developer,
+            (SELECT p.max_installs FROM raw_app_page p WHERE p.app_id=top.app_id ORDER BY p.snapshot_date DESC LIMIT 1) AS installs,
+            (SELECT p.title FROM raw_app_page p WHERE p.app_id=top.app_id AND p.geo='US' ORDER BY p.snapshot_date DESC LIMIT 1) AS us_title,
+            (SELECT p.title FROM raw_app_page p WHERE p.app_id=top.app_id ORDER BY p.snapshot_date DESC LIMIT 1) AS any_title
+       FROM top
+      WHERE EXISTS (SELECT 1 FROM raw_app_page p WHERE p.app_id=top.app_id)
+      ORDER BY top.pos, installs DESC`
+  ).all(geo, geo, geo, geo, geo, geo, geo);
+
+  const byDomain = new Map();
+  let noDomain = 0, blacklisted = 0, alreadyDone = 0;
+  const meta = [];
+  for (const r of rows) {
+    const tier = r.pos <= 5 ? 1 : 2;
+    if (!doneMeta.has(r.app_id) && (r.us_title || r.any_title)) {
+      meta.push({ app_id: r.app_id, title: r.us_title || r.any_title, tier, prescore: null, installs: r.installs || 0 });
+    }
+    const host = hostOf(r.site) || hostOf(r.privacy);
+    if (!host) { noDomain++; continue; }
+    if (isBlacklisted(host, c.blacklist_hosts)) { blacklisted++; continue; }
+    if (doneDomains.has(host)) { alreadyDone++; continue; }
+    if (!byDomain.has(host)) byDomain.set(host, { domain: host, apps: [], developer: r.developer, best_prescore: null, max_installs: 0, tier });
+    const rec = byDomain.get(host);
+    rec.apps.push({ app_id: r.app_id, title: r.any_title });
+    rec.tier = Math.min(rec.tier, tier);
+    if ((r.installs || 0) > rec.max_installs) rec.max_installs = r.installs || 0;
+  }
+  const domains = [...byDomain.values()].sort((a, b) => (a.tier - b.tier) || (b.max_installs - a.max_installs));
+  domains.skipped = { noDomain, blacklisted, alreadyDone };
+  meta.sort((a, b) => (a.tier - b.tier) || (b.installs - a.installs));
+  return { domains, meta };
+}
+
 // Обратная совместимость: отчёты просят очередь в разрезе приложений.
 export function buildQueue(d, geo, date) {
   const domains = buildDomainQueue(d, geo, date);
@@ -537,11 +598,14 @@ async function calibrate(page, probeDomain, date) {
 
 export async function run({ geo, date, runId, cycle = 'daily', useBrowser = true, headless = false,
                             limit = null, sequential = false, domains = null, apps = null,
-                            skipMeta = false, skipGoogle = false, calibrateOnly = false, force = false }) {
+                            skipMeta = false, skipGoogle = false, calibrateOnly = false, force = false, scope = null }) {
   const d = db();
   startRun(runId, 'check-ads', geo, cycle, date);
   let c = cfg();
-  const full = skipGoogle ? Object.assign([], { skipped: {} }) : buildDomainQueue(d, geo, date, { domains, apps });
+  const core = scope === 'core-top' ? buildCoreTopQueues(d, geo) : null;
+  if (core) force = true;  // очередь топа ниш додавливается целиком, пейсинг тот же
+  const full = skipGoogle ? Object.assign([], { skipped: {} })
+    : core ? core.domains : buildDomainQueue(d, geo, date, { domains, apps });
   // batch_per_day — суточный лимит для расписания, чтобы не проверять сотни доменов
   // одним прогоном каждый день. --force снимает его и додавливает всю очередь этого
   // гео за один раз (пейсинг в googleTransparency/metaAdLibrary остаётся тот же самый —
@@ -549,7 +613,7 @@ export async function run({ geo, date, runId, cycle = 'daily', useBrowser = true
   const batch = limit ? Number(limit) : (force ? full.length : c.batch_per_day);
   const skipped = full.skipped || {};
   const queue = full.slice(0, batch);
-  const metaFull = skipMeta ? [] : buildMetaQueue(d, geo, date);
+  const metaFull = skipMeta ? [] : core ? core.meta : buildMetaQueue(d, geo, date);
   const metaBatch = limit ? Number(limit) : (force ? metaFull.length : (c.meta_batch_per_day || c.batch_per_day));
   const metaQueue = metaFull.slice(0, metaBatch);
   log(`  ${geo}: доменов доступно ${full.length}, берём ${queue.length}; пропущено — ` +
