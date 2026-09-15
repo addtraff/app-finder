@@ -207,14 +207,17 @@ async function main() {
 
     case 'discover': {
       const plan = args.light ? LIGHT_DISCOVERY : DISCOVERY;
-      for (const geo of geos) await runPipeline(plan, { geo, date, cycle: 'discovery', only: args.stage || null, force: !!args.force });
+      for (const geo of geos) await runPipeline(plan, { geo, date: args.date || todayUTC(), cycle: 'discovery', only: args.stage || null, force: !!args.force });
       break;
     }
 
     case 'daily':
       // --force: снимает недельное/трёхдневное/тридцатидневное окно C/D-уровня и берёт
       // всех сразу, а не по расписанию — используется для разового полного прогона.
-      for (const geo of geos) await runPipeline(DAILY, { geo, date, cycle: 'daily', only: args.stage || null, force: !!args.force });
+      // Дата берётся в момент старта каждого гео, а не один раз на весь прогон: проход по
+      // 30 гео идёт больше суток, и гео, снятое 20-го, записывалось снимком 15-го — это
+      // сдвигало окна 7/14/30 дней и прирост установок.
+      for (const geo of geos) await runPipeline(DAILY, { geo, date: args.date || todayUTC(), cycle: 'daily', only: args.stage || null, force: !!args.force });
       break;
 
     case 'stage': {
