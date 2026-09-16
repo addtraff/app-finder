@@ -1126,7 +1126,7 @@
           { t: 'Найдено', r: true, cls: 'num', v: function (g) { return int(g.discovered); } },
           { t: 'Ключей', r: true, cls: 'num', v: function (g) { return int(g.keywords_total); } },
           { t: 'Ниш', r: true, cls: 'num', v: function (g) { return int(g.niches); } },
-          { t: 'Прошли воронку', r: true, cls: 'num strong', v: function (g) { return int(g.apps); } },
+          { t: 'В отчёте', r: true, title: 'сильнейшие по индексу копируемости строки гео; в скобках — сколько прошедших воронку не попало в отчёт', v: function (g) { return '<span class="num strong">' + int(g.apps) + '</span>' + (g.apps_trimmed ? ' <span class="muted small num">+' + int(g.apps_trimmed) + '</span>' : ''); } },
           { t: 'Деньги к US', r: true, cls: 'num', v: function (g) { return fix(g.money_ratio, 2); } }
         ], geos, { minWidth: 860 }) + '</div>' +
     '</section>';

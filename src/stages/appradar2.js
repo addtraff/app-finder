@@ -76,7 +76,13 @@ export function collect(d) {
          JOIN metrics_app_geo m ON m.app_id=v.app_id AND m.geo=v.geo AND m.snapshot_date=v.snapshot_date
          JOIN apps a ON a.app_id=v.app_id
          LEFT JOIN metrics_niche_v2 n ON n.niche_id=v.niche_id AND n.geo=v.geo AND n.snapshot_date=v.snapshot_date
-        WHERE v.geo=? AND v.snapshot_date=? AND v.passed_funnel=1`, g.geo, date);
+        WHERE v.geo=? AND v.snapshot_date=? AND v.passed_funnel=1
+        ORDER BY m.prescore DESC`, g.geo, date);
+    // В отчёт идут сильнейшие строки гео: страница ограничена 16 МБ, а хвост по индексу
+    // копируемости в решении не участвует. Сколько отброшено — видно на странице «Сбор и планы».
+    const cap = V.report_apps_per_geo || 500;
+    const trimmed = Math.max(0, apps.length - cap);
+    apps.length = Math.min(apps.length, cap);
 
     for (const a of apps) {
       appRows.push({
@@ -140,7 +146,7 @@ export function collect(d) {
     geos.push({
       ...base, date, niche_date: nicheDate, ...thresholds,
       k_geo: r4(calib.k_geo ?? null), k_status: calib.status ?? null, k_window: calib.window_days ?? 0, k_obs: calib.n_obs ?? 0,
-      niches: niches.length, apps: apps.length,
+      niches: niches.length, apps: apps.length, apps_trimmed: trimmed,
       history_days: niches.reduce((m, n) => Math.max(m, n.history_days || 0), 0),
       age_cov: share(allV2, (a) => a.age_months != null),
       ads_cov: share(apps, (a) => ['found', 'confirmed', 'no_signs'].includes(a.organic_level)),
