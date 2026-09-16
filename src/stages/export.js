@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { db, ROOT } from '../lib/db.js';
 import { log } from '../lib/util.js';
+import { screenAsOf } from '../lib/snapshots.js';
 
 // Классы колонок по сводной таблице D дополнения к ТЗ.
 const SCORE_COLUMNS = new Set([
