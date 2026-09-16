@@ -25,16 +25,21 @@ function pickAppsToRefresh(d, geo, date, cycle, budget, force) {
     ).all(geo, geo, date).map((r) => r.app_id);
   }
   if (cycle === 'daily') {
-    // Уровни A и B — ежедневно, C — раз в неделю (ТЗ 5.2).
+    // Уровни A и B — ежедневно, C — раз в неделю (ТЗ 5.2). Плюс всё, что прошло воронку в
+    // этом гео за последние две недели, независимо от уровня: отчёты показывают день гео, и
+    // без свежей карточки прошедшее воронку приложение из дня выпадает — в US так пропали
+    // 141 из 271 строк.
     return d.prepare(
       `SELECT a.app_id FROM apps a
         WHERE a.status <> 'rejected'
           AND (a.watch_level IN ('A','B')
                OR (a.watch_level='C' AND NOT EXISTS (
-                     SELECT 1 FROM raw_app_page p WHERE p.app_id=a.app_id AND p.geo=? AND p.snapshot_date > date(?, '-7 day'))))
+                     SELECT 1 FROM raw_app_page p WHERE p.app_id=a.app_id AND p.geo=? AND p.snapshot_date > date(?, '-7 day')))
+               OR EXISTS (SELECT 1 FROM screen_result s WHERE s.app_id=a.app_id AND s.geo=?
+                            AND s.reject_reason IS NULL AND s.snapshot_date > date(?, '-14 day')))
           AND NOT EXISTS (SELECT 1 FROM raw_app_page p WHERE p.app_id=a.app_id AND p.geo=? AND p.snapshot_date=?)
         ORDER BY CASE a.watch_level WHEN 'A' THEN 0 WHEN 'B' THEN 1 ELSE 2 END`
-    ).all(geo, date, geo, date).map((r) => r.app_id);
+    ).all(geo, date, geo, date, geo, date).map((r) => r.app_id);
   }
   // Обход: карточки для всего, что найдено в гео и ещё без сегодняшней карточки.
   return d.prepare(
