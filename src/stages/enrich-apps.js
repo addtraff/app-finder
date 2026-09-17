@@ -108,7 +108,11 @@ export async function run({ geo, date, runId, cycle = 'discovery', limit = null,
     `SELECT max_installs, installs_country, listing_hash, available, snapshot_date
        FROM raw_app_page WHERE app_id=? AND geo=? AND hl=? AND snapshot_date<? ORDER BY snapshot_date DESC LIMIT 1`
   );
-  const upApp = d.prepare(`UPDATE apps SET title=?, developer=?, developer_id=?, genre_id=? WHERE app_id=?`);
+  // Название — английское: карточки разных гео приходят на своих языках, и без этого в отчётах
+  // оставалось название из последнего гео прохода (после SA — арабское). Чужой язык пишется,
+  // только пока английского нет.
+  const upApp = d.prepare(`UPDATE apps SET title=CASE WHEN ?=1 OR title IS NULL OR title='' THEN ? ELSE title END,
+                                          developer=?, developer_id=?, genre_id=? WHERE app_id=?`);
 
   let done = 0, errors = 0, missing = 0;
   for (const appId of todo) {
@@ -172,7 +176,7 @@ export async function run({ geo, date, runId, cycle = 'discovery', limit = null,
       const prev = prevStmt.get(appId, geo, hl, date);
       d.transaction(() => {
         ins.run(row);
-        upApp.run(a.title ?? null, a.developer ?? null, a.developerId ?? null, a.genreId ?? null, appId);
+        upApp.run(/^en/i.test(hl) ? 1 : 0, a.title ?? null, a.developer ?? null, a.developerId ?? null, a.genreId ?? null, appId);
       })();
 
       if (prev) {

@@ -16,7 +16,8 @@ export function registerApp(appId, geo, via, date, meta = {}) {
     `INSERT INTO apps (app_id, first_seen, first_seen_geo, installs_source_geo, title, developer, developer_id, genre_id, watch_level)
      VALUES (?,?,?,?,?,?,?,?,NULL)
      ON CONFLICT(app_id) DO UPDATE SET
-       title = COALESCE(excluded.title, apps.title),
+       -- название не перезаписывается выдачей гео на её языке: английское ставит enrich-apps
+       title = COALESCE(apps.title, excluded.title),
        developer = COALESCE(excluded.developer, apps.developer),
        developer_id = COALESCE(excluded.developer_id, apps.developer_id),
        genre_id = COALESCE(excluded.genre_id, apps.genre_id)`
