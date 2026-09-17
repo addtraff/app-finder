@@ -120,6 +120,28 @@
   .filter-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 6px 5px 11px; border-radius: 20px; background: var(--accent-soft); color: var(--accent); font-weight: 800; font-size: 12.5px; }
   .filter-chip button { border: 0; background: transparent; cursor: pointer; color: inherit; font-weight: 800; padding: 0 5px; }
 
+  /* ---------- подсказки ---------- */
+  .tip-i { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--border); color: var(--muted); font-size: 10.5px; font-weight: 800; cursor: help; background: var(--card); flex: 0 0 16px; font-family: var(--f-ui); line-height: 1; padding: 0; }
+  .tip-i:hover, .tip-i:focus-visible { border-color: var(--accent); color: var(--accent); }
+  th[data-tip], .kpi-label[data-tip], dt[data-tip], .four-label[data-tip] { cursor: help; }
+  th[data-tip] > span, .kpi-label[data-tip] > span { border-bottom: 1px dotted var(--neutral); }
+  .badge[data-tip] { cursor: help; }
+  .tip-pop { position: fixed; z-index: 90; max-width: 360px; background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 12px 14px; font-size: 12.5px; line-height: 1.45; pointer-events: none; text-transform: none; letter-spacing: 0; font-weight: 500; }
+  .tip-pop h4 { margin: 0 0 6px; font-size: 13px; font-weight: 800; }
+  .tip-pop p { margin: 4px 0 0; text-wrap: pretty; }
+  .tip-pop p b { color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; display: block; }
+  .tip-pop ul { margin: 6px 0 0; padding-left: 16px; }
+  .tip-pop li { margin: 3px 0; }
+  .tip-pop .tip-val { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border); font-family: var(--f-num); font-size: 11.5px; color: var(--muted); }
+  .rec-toggle { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 20px; border: 1px solid var(--accent); color: var(--accent); background: var(--card); font-weight: 800; font-size: 12.5px; cursor: pointer; }
+  .rec-toggle[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .rec-bars { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
+  .rec-bar { display: grid; grid-template-columns: 170px 1fr 70px; gap: 10px; align-items: center; font-size: 12.5px; }
+  .rec-bar .track { height: 7px; border-radius: 5px; background: var(--border); overflow: hidden; }
+  .rec-bar .fill { height: 7px; background: var(--accent); }
+  .rec-bar .val { font-family: var(--f-num); font-weight: 700; text-align: right; }
+  @media (max-width: 600px) { .rec-bar { grid-template-columns: 110px 1fr 56px; } }
+
   .tbl-scroll { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; }
   thead tr { background: var(--head); }
@@ -372,6 +394,119 @@
     organic_capacity: 'ёмкость', core_keywords: 'узкое ядро' };
   var MONET = { subscription: 'Подписка', iap: 'Покупки', ads: 'Реклама', hybrid: 'Гибрид', paid: 'Платное', free: 'Бесплатно', none: 'Нет' };
   var PAIN = { money: 'Деньги', ads: 'Реклама', broken: 'Не работает', missing: 'Не хватает функции', trust: 'Доверие' };
+  var CHANNEL = { organic: 'Органика (поиск)', organic_ubt: 'Органика + УБТ', ubt: 'УБТ', paid: 'Закупка найдена', unchecked: 'Не проверено' };
+  var REC = M.rec || { top_n: 50 };
+
+  // ---------------- словарь подсказок: что это, как считается, зачем ----------------
+  var LEVEL_OPTS = [['Признаков закупки нет', 'обе рекламные библиотеки пусты, трекера атрибуции в тексте нет, проверке не больше ' + M.ttl + ' дней; APK не разобран'],
+    ['Органика подтверждена', 'то же, плюс разобран APK (установочный файл) без SDK атрибуции'],
+    ['Улика протухла', 'было «признаков нет», но проверке рекламы больше ' + M.ttl + ' дней — отсутствие рекламы тогда ничего не говорит о сегодня'],
+    ['Не проверено', 'нет результата хотя бы одной из библиотек'],
+    ['Закупка найдена', 'реклама в Google Ads Transparency или Meta Ad Library (сейчас или в прошлом) либо трекер атрибуции в описании или политике']];
+  var UBT_HOW = 'Отзывы приложения на всех собранных языках ищутся по словарю на 18 языках: TikTok, YouTube/Shorts, Instagram/Reels, блогеры, инфлюенсеры и фразы вида «увидел в тиктоке». Признак — не меньше ' + M.ubt_min_mentions +
+    ' упоминаний и доля таких отзывов не ниже p75 гео среди приложений, где упоминания есть; доля считается от ' + M.ubt_min_reviews + ' отзывов. У фото-, видео- и музыкальных приложений, рекордеров, блокировщиков и тех, у кого площадка в названии, считаются только фразы-источники: там названия площадок описывают функцию.';
+  var QUAD_OPTS = [['Цель', 'свобода ≥ 75 и чистота ≥ p50 гео — проверять образцы'], ['Трафик выкуплен', 'свобода ≥ 75, чистота < p50 — место есть, но спрос уходит закупающим'],
+    ['Зрелая ASO-ниша', 'свобода < 75, чистота ≥ p50 — чисто, но тесно'], ['Мимо', 'тесно и выкуплено'], ['Не определено', 'нет свободы или чистоты']];
+  var GLOSS = {
+    'geo': { t: 'Гео', what: 'Страна, по которой показаны данные, или «Ворлдвайд» — сводка по 30 гео.', how: 'В ворлдвайд каждое приложение и каждая ниша — одной строкой, в гео, где они выглядят сильнее, с поправкой на деньги гео (вес 0,1).', why: 'Сравнить страны и найти, где вход дешевле.' },
+    'f.hidePaid': { t: 'Скрыть выросших на покупном трафике', what: 'Убирает приложения со ступенью органики «Закупка найдена».', how: 'Закупка — реклама в Google Ads Transparency или Meta Ad Library, сейчас или в прошлом, либо трекер атрибуции (AppsFlyer, Adjust и др.) в описании или политике.', why: 'Оставить образцы, которые можно повторить без рекламного бюджета. Действует на таблицу и на списки в карточке ниши.' },
+    'f.showDisq': { t: 'Показать отсеянных', what: 'Возвращает приложения с дисквалификаторами «накрутка» и «стена авторитета».', how: 'Накрутка — установки на оценку вне p01–p99 ниши или рейтинг выше 4,9 при 10K+ оценок. Стена — установки или оценки топ-10 ниши выше p90 гео.', why: 'По умолчанию скрыты: рост таких приложений не повторить.' },
+    'f.rec': { t: 'Рекомендуемый топ', what: 'Первые ' + REC.top_n + ' приложений по рекомендуемому скору.', how: 'Взвешенная сумма: рост из поиска (ASO) 35 % — вес в выдаче гео, ключи в топ-10, источник «поиск»; свобода ниши 25 % — свободный спрос и индекс свободы; пройденные проверки 15 %; индекс копируемости 10 %; молодость и прирост 10 %; монетизация 5 %. Закупка, накрутка и стена исключены; непроверенная органика ×0,6, протухшая улика ×0,8.', why: 'Короткий список для ручного разбора: кто вырос на ASO в нише со свободными ключами.' },
+    'f.cat': { t: 'Категория Play', what: 'Категория приложения в Google Play.', how: 'Из карточки; показаны семь самых частых в выборке.', why: 'Сузить поиск до своей специализации.' },
+    'f.level': { t: 'Органика', what: 'Насколько доказано, что приложение выросло без закупки.', how: 'Сверяются обе рекламные библиотеки, трекер атрибуции в тексте, разбор APK и возраст проверки.', why: 'Отделить органику от выросших на рекламе.', opts: LEVEL_OPTS },
+    'f.channel': { t: 'Канал роста', what: 'Откуда приложение, по косвенным признакам, получает пользователей: поиск Play, соцсети и видео (УБТ) или реклама.', how: 'Органика — ступень «признаков закупки нет» или «подтверждена». УБТ: ' + UBT_HOW, why: 'Найти образцы, растущие на поиске, на соцсетях или на обоих сразу.',
+      opts: [['Органика (поиск)', 'без закупки, признака УБТ нет'], ['Органика + УБТ', 'без закупки, признак УБТ есть'], ['УБТ', 'признак УБТ есть — независимо от закупки'], ['Закупка найдена', 'реклама или трекер атрибуции'], ['Не проверено', 'реклама не проверена или проверка протухла']] },
+    'f.traffic': { t: 'Источник трафика', what: 'Объясняет ли поиск Play прирост установок приложения.', how: 'aso_share = курс гео × вес приложения в выдаче ÷ прирост за 30 дней. Ниже p25 гео — внешний источник. Нужен курс «спрос → установки»: окно ' + M.min_window + ' дней и ' + M.calib_min + ' органиков в топ-10.', why: 'Под ASO стоит копировать тех, кого приводит поиск.', opts: [['Поиск', 'aso_share не ниже p25 гео'], ['Внешний', 'aso_share ниже p25 гео'], ['Не проверено', 'нет курса гео или прироста за окно']] },
+    'f.minPassed': { t: 'Пройдено проверок', what: 'Сколько из семи проверок методики пройдено.', how: 'Спрос органический, инкумбент побеждаем, вырос без закупки, трафик поисковый (3b), дёшев в повторении, монетизация доказана, переживёт модерацию. Непроверенная не считается пройденной.', why: 'Отсечь образцы с недоказанными свойствами.' },
+    'f.quad': { t: 'Квадрант ниши', what: 'Положение ниши приложения на матрице «свобода × чистота».', how: 'Свобода — процентиль среди ниш гео, граница 75; чистота — граница p50 гео.', why: 'Смотреть образцы в нишах, куда есть смысл заходить.', opts: QUAD_OPTS },
+    'f.age': { t: 'Возраст', what: 'Сколько месяцев прошло с релиза.', how: 'Дата релиза из карточки на языке гео, разобранная на 21 языке.', why: 'Молодые приложения без закупки доказывают, что в нишу можно войти сейчас.', opts: [['< 12 мес', 'молодые'], ['< 24 мес', 'до двух лет']] },
+    'f.monet': { t: 'Монетизация', what: 'Как приложение зарабатывает.', how: 'Из карточки: встроенные покупки, диапазон цен, реклама в приложении.', why: 'Искать образцы с работающей моделью дохода.' },
+    'f.sort': { t: 'Сортировка', what: 'Порядок строк таблицы.', opts: [['Пройдено проверок', 'больше пройденных — выше, при равенстве индекс'], ['Рекомендуемый скор', 'процентиль рекомендуемого скора'], ['Индекс копируемости', 'prescore 0–100'], ['Прирост за 30 дней', 'текущая скорость роста'], ['Сначала молодые', 'по возрасту'], ['Свобода ниши', 'процентиль свободы ниши'], ['Широта по гео', 'в скольких гео прошло воронку']] },
+    'c.app': { t: 'Приложение', what: 'Название, пакет и разработчик.', why: 'Клик открывает карточку: проверки, история рекламы, источник трафика, УБТ, рекомендуемый скор и калькулятор окупаемости.' },
+    'c.niche': { t: 'Ниша', what: 'Ниша, в ядре ключей которой у приложения больше всего позиций в топ-50.', how: 'Бейдж — квадрант ниши на матрице «свобода × чистота».', why: 'Образец оценивается вместе с нишей. Клик открывает карточку ниши.' },
+    'c.geo': { t: 'Гео', what: 'Гео строки; «+N» — в скольких ещё гео приложение прошло воронку.', how: 'В ворлдвайд — гео с наибольшим индексом с поправкой на деньги гео (вес 0,1).', why: 'Широкое присутствие — механика работает не в одной стране.' },
+    'c.installs': { t: 'Установки', what: 'Число установок из карточки Play; под ним — рейтинг.', why: 'Масштаб образца: слишком большие — инкумбенты, а не образцы.' },
+    'c.age': { t: 'Возраст', what: 'Месяцев с релиза; бейдж — моложе ' + M.young_months + ' мес.', how: 'Дата релиза из карточки на языке гео.', why: 'Молодой образец без закупки — свежее доказательство входа.' },
+    'c.delta': { t: 'Прирост за 30 дней', what: 'Сколько установок приложение набирает в месяц сейчас.', how: 'Разница установок между снимками, приведённая к 30 дням; окно не меньше ' + M.min_window + ' дней. Пока истории меньше — «копится».', why: 'Текущая скорость важнее накопленного счётчика.' },
+    'c.level': { t: 'Органика', what: 'Ступень доказанности роста без закупки.', opts: LEVEL_OPTS },
+    'c.traffic': { t: 'Источник трафика', what: 'Поиск или внешний источник.', how: 'aso_share = курс гео × вес в выдаче ÷ прирост; ниже p25 гео — внешний.', why: 'Копировать под ASO — только поисковых.' },
+    'c.ubt': { t: 'УБТ', what: 'Признак условно-бесплатного трафика: приложение узнают из соцсетей и видео.', how: UBT_HOW, why: 'Такой образец можно усиливать роликами в TikTok, Shorts и Reels, а не только ASO.' },
+    'c.checks': { t: 'Семь проверок', what: 'Квадраты: зелёный — пройдена, красный — провалена, пустой — не проверена; пунктир — проверка 3b «трафик поисковый».', how: 'По порядку: спрос органический, инкумбент побеждаем, вырос без закупки, трафик поисковый, дёшев в повторении, монетизация доказана, переживёт модерацию.', why: 'Образец годится, когда пройдены все.' },
+    'c.monet': { t: 'Монетизация', what: 'Модель дохода и верхняя цена встроенных покупок.', how: 'Из карточки; «до $N» — максимум диапазона покупок в долларах.', why: 'Покупки от $20 — признак работающей подписки.' },
+    'c.freedom': { t: 'Свобода ниши', what: 'Процентиль индекса свободы ниши среди ниш гео, 0–100.', how: 'Свободный спрос 25 %, пустота выдачи, незанятость ASO, спрос на конкурента, входы новичков по 15 %, оборот 10 %, мало клонов 5 %.', why: 'Есть ли в нише куда встать.' },
+    'c.prescore': { t: 'Индекс копируемости', what: 'prescore 0–100 — ранжирующий индекс образца.', how: 'Аддитивно: спрос, рост по отзывам, слабость конкурентов, открытость ниши, простота повторения, органика.', why: 'Первичная сортировка сотен кандидатов.' },
+    'c.rec': { t: 'Рекомендация', what: 'Процентиль рекомендуемого скора среди приложений гео, 0–100.', how: 'ASO 35 %, свобода ниши 25 %, проверки 15 %, индекс 10 %, молодость и прирост 10 %, монетизация 5 %; закупка, накрутка и стена исключены.', why: 'Главный ориентир рекомендуемого топа.' },
+    'k.apps': { t: 'В выборке', what: 'Строк под текущими фильтрами.', how: '«Скрыто N» — сколько убрала галочка «Скрыть выросших на покупном трафике».' },
+    'k.clean': { t: 'Без признаков закупки', what: 'Ступень «признаков закупки нет» или «подтверждена».', how: 'Процент — от выборки до галочки.' },
+    'k.paid': { t: 'Закупка найдена', what: 'Реклама в библиотеках или трекер атрибуции.' },
+    'k.young': { t: 'Молодые органики', what: 'Моложе ' + M.young_months + ' мес и без закупки.', why: 'Кто вошёл недавно без рекламы.' },
+    'k.ubt': { t: 'С признаком УБТ', what: 'Приложения, которые узнают из соцсетей и видео.', how: UBT_HOW },
+    'k.passed4': { t: 'Прошли 4+ из 7', what: 'Пройдено не меньше четырёх проверок методики.' },
+    'b.found': { t: 'Закупка найдена', what: LEVEL_OPTS[4][1] + '.', why: 'Рост мог быть куплен — копировать под органику рискованно.' },
+    'b.confirmed': { t: 'Органика подтверждена', what: LEVEL_OPTS[1][1] + '.' },
+    'b.no_signs': { t: 'Признаков закупки нет', what: LEVEL_OPTS[0][1] + '.', why: 'Рабочая ступень: отсутствие рекламы доказать нельзя, но улика свежая.' },
+    'b.stale': { t: 'Улика протухла', what: LEVEL_OPTS[2][1] + '.', why: 'Нужна повторная проверка рекламы.' },
+    'b.unchecked': { t: 'Не проверено', what: LEVEL_OPTS[3][1] + '.' },
+    'b.search': { t: 'Поиск', what: 'Прирост объясняется поисковой выдачей: aso_share не ниже p25 гео.' },
+    'b.external': { t: 'Внешний источник', what: 'Поиск объясняет малую часть прироста: aso_share ниже p25 гео — соцсети, бренд, преинсталлы.', why: 'Под ASO такой образец не повторить.' },
+    'b.ubt': { t: 'Признак УБТ', what: 'В отзывах часто упоминают соцсети и видео как источник.', how: UBT_HOW },
+    'b.young': { t: 'Молодое', what: 'Моложе ' + M.young_months + ' месяцев.' },
+    'b.fraud': { t: 'Накрутка', what: 'Установки на оценку вне p01–p99 ниши или рейтинг выше 4,9 при 10K+ оценок.' },
+    'b.wall': { t: 'Стена авторитета', what: 'Установки или оценки топ-10 ниши выше p90 гео.' },
+    'b.incomplete': { t: 'Неполные данные', what: 'Часть компонент скора пуста; они исключены вместе с весом.', why: 'Скор менее надёжен — проверить вручную.' },
+    'b.closed': { t: 'Ниша закрыта', what: 'Последний вход новичка в топ-10 был дольше p90 гео назад.', how: 'Считается при истории выдачи от 90 дней.' },
+    'b.tail_clean': { t: 'Хвост чист', what: 'Трафик выкуплен, но доля свободного спроса не ниже p75 гео.', why: 'Входить через хвост ключей, а не через головной.' },
+    'q.target': { t: 'Цель', what: QUAD_OPTS[0][1] + '.' }, 'q.bought': { t: 'Трафик выкуплен', what: QUAD_OPTS[1][1] + '.' },
+    'q.mature': { t: 'Зрелая ASO-ниша', what: QUAD_OPTS[2][1] + '; вход — через новый кластер ключей или гео-арбитраж.' },
+    'q.pass': { t: 'Мимо', what: QUAD_OPTS[3][1] + '.' }, 'q.undetermined': { t: 'Не определено', what: QUAD_OPTS[4][1] + ' — не хватает данных.' },
+    'n.rec': { t: 'Рекомендуемый топ ниш', what: 'Первые ' + REC.top_n + ' ниш по рекомендуемому скору.', how: 'Свободные ключи 40 % — доля спроса за дешёвыми дверями (70 %) и их число (30 %); остальная свобода 15 %; чистота 20 %; молодые органики 10 %; монетизация у топа 10 %; ёмкость или спрос 5 %. Квадрант «Мимо» и закрытые ниши исключены.', why: 'Короткий список ниш, где свободные ключи дают вход на ASO.' },
+    'n.young': { t: 'Есть молодые органики', what: 'В топ-20 ключей ядра есть приложение моложе ' + M.young_months + ' мес без закупки.', why: 'Доказательство, что вход без рекламы возможен сейчас.' },
+    'n.cand': { t: 'Есть кандидаты без закупки', what: 'В нише есть прошедшие воронку приложения без найденной закупки.', why: 'Есть что разобрать как образец.' },
+    'n.full': { t: 'Только полные данные', what: 'Скрывает ниши с пустыми компонентами свободы, чистоты или ёмкости и ядром меньше трёх ключей.', why: 'Смотреть только ниши с надёжным скором.' },
+    'n.cat': { t: 'Категория Play', what: 'Самая частая категория кандидатов ниши.' },
+    'n.quad': { t: 'Квадрант', what: 'Положение ниши на матрице «свобода × чистота».', opts: QUAD_OPTS },
+    'n.freedom': { t: 'Свобода', what: 'Процентиль индекса свободы среди ниш гео.', opts: [['≥ 75', 'верхняя четверть'], ['≥ 50', 'верхняя половина']] },
+    'n.purity': { t: 'Чистота', what: 'Доля спроса ядра, уходящая приложениям без закупки.', how: 'По каждому ключу — доля трафика топ-10 по кривой CTR у закупающих; усредняется с весом спроса ключа. Пусто, если реклама проверена меньше чем у ' + Math.round((M.purity_min || 0.6) * 100) + ' % трафика.', opts: [['≥ p50 гео', 'не ниже медианы ниш гео']] },
+    'n.channel': { t: 'Канал роста ниши', what: 'Какой трафик доступен в нише: поиск без закупки, соцсети и видео или оба.', how: 'Органика — чистота не ниже p50 гео. УБТ-ниша — доля приложений топ-20 и кандидатов с признаком УБТ не ниже p75 ниш гео (при ' + M.ubt_niche_min_apps + '+ приложениях с разметкой). ' + UBT_HOW, why: 'Выбрать нишу под свою стратегию: ASO, ролики или оба.',
+      opts: [['Органика (поиск)', 'чистота ≥ p50, не УБТ-ниша'], ['Органика + УБТ', 'чистота ≥ p50 и УБТ-ниша'], ['УБТ', 'УБТ-ниша, независимо от чистоты']] },
+    'n.sort': { t: 'Сортировка', opts: [['Ранг', 'свобода × чистота × ёмкость, процентиль'], ['Рекомендуемый скор', 'процентиль рекомендуемого скора'], ['Свобода', 'процентиль свободы'], ['Ёмкость', 'установок в месяц за свободными ключами'], ['Чистота', 'доля спроса без закупки'], ['Срок', 'месяцев до входа'], ['Молодые органики', 'число'], ['door', 'порог входа, по возрастанию']] },
+    'nc.niche': { t: 'Ниша', what: 'Концепт каталога и головной ключ; в ворлдвайд — и головной ключ в US.', why: 'Клик открывает карточку ниши.' },
+    'nc.quad': { t: 'Квадрант', what: 'Положение на матрице «свобода × чистота» и пометки полноты.', opts: QUAD_OPTS },
+    'nc.geo': { t: 'Гео', what: 'Лучшее гео ниши, «+N» — в скольких гео она есть; ниже — в скольких гео она в «Цели» и где door ниже всего.' },
+    'nc.freedom': { t: 'Свобода', what: 'Есть ли в нише куда встать: процентиль индекса свободы среди ниш гео.', how: 'Свободный спрос 25 %, пустота выдачи, незанятость ASO, спрос на конкурента, входы новичков по 15 %, оборот за счёт новых 10 %, мало клонов 5 %; пустые компоненты исключаются с весом.', why: 'Первая ось матрицы решения.' },
+    'nc.capacity': { t: 'Ёмкость', what: 'Сколько установок в месяц даст свободное место — оценка порядка.', how: 'Курс гео «спрос → установки» × Σ спроса свободных ключей × CTR 5-го места. Курс появится при окне ' + M.min_window + ' дней.', why: 'Сравнить с порогом окупаемости.' },
+    'nc.purity': { t: 'Чистота', what: 'Доля спроса ядра, уходящая приложениям без закупки.', how: 'Доля трафика топ-10 у закупающих по кривой CTR, с весом спроса ключа; пусто при покрытии проверки рекламы ниже ' + Math.round((M.purity_min || 0.6) * 100) + ' %.', why: 'Вторая ось матрицы: не выкуплен ли трафик.' },
+    'nc.tto': { t: 'Срок', what: 'Через сколько месяцев после релиза молодые органики вошли в топ-10.', how: '«≈» — измерено по вошедшим при нас (окно от ' + M.min_window + ' дней); «≤» — верхняя граница: приложение уже было в топ-10 на первом снимке.', why: 'Сколько ждать результата.' },
+    'nc.freekeys': { t: 'Свободных ключей', what: 'Ключи ядра с дешёвой дверью и заметным спросом / всего ключей.', how: 'door ключа ≤ p25 гео, спрос > 0 и не ниже медианы ниши.', why: 'Вход через хвост ключей, а не через головной.' },
+    'nc.door': { t: 'door', what: 'Порог входа: медиана минимальных установок в топ-10 по ключам ядра.', how: 'В подсказке значения — door головы (верхняя четверть ключей по спросу) и хвоста.', why: 'Сколько установок нужно, чтобы вытеснить самого слабого.' },
+    'nc.young': { t: 'Молодые органики', what: 'Приложения топ-20 ядра моложе ' + M.young_months + ' мес без закупки.', why: 'Доказанный вход без рекламы.' },
+    'nc.cand': { t: 'Кандидаты', what: 'Прошедшие воронку приложения ниши: без закупки / всего.' },
+    'nc.money': { t: 'Деньги', what: 'Доходность гео относительно US (eCPM и ARPU).', how: 'Справочник доходности гео — приоры открытых бенчмарков, не измерения.' },
+    'nc.rank': { t: 'Ранг', what: 'Процентиль композитного ранга среди ниш гео.', how: 'Свобода × чистота × log10(1 + ёмкость); пока курса нет — свобода × чистота.', why: 'Ключ сортировки, а не решение.' },
+    'nc.ubt': { t: 'УБТ', what: 'Доля приложений топ-20 и кандидатов с признаком УБТ; бейдж — УБТ-ниша.', how: 'УБТ-ниша — доля не ниже p75 ниш гео и больше нуля, при ' + M.ubt_niche_min_apps + '+ приложениях с разметкой. ' + UBT_HOW, why: 'В УБТ-нишах работают ролики в соцсетях.' },
+    'nc.rec': { t: 'Рекомендация', what: 'Процентиль рекомендуемого скора ниши среди ниш гео.', how: 'Свободные ключи 40 %, остальная свобода 15 %, чистота 20 %, молодые органики 10 %, монетизация 10 %, ёмкость 5 %.' },
+    'nk.count': { t: 'Ниш в выборке', what: 'Строк под текущими фильтрами.' },
+    'nk.target': { t: 'Квадрант «Цель»', what: QUAD_OPTS[0][1] + '.' },
+    'nk.young': { t: 'С молодыми органиками', what: 'Ниши, где в топ-20 есть приложение моложе ' + M.young_months + ' мес без закупки.' },
+    'nk.ubt': { t: 'УБТ-ниш', what: 'Ниши, где заметная доля приложений узнаётся из соцсетей и видео.' },
+    'nk.basis': { t: 'Основа ранга', what: '«Полная» — ранг учитывает ёмкость; «без ёмкости» — курса гео ещё нет.', how: 'Курс считается при окне ' + M.min_window + ' дней и ' + M.calib_min + ' органиках в топ-10.' },
+    'chk.0': { t: 'Спрос органический', what: 'Спрос есть и создан не рекламой.', how: 'demand ≥ 0,5 и доля отзывов «увидел рекламу» не выше p95 ниши — пройдена; demand < 0,25 или доля выше p95 — провалена.' },
+    'chk.1': { t: 'Инкумбент побеждаем', what: 'Лидеров ниши можно обойти.', how: 'Любое: доля слабых в топ-10 или индексная дыра лидера в верхней трети гео (и больше нуля), или лидер не обновлялся дольше p90 гео.' },
+    'chk.2': { t: 'Вырос без закупки', what: 'Рост доказанно органический.', how: 'Пройдена только при разобранном APK без SDK атрибуции; провалена при найденной закупке; «признаков нет» — не проверена.' },
+    'chk.3': { t: 'Трафик поисковый (3b)', what: 'Прирост объясняет поиск Play.', how: 'aso_share ниже p25 гео — провалена, иначе пройдена; без курса гео — не проверена.' },
+    'chk.4': { t: 'Дёшев в повторении', what: 'Функциональность простая и быстро воспроизводится.', how: 'feasibility ≥ 0,75 — пройдена, ≤ 0,25 — провалена.' },
+    'chk.5': { t: 'Монетизация доказана', what: 'У приложения есть работающая модель дохода.', how: 'Встроенные покупки от ~$20 или реклама в приложении — monetization_proof = 1.' },
+    'chk.6': { t: 'Переживёт модерацию', what: 'Клон не нарушит политики Play.', how: 'Ручной гейт E7 (policy_ok); провалена, если и автогейт не пройден: рискованные разрешения или регулируемая категория.' },
+    'four.freedom': { t: 'Свобода', what: 'Процентиль индекса свободы среди ниш гео.' }, 'four.capacity': { t: 'Ёмкость', what: 'Оценка установок в месяц за свободными ключами.' },
+    'four.purity': { t: 'Чистота', what: 'Доля спроса ядра без закупки.' }, 'four.tto': { t: 'Срок', what: 'Месяцев от релиза до входа молодых органиков в топ-10.' },
+    'rec.parts.app': { t: 'Из чего сложилась рекомендация', what: 'Части скора 0–1 и их веса; пустые исключены вместе с весом.', how: 'Итог умножается на коэффициент органики: подтверждена и «признаков нет» ×1, протухла ×0,8, не проверено ×0,6.' },
+    'rec.parts.niche': { t: 'Из чего сложилась рекомендация', what: 'Части скора ниши 0–1 и их веса; пустые исключены вместе с весом.' }
+  };
+  var COMP_KEYS = ['free_demand_share', 'relevance_gap', 'aso_saturation', 'demand_per_app', 'entry_rate', 'turnover_up_new', 'clone_density'];
+  COMP_KEYS.forEach(function (k) { GLOSS['comp.' + k] = { t: k === 'free_demand_share' ? 'Свободный спрос' : k === 'relevance_gap' ? 'Пустота выдачи' : k === 'aso_saturation' ? 'Незанятость ASO' : k === 'demand_per_app' ? 'Спрос на конкурента' : k === 'entry_rate' ? 'Входы в топ-10' : k === 'turnover_up_new' ? 'Оборот за счёт новых' : 'Мало клонов',
+    what: { free_demand_share: 'Доля спроса ядра за ключами с дешёвой дверью (door ключа ≤ p25 гео).', relevance_gap: 'Доля нерелевантных приложений в топ-20: Play нечем заполнить выдачу.', aso_saturation: 'Обратная доле топ-10 головного ключа с ключом в заголовке: нишу ещё не отASOшили.', demand_per_app: 'Установки топа, делённые на число приложений ниши (log10).', entry_rate: 'Сколько приложений впервые вошли в топ-10 ядра за окно до 90 дней.', turnover_up_new: 'Доля смены топ-10 за счёт тех, кого 30 дней назад не было в топ-50.', clone_density: 'Обратная доле топ-50 от разработчиков с 3+ приложениями в нише или фабрик клонов.' }[k],
+    how: 'Нормировка по p10–p90 ниш гео; вес в индексе свободы — ' + { free_demand_share: '25 %', relevance_gap: '15 %', aso_saturation: '15 %', demand_per_app: '15 %', entry_rate: '15 %', turnover_up_new: '10 %', clone_density: '5 %' }[k] + '.' }; });
+  function tipIcon(key) { return GLOSS[key] ? '<button type="button" class="tip-i" data-tip="' + key + '" aria-label="Подсказка: ' + esc(GLOSS[key].t) + '">?</button>' : ''; }
 
   // ---------------- утилиты ----------------
   function $(id) { return document.getElementById(id); }
@@ -431,8 +566,8 @@
   // ---------------- состояние ----------------
   var state = {
     view: 'apps', geo: WW, q: '', page: 1,
-    af: { cat: 'all', level: 'all', traffic: 'all', minPassed: 0, quad: 'all', age: 'all', monet: 'all', sort: 'checks', niche: null },
-    nf: { cat: 'all', quad: 'all', freedom: 'all', purity: 'all', young: false, cand: false, full: false, sort: 'rank' },
+    af: { cat: 'all', level: 'all', channel: 'all', traffic: 'all', minPassed: 0, quad: 'all', age: 'all', monet: 'all', sort: 'checks', niche: null, rec: false },
+    nf: { cat: 'all', quad: 'all', freedom: 'all', purity: 'all', channel: 'all', young: false, cand: false, full: false, sort: 'rank', rec: false },
     hidePaid: !!load('appradar2-hide-paid', false), showDisq: false,
     favs: load('appradar2-favs', []), nfavs: load('appradar2-nfavs', [])
   };
@@ -444,7 +579,7 @@
   // ---------------- куски разметки ----------------
   function kpiCards(list) {
     return '<div class="kpis">' + list.map(function (k) {
-      return '<div class="card kpi"><div class="kpi-label">' + esc(k.label) + '</div><div class="kpi-row"><div class="kpi-value">' + esc(k.value) + '</div>' +
+      return '<div class="card kpi"><div class="kpi-label"' + (k.tip ? ' data-tip="' + k.tip + '" tabindex="0"' : '') + '><span>' + esc(k.label) + '</span></div><div class="kpi-row"><div class="kpi-value">' + esc(k.value) + '</div>' +
         (k.delta ? '<div class="kpi-delta" style="color:' + (k.deltaColor || 'var(--muted)') + '">' + esc(k.delta) + '</div>' : '') + '</div>' +
         (k.hint ? '<div class="kpi-hint">' + esc(k.hint) + '</div>' : '') + '</div>';
     }).join('') + '</div>';
@@ -453,7 +588,7 @@
     opt = opt || {};
     if (!rows.length) return '<div class="empty">' + esc(opt.empty || 'Ничего не найдено') + '</div>';
     return '<div class="tbl-scroll"><table class="' + (opt.cls || '') + '" style="min-width:' + (opt.minWidth || 600) + 'px"><thead><tr>' +
-      cols.map(function (c) { return '<th class="' + (c.r ? 'r' : '') + '"' + (c.title ? ' title="' + esc(c.title) + '"' : '') + '>' + esc(c.t) + '</th>'; }).join('') +
+      cols.map(function (c) { return '<th class="' + (c.r ? 'r' : '') + '"' + (c.tip ? ' data-tip="' + c.tip + '" tabindex="0"' : c.title ? ' title="' + esc(c.title) + '"' : '') + '><span>' + esc(c.t) + '</span></th>'; }).join('') +
       '</tr></thead><tbody>' + rows.map(function (r, i) {
         return '<tr' + (opt.rowCls ? ' class="' + opt.rowCls(r) + '"' : '') + '>' + cols.map(function (c) { return '<td class="' + (c.r ? 'r ' : '') + (c.cls || '') + '">' + c.v(r, i) + '</td>'; }).join('') + '</tr>';
       }).join('') + '</tbody></table></div>';
@@ -485,16 +620,43 @@
     if (a.evidence_date) tip.push('улика ' + dmy(a.evidence_date) + ', ' + a.evidence_age + ' дн. из ' + M.ttl);
     if (a.g_last) tip.push('последний показ в Google ' + dmy(a.g_last) + (a.g_active ? ' (активна)' : ''));
     if (a.tracking) tip.push('трекер: ' + a.tracking);
-    return '<span class="badge ' + l[1] + '"' + (tip.length ? ' title="' + esc(tip.join('\n')) + '"' : '') + '>' + l[0] + '</span>';
+    return '<span class="badge ' + l[1] + '" data-tip="b.' + (LEVEL[a.level] ? a.level : 'unchecked') + '"' + (tip.length ? ' data-tip-val="' + esc(tip.join('\n')) + '"' : '') + '>' + l[0] + '</span>';
   }
   function trafficBadge(a) {
     if (!a.traffic) return dash(GEO[a.geo] && GEO[a.geo].k_status ? 'нет курса гео: ' + GEO[a.geo].k_status : 'нет прироста за окно');
     var t = TRAFFIC[a.traffic];
-    return '<span class="badge ' + t[1] + '" title="aso_share ' + fix(a.aso_share, 2) + '">' + t[0] + '</span>';
+    return '<span class="badge ' + t[1] + '" data-tip="b.' + a.traffic + '" data-tip-val="aso_share ' + fix(a.aso_share, 2) + '">' + t[0] + '</span>';
   }
   function quadBadge(q, extra) {
     var x = QUAD[q] || QUAD.undetermined;
-    return '<span class="badge ' + x[1] + '" title="' + esc(x[2]) + '">' + x[0] + '</span>' + (extra || '');
+    return '<span class="badge ' + x[1] + '" data-tip="q.' + (QUAD[q] ? q : 'undetermined') + '">' + x[0] + '</span>' + (extra || '');
+  }
+  // Признак УБТ приложения: бейдж при признаке, доля при разметке, прочерк при малом числе отзывов.
+  function ubtBadge(a) {
+    var val = 'упоминаний ' + int(a.ubt_mentions) + ' из ' + int(a.ubt_reviews) + ' отзывов' + (isNum(a.ubt_share) ? ' · доля ' + pct(a.ubt_share, 1) : '') +
+      (GEO[a.geo] && isNum(GEO[a.geo].ubtP75) ? ' · порог p75 гео ' + pct(GEO[a.geo].ubtP75, 1) : '') + (a.ubt_related ? '\nплощадка в названии или функциональная категория: считаются только фразы-источники' : '');
+    if (a.ubt === 1) return '<span class="badge b-purple" data-tip="b.ubt" data-tip-val="' + esc(val) + '">УБТ</span>';
+    if (a.ubt === 0) return '<span class="muted small" data-tip="c.ubt" data-tip-val="' + esc(val) + '">нет</span>';
+    return '<span class="muted" data-tip="c.ubt" data-tip-val="' + esc('меньше ' + M.ubt_min_reviews + ' собранных отзывов — доля не считается') + '">—</span>';
+  }
+  function channelOf(a) {
+    if (a.level === 'found') return 'paid';
+    var organic = a.level === 'no_signs' || a.level === 'confirmed';
+    if (organic) return a.ubt === 1 ? 'organic_ubt' : 'organic';
+    return 'unchecked';
+  }
+  function recCell(v, key) {
+    if (!isNum(v)) return dash('не рекомендуется: закупка, накрутка, стена или квадрант «Мимо»');
+    return '<span class="num strong" data-tip="' + key + '" style="color:' + freedomColor(v) + '">' + fix(v, 0) + '</span>';
+  }
+  function recBars(parts, names, weights, key) {
+    if (!parts) return '<div class="empty" style="padding:14px">Не рекомендуется</div>';
+    var wsum = parts.reduce(function (s, v, i) { return s + (isNum(v) ? weights[i] : 0); }, 0) || 1;
+    return '<div class="rec-bars" data-tip="' + key + '">' + parts.map(function (v, i) {
+      return '<div class="rec-bar"><span>' + esc(names[i]) + ' <span class="muted small">' + Math.round(weights[i] * 100) + ' %</span></span>' +
+        '<div class="track"><div class="fill" style="width:' + (isNum(v) ? Math.round(v * 100) : 0) + '%"></div></div>' +
+        '<span class="val">' + (isNum(v) ? fix(v, 2) + ' · ' + fix(v * weights[i] / wsum, 2) : '—') + '</span></div>';
+    }).join('') + '</div>';
   }
   function meter(v, color) {
     var w = isNum(v) ? Math.max(0, Math.min(100, v)) : 0;
@@ -503,7 +665,7 @@
   function freedomColor(v) { return !isNum(v) ? 'var(--neutral)' : v >= 75 ? 'var(--green)' : v >= 50 ? 'var(--accent)' : v >= 25 ? 'var(--orange)' : 'var(--red)'; }
   function checksHtml(a) {
     var c = a.checks || [];
-    return '<span class="checks" title="' + esc(c.map(function (v, i) { return CHECKS[i] + ': ' + (v === 1 ? 'пройдена' : v === 0 ? 'провалена' : 'не проверена'); }).join('\n')) + '">' +
+    return '<span class="checks" data-tip="c.checks" data-tip-val="' + esc(c.map(function (v, i) { return CHECKS[i] + ': ' + (v === 1 ? 'пройдена' : v === 0 ? 'провалена' : 'не проверена'); }).join('\n')) + '">' +
       c.map(function (v, i) { return '<i class="chk ' + (v === 1 ? 'chk-1' : v === 0 ? 'chk-0' : 'chk-n') + (i === 3 ? ' chk-b' : '') + '"></i>'; }).join('') + '</span>';
   }
   function capacityText(n) {
@@ -561,10 +723,13 @@
 
   // ---------------- топ приложений ----------------
   function appRowsBase() {
+    var rec = state.af.rec;
     if (state.geo === WW) {
       return D.worldApps.map(function (w) {
-        var r = appByKey[w.geo + '|' + w.app_id];
-        return Object.assign({}, r, { geos_count: w.geos_count, geos: w.geos, us_prescore: w.us_prescore });
+        // В рекомендуемом топе строка берётся из гео, где рекомендуемый скор выше.
+        var g = rec && w.rec_geo ? w.rec_geo : w.geo;
+        var r = appByKey[g + '|' + w.app_id];
+        return Object.assign({}, r, { geos_count: w.geos_count, geos: w.geos, us_prescore: w.us_prescore, rec_geos: w.rec_geos });
       });
     }
     return (appsByGeo[state.geo] || []).map(function (a) { return Object.assign({}, a, { geos_count: (appsById[a.app_id] || []).length, geos: (appsById[a.app_id] || []).map(function (x) { return x.geo; }).join(',') }); });
@@ -572,6 +737,7 @@
   function applyAppFilters(rows, ignorePaid) {
     var f = state.af;
     return rows.filter(function (a) {
+      if (f.rec && !isNum(a.rec_pct)) return false;
       if (!state.showDisq && (a.disq.indexOf('fraud') >= 0 || a.disq.indexOf('wall') >= 0)) return false;
       if (!ignorePaid && state.hidePaid && a.level === 'found') return false;
       if (f.niche) {
@@ -581,6 +747,10 @@
       var gk = a.genre_id && a.genre_id.indexOf('GAME') === 0 ? 'GAME' : a.genre_id;
       if (f.cat !== 'all' && gk !== f.cat) return false;
       if (f.level !== 'all' && a.level !== f.level) return false;
+      if (f.channel !== 'all') {
+        if (f.channel === 'ubt') { if (a.ubt !== 1) return false; }
+        else if (channelOf(a) !== f.channel) return false;
+      }
       if (f.traffic !== 'all' && (f.traffic === 'none' ? a.traffic : a.traffic !== f.traffic)) return false;
       if (a.passed < f.minPassed) return false;
       if (f.quad !== 'all' && (a.niche_quadrant || 'undetermined') !== f.quad) return false;
@@ -591,19 +761,28 @@
   }
   var APP_SORT = {
     checks: function (a, b) { return (b.passed - a.passed) || ((b.prescore ?? -1) - (a.prescore ?? -1)); },
+    rec: function (a, b) { return (b.rec_pct ?? -1) - (a.rec_pct ?? -1) || (b.rec_score ?? -1) - (a.rec_score ?? -1) || ((b.rec_geos || 0) - (a.rec_geos || 0)) || ((b.prescore ?? -1) - (a.prescore ?? -1)); },
     prescore: function (a, b) { return (b.prescore ?? -1) - (a.prescore ?? -1); },
     delta: function (a, b) { return (b.delta30 ?? -Infinity) - (a.delta30 ?? -Infinity); },
     young: function (a, b) { return (a.age_months ?? Infinity) - (b.age_months ?? Infinity); },
     freedom: function (a, b) { return (b.niche_freedom ?? -1) - (a.niche_freedom ?? -1); },
     breadth: function (a, b) { return (b.geos_count - a.geos_count) || ((b.prescore ?? -1) - (a.prescore ?? -1)); }
   };
+  // Выпадающий список с подсказкой: у вариантов в <select> свои всплывающие подсказки браузер
+  // не показывает, поэтому пояснения ко всем вариантам — во всплывающем блоке у значка «?».
+  function selectField(prefix, act, key, label, cur, options, tip) {
+    return '<span class="field"><label for="' + prefix + key + '">' + label + '</label>' + tipIcon(tip) +
+      '<select id="' + prefix + key + '" data-act="' + act + '" data-key="' + key + '">' +
+      options.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (String(cur) === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></span>';
+  }
 
   function renderApps() {
     var base = appRowsBase(), f = state.af;
     var noPaid = applyAppFilters(base, true);
     var hiddenPaid = state.hidePaid ? noPaid.filter(function (a) { return a.level === 'found'; }).length : 0;
     var rows = state.hidePaid ? noPaid.filter(function (a) { return a.level !== 'found'; }) : noPaid;
-    rows.sort(APP_SORT[f.sort] || APP_SORT.checks);
+    if (f.rec) { rows.sort(APP_SORT.rec); rows = rows.slice(0, REC.top_n); }
+    else rows.sort(APP_SORT[f.sort] || APP_SORT.checks);
     var pages = Math.max(1, Math.ceil(rows.length / PAGE));
     if (state.page > pages) state.page = pages;
     var slice = rows.slice((state.page - 1) * PAGE, state.page * PAGE);
@@ -617,85 +796,90 @@
     var cnt = function (fn) { return noPaid.filter(fn).length; };
     var clean = cnt(function (a) { return a.level === 'no_signs' || a.level === 'confirmed'; });
     var kpis = [
-      { label: 'В выборке', value: int(rows.length), delta: hiddenPaid ? 'скрыто ' + int(hiddenPaid) : '', deltaColor: 'var(--orange)', hint: state.geo === WW ? 'уникальных приложений, прошедших воронку' : 'прошли воронку в ' + geoName(state.geo) },
-      { label: 'Без признаков закупки', value: int(clean), delta: pct(noPaid.length ? clean / noPaid.length : null), deltaColor: 'var(--green)', hint: 'обе библиотеки пусты, трекера нет, улика свежая' },
-      { label: 'Закупка найдена', value: int(cnt(function (a) { return a.level === 'found'; })), hint: 'реклама Google или Meta, трекер атрибуции' },
-      { label: 'Молодые органики', value: int(cnt(function (a) { return a.young && (a.level === 'no_signs' || a.level === 'confirmed'); })), hint: 'моложе ' + M.young_months + ' мес и без закупки' },
-      { label: 'Прошли 4+ из 7', value: int(cnt(function (a) { return a.passed >= 4; })), hint: 'непроверенное пройденным не считается' }
+      { label: f.rec ? 'Рекомендуемый топ' : 'В выборке', tip: f.rec ? 'f.rec' : 'k.apps', value: int(rows.length), delta: hiddenPaid ? 'скрыто ' + int(hiddenPaid) : '', deltaColor: 'var(--orange)', hint: f.rec ? 'первые ' + REC.top_n + ' по рекомендуемому скору' : state.geo === WW ? 'уникальных приложений, прошедших воронку' : 'прошли воронку в ' + geoName(state.geo) },
+      { label: 'Без признаков закупки', tip: 'k.clean', value: int(clean), delta: pct(noPaid.length ? clean / noPaid.length : null), deltaColor: 'var(--green)', hint: 'обе библиотеки пусты, трекера нет, улика свежая' },
+      { label: 'Закупка найдена', tip: 'k.paid', value: int(cnt(function (a) { return a.level === 'found'; })), hint: 'реклама Google или Meta, трекер атрибуции' },
+      { label: 'С признаком УБТ', tip: 'k.ubt', value: int(cnt(function (a) { return a.ubt === 1; })), deltaColor: 'var(--purple)', hint: 'узнают из TikTok, YouTube, Reels по отзывам' },
+      { label: 'Молодые органики', tip: 'k.young', value: int(cnt(function (a) { return a.young && (a.level === 'no_signs' || a.level === 'confirmed'); })), hint: 'моложе ' + M.young_months + ' мес и без закупки' },
+      { label: 'Прошли 4+ из 7', tip: 'k.passed4', value: int(cnt(function (a) { return a.passed >= 4; })), hint: 'непроверенное пройденным не считается' }
     ];
-    var lead = state.geo === WW
-      ? 'Каждое приложение — одной строкой, в гео, где у него выше индекс копируемости с небольшой поправкой на деньги гео. Квадраты — семь проверок методики v2.0: зелёный пройдена, красный провалена, пустой не проверена; пунктир — проверка 3b «трафик поисковый».'
-      : 'Приложения, прошедшие воронку в ' + esc(geoName(state.geo)) + ', снимок ' + esc(dmy(GEO[state.geo].date)) + '. Квадраты — семь проверок методики v2.0.';
+    var lead = f.rec
+      ? 'Рекомендуемый топ: приложения, выросшие на поиске Play, в нишах со свободными ключами. Скор складывается из ASO, свободы ниши, проверок, индекса, молодости и монетизации; наведите на «?» у переключателя, чтобы увидеть веса.'
+      : state.geo === WW
+        ? 'Каждое приложение — одной строкой, в гео, где у него выше индекс копируемости с небольшой поправкой на деньги гео. Квадраты — семь проверок методики v2.0: зелёный пройдена, красный провалена, пустой не проверена; пунктир — проверка 3b «трафик поисковый».'
+        : 'Приложения, прошедшие воронку в ' + esc(geoName(state.geo)) + ', снимок ' + esc(dmy(GEO[state.geo].date)) + '. Квадраты — семь проверок методики v2.0.';
 
-    var sel = function (act, label, cur, options) {
-      return '<span class="field"><label for="f-' + act + '">' + label + '</label><select id="f-' + act + '" data-act="af" data-key="' + act + '">' +
-        options.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (String(cur) === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></span>';
-    };
+    var sel = function (key, label, cur, options, tip) { return selectField('f-', 'af', key, label, cur, options, tip); };
     var cols = [
       { t: '#', v: function (a, i) { return '<div style="display:flex;align-items:center;gap:7px">' + starBtn('a', a.app_id) + '<span class="num muted strong" style="font-size:12.5px">' + ((state.page - 1) * PAGE + i + 1) + '</span></div>'; } },
-      { t: 'Приложение', v: function (a) { return appCell(a); } },
-      { t: 'Ниша', v: function (a) {
+      { t: 'Приложение', tip: 'c.app', v: function (a) { return appCell(a); } },
+      { t: 'Ниша', tip: 'c.niche', v: function (a) {
         if (!a.niche_id) return dash('ниша не определена');
         return '<button class="niche-cell" data-act="open-niche" data-geo="' + esc(a.geo) + '" data-niche="' + esc(a.niche_id) + '"><div class="strong nowrap">' + esc(a.concept || a.niche_head) + '</div><div style="margin-top:3px">' + quadBadge(a.niche_quadrant) + '</div></button>';
       } }
     ];
-    if (state.geo === WW) cols.push({ t: 'Гео', v: function (a) { return geoPlus(a.geo, a.geos_count, a.geos); } });
+    if (state.geo === WW) cols.push({ t: 'Гео', tip: 'c.geo', v: function (a) { return geoPlus(a.geo, a.geos_count, a.geos); } });
     cols = cols.concat([
-      { t: 'Установки', r: true, v: function (a) { return '<div class="num strong">' + short(a.installs) + '</div><div class="muted small">' + fix(a.score, 1) + ' ★</div>'; } },
-      { t: 'Возраст', r: true, v: function (a) {
+      { t: 'Рекомендация', tip: 'c.rec', r: true, v: function (a) { return recCell(a.rec_pct, 'c.rec'); } },
+      { t: 'Установки', tip: 'c.installs', r: true, v: function (a) { return '<div class="num strong">' + short(a.installs) + '</div><div class="muted small">' + fix(a.score, 1) + ' ★</div>'; } },
+      { t: 'Возраст', tip: 'c.age', r: true, v: function (a) {
         if (!isNum(a.age_months)) return dash('дата релиза не разобрана');
-        return '<div class="num strong">' + fix(a.age_months, 0) + ' мес</div>' + (a.young ? '<span class="badge b-green" style="margin-top:3px">&lt; ' + M.young_months + ' мес</span>' : '<div class="muted small">' + esc(a.released ? a.released.slice(0, 7) : '') + '</div>');
+        return '<div class="num strong">' + fix(a.age_months, 0) + ' мес</div>' + (a.young ? '<span class="badge b-green" data-tip="b.young" style="margin-top:3px">&lt; ' + M.young_months + ' мес</span>' : '<div class="muted small">' + esc(a.released ? a.released.slice(0, 7) : '') + '</div>');
       } },
-      { t: 'Прирост 30 дн.', r: true, v: function (a) {
+      { t: 'Прирост 30 дн.', tip: 'c.delta', r: true, v: function (a) {
         if (isNum(a.delta30)) return '<span class="num strong" style="color:' + (a.delta30 > 0 ? 'var(--green)' : 'var(--muted)') + '">' + (a.delta30 > 0 ? '+' : '') + short(a.delta30) + '</span>' + (a.delta_partial ? '<div class="muted small">окно ' + a.delta_w + ' дн.</div>' : '');
         var g = GEO[a.geo];
-        return '<span class="muted small" title="нужно окно ' + M.min_window + ' дней между снимками">копится: ' + Math.min(g.k_window || 0, M.min_window) + ' из ' + M.min_window + ' дн.</span>';
+        return '<span class="muted small" data-tip="c.delta">копится: ' + Math.min(g.k_window || 0, M.min_window) + ' из ' + M.min_window + ' дн.</span>';
       } },
-      { t: 'Органика', v: function (a) { return levelBadge(a); } },
-      { t: 'Источник', v: function (a) { return trafficBadge(a); } },
-      { t: 'Проверки', v: function (a) { return checksHtml(a) + '<div class="muted small num" style="margin-top:3px">' + a.passed + ' из 7</div>'; } },
-      { t: 'Монетизация', v: function (a) { return '<span class="tag">' + esc(MONET[a.monetization_type] || a.monetization_type || '—') + '</span>' + (isNum(a.iap_max_usd) ? '<div class="muted small num" style="margin-top:3px">до $' + fix(a.iap_max_usd, 0) + '</div>' : ''); } },
-      { t: 'Свобода ниши', r: true, v: function (a) { return isNum(a.niche_freedom) ? meter(a.niche_freedom, freedomColor(a.niche_freedom)) : dash('свобода ниши не посчитана'); } },
-      { t: 'Индекс', r: true, title: 'prescore — индекс копируемости 0–100', v: function (a) { return '<span class="num strong">' + fix(a.prescore, 0) + '</span>'; } }
+      { t: 'Органика', tip: 'c.level', v: function (a) { return levelBadge(a); } },
+      { t: 'УБТ', tip: 'c.ubt', v: function (a) { return ubtBadge(a); } },
+      { t: 'Источник', tip: 'c.traffic', v: function (a) { return trafficBadge(a); } },
+      { t: 'Проверки', tip: 'c.checks', v: function (a) { return checksHtml(a) + '<div class="muted small num" style="margin-top:3px">' + a.passed + ' из 7</div>'; } },
+      { t: 'Монетизация', tip: 'c.monet', v: function (a) { return '<span class="tag">' + esc(MONET[a.monetization_type] || a.monetization_type || '—') + '</span>' + (isNum(a.iap_max_usd) ? '<div class="muted small num" style="margin-top:3px">до $' + fix(a.iap_max_usd, 0) + '</div>' : ''); } },
+      { t: 'Свобода ниши', tip: 'c.freedom', r: true, v: function (a) { return isNum(a.niche_freedom) ? meter(a.niche_freedom, freedomColor(a.niche_freedom)) : dash('свобода ниши не посчитана'); } },
+      { t: 'Индекс', tip: 'c.prescore', r: true, v: function (a) { return '<span class="num strong">' + fix(a.prescore, 0) + '</span>'; } }
     ]);
 
     var nicheChip = f.niche ? '<span class="filter-chip">Ниша: ' + esc(f.niche.label) + '<button data-act="clear-niche" aria-label="Снять фильтр ниши">×</button></span>' : '';
     $('view').innerHTML = '<section class="page">' +
-      pageHead('Методика v2.0 · ' + geoName(state.geo), 'Топ приложений на копирование', lead) +
+      pageHead('Методика v2.0 · ' + geoName(state.geo), f.rec ? 'Рекомендуемый топ приложений' : 'Топ приложений на копирование', lead) +
       kpiCards(kpis) +
       '<div class="card" style="overflow:hidden">' +
         '<div class="toolbar first">' +
-          '<label class="check"><input type="checkbox" data-act="hide-paid"' + (state.hidePaid ? ' checked' : '') + '> Скрыть выросших на покупном трафике</label>' +
-          '<span class="note">' + (state.hidePaid ? 'скрыто ' + int(hiddenPaid) : int(cnt(function (a) { return a.level === 'found'; })) + ' с найденной закупкой в выборке') + '</span>' +
+          '<button class="rec-toggle" data-act="rec-apps" aria-pressed="' + f.rec + '">Рекомендуемый топ</button>' + tipIcon('f.rec') +
+          '<label class="check"><input type="checkbox" data-act="hide-paid"' + (state.hidePaid ? ' checked' : '') + '> Скрыть выросших на покупном трафике</label>' + tipIcon('f.hidePaid') +
+          '<span class="note">' + (state.hidePaid ? 'скрыто ' + int(hiddenPaid) : int(cnt(function (a) { return a.level === 'found'; })) + ' с найденной закупкой') + '</span>' +
           nicheChip +
-          '<div class="toolbar-right"><label class="check"><input type="checkbox" data-act="show-disq"' + (state.showDisq ? ' checked' : '') + '> Показать отсеянных</label>' +
-            '<span class="note">' + (state.showDisq ? 'накрутка и стена авторитета видны' : 'скрыто ' + int(disqHidden) + ': накрутка, стена') + '</span></div>' +
+          '<div class="toolbar-right"><label class="check"><input type="checkbox" data-act="show-disq"' + (state.showDisq ? ' checked' : '') + '> Показать отсеянных</label>' + tipIcon('f.showDisq') +
+            '<span class="note">' + (state.showDisq ? 'накрутка и стена видны' : 'скрыто ' + int(disqHidden)) + '</span></div>' +
         '</div>' +
-        '<div class="toolbar">' +
+        '<div class="toolbar">' + tipIcon('f.cat') +
           '<button class="pill" data-act="af-cat" data-cat="all" aria-pressed="' + (f.cat === 'all') + '">Все</button>' +
           catList.map(function (c) { return '<button class="pill" data-act="af-cat" data-cat="' + esc(c) + '" aria-pressed="' + (f.cat === c) + '">' + esc(c === 'GAME' ? 'Игры' : genre(c)) + ' <span class="num" style="opacity:.7">' + (cats[c] || 0) + '</span></button>'; }).join('') +
         '</div>' +
         '<div class="toolbar">' +
-          sel('level', 'Органика', f.level, [['all', 'любая'], ['no_signs', 'Признаков закупки нет'], ['confirmed', 'Подтверждена'], ['stale', 'Улика протухла'], ['unchecked', 'Не проверено'], ['found', 'Закупка найдена']]) +
-          sel('traffic', 'Источник', f.traffic, [['all', 'любой'], ['search', 'Поиск'], ['external', 'Внешний'], ['none', 'Не проверено']]) +
-          sel('minPassed', 'Пройдено', f.minPassed, [0, 1, 2, 3, 4, 5, 6, 7].map(function (n) { return [n, '≥ ' + n]; })) +
-          sel('quad', 'Квадрант ниши', f.quad, [['all', 'все']].concat(Object.keys(QUAD).map(function (k) { return [k, QUAD[k][0]]; }))) +
-          sel('age', 'Возраст', f.age, [['all', 'любой'], ['12', '< 12 мес'], ['24', '< 24 мес']]) +
-          sel('monet', 'Монетизация', f.monet, [['all', 'все']].concat(Object.keys(monets).map(function (k) { return [k, MONET[k] || k]; }))) +
-          '<div class="toolbar-right">' + sel('sort', 'Сортировка', f.sort, [['checks', 'Пройдено проверок'], ['prescore', 'Индекс копируемости'], ['delta', 'Прирост за 30 дней'], ['young', 'Сначала молодые'], ['freedom', 'Свобода ниши'], ['breadth', 'Широта по гео']]) + '</div>' +
+          sel('channel', 'Канал роста', f.channel, [['all', 'любой'], ['organic', CHANNEL.organic], ['organic_ubt', CHANNEL.organic_ubt], ['ubt', CHANNEL.ubt], ['paid', CHANNEL.paid], ['unchecked', CHANNEL.unchecked]], 'f.channel') +
+          sel('level', 'Органика', f.level, [['all', 'любая'], ['no_signs', 'Признаков закупки нет'], ['confirmed', 'Подтверждена'], ['stale', 'Улика протухла'], ['unchecked', 'Не проверено'], ['found', 'Закупка найдена']], 'f.level') +
+          sel('traffic', 'Источник', f.traffic, [['all', 'любой'], ['search', 'Поиск'], ['external', 'Внешний'], ['none', 'Не проверено']], 'f.traffic') +
+          sel('minPassed', 'Пройдено', f.minPassed, [0, 1, 2, 3, 4, 5, 6, 7].map(function (n) { return [n, '≥ ' + n]; }), 'f.minPassed') +
+          sel('quad', 'Квадрант ниши', f.quad, [['all', 'все']].concat(Object.keys(QUAD).map(function (k) { return [k, QUAD[k][0]]; })), 'f.quad') +
+          sel('age', 'Возраст', f.age, [['all', 'любой'], ['12', '< 12 мес'], ['24', '< 24 мес']], 'f.age') +
+          sel('monet', 'Монетизация', f.monet, [['all', 'все']].concat(Object.keys(monets).map(function (k) { return [k, MONET[k] || k]; })), 'f.monet') +
+          (f.rec ? '' : '<div class="toolbar-right">' + sel('sort', 'Сортировка', f.sort, [['checks', 'Пройдено проверок'], ['rec', 'Рекомендуемый скор'], ['prescore', 'Индекс копируемости'], ['delta', 'Прирост за 30 дней'], ['young', 'Сначала молодые'], ['freedom', 'Свобода ниши'], ['breadth', 'Широта по гео']], 'f.sort') + '</div>') +
         '</div>' +
-        tableHtml(cols, slice, { minWidth: state.geo === WW ? 1500 : 1440, empty: 'Под фильтры ничего не попало' }) +
+        tableHtml(cols, slice, { minWidth: state.geo === WW ? 1640 : 1580, empty: f.rec ? 'Под фильтры не попал ни один рекомендуемый' : 'Под фильтры ничего не попало' }) +
         pager(rows.length, state.page) +
       '</div>' +
-      '<p class="note">Проверка 3 «вырос без закупки» пройдена только при разборе APK (установочного файла приложения) без SDK атрибуции — сейчас таких нет, поэтому рабочая ступень «признаков закупки нет». Прирост, курс «спрос → установки» и проверка 3b появятся, когда между снимками гео будет ' + M.min_window + ' дней. Выручки нет: Play её не публикует.</p>' +
+      '<p class="note">Наведите на название колонки, бейдж или «?» — подсказка объяснит термин, как он считается и зачем нужен. Проверка 3 «вырос без закупки» пройдена только при разборе APK (установочного файла приложения) без SDK атрибуции — сейчас таких нет. Прирост, курс «спрос → установки» и проверка 3b появятся, когда между снимками гео будет ' + M.min_window + ' дней. Выручки нет: Play её не публикует.</p>' +
     '</section>';
   }
 
   // ---------------- топ ниш ----------------
   function nicheRowsBase() {
+    var rec = state.nf.rec;
     if (state.geo === WW) {
       return D.worldNiches.map(function (w) {
-        var n = nicheByKey[w.geo + '|' + w.niche_id];
+        var n = rec && w.rec_niche_id ? nicheByKey[w.rec_geo + '|' + w.rec_niche_id] : nicheByKey[w.geo + '|' + w.niche_id];
         return Object.assign({}, n, { _w: w, geos_count: w.geos_count });
       });
     }
@@ -705,6 +889,7 @@
     // Лучшая ниша каждого гео имеет процентиль 100, поэтому ворлдвайд при равенстве выше та,
     // что в квадранте «Цель» в большем числе гео, затем — свободнее.
     rank: function (a, b) { return (b.rank_pct ?? -1) - (a.rank_pct ?? -1) || ((b._w || {}).target_geos || 0) - ((a._w || {}).target_geos || 0) || (b.freedom ?? -1) - (a.freedom ?? -1); },
+    rec: function (a, b) { return (b.rec_pct ?? -1) - (a.rec_pct ?? -1) || (b.rec_score ?? -1) - (a.rec_score ?? -1) || (b.fds ?? -1) - (a.fds ?? -1); },
     freedom: function (a, b) { return (b.freedom ?? -1) - (a.freedom ?? -1); },
     capacity: function (a, b) { return (b.capacity ?? -1) - (a.capacity ?? -1) || (b.freedom ?? -1) - (a.freedom ?? -1); },
     purity: function (a, b) { return (b.purity ?? -1) - (a.purity ?? -1); },
@@ -712,13 +897,23 @@
     young: function (a, b) { return (b.young ?? -1) - (a.young ?? -1); },
     door: function (a, b) { return (a.door ?? Infinity) - (b.door ?? Infinity); }
   };
+  function nicheChannelOk(n, ch) {
+    if (ch === 'all') return true;
+    var g = GEO[n.geo];
+    var clean = isNum(n.purity) && isNum(g.purityP50) && n.purity >= g.purityP50;
+    if (ch === 'ubt') return n.ubt === 1;
+    if (ch === 'organic_ubt') return clean && n.ubt === 1;
+    return clean && n.ubt !== 1;
+  }
   function applyNicheFilters(rows, ignoreQuad) {
     var f = state.nf;
     return rows.filter(function (n) {
+      if (f.rec && !isNum(n.rec_pct)) return false;
       if (!ignoreQuad && f.quad !== 'all' && n.quadrant !== f.quad) return false;
       if (f.cat !== 'all' && n._genre !== f.cat) return false;
       if (f.freedom !== 'all' && !(isNum(n.freedom) && n.freedom >= Number(f.freedom))) return false;
       if (f.purity === 'p50') { var g = GEO[n.geo]; if (!(isNum(n.purity) && isNum(g.purityP50) && n.purity >= g.purityP50)) return false; }
+      if (!nicheChannelOk(n, f.channel)) return false;
       if (f.young && !(n.young >= 1)) return false;
       if (f.cand && !(n.cand_organic >= 1)) return false;
       if (f.full && n.incomplete.length) return false;
@@ -730,7 +925,8 @@
     var base = nicheRowsBase(), f = state.nf;
     var forMatrix = applyNicheFilters(base, true);
     var rows = applyNicheFilters(base, false);
-    rows.sort(NICHE_SORT[f.sort] || NICHE_SORT.rank);
+    if (f.rec) { rows.sort(NICHE_SORT.rec); rows = rows.slice(0, REC.top_n); }
+    else rows.sort(NICHE_SORT[f.sort] || NICHE_SORT.rank);
     var pages = Math.max(1, Math.ceil(rows.length / PAGE));
     if (state.page > pages) state.page = pages;
     var slice = rows.slice((state.page - 1) * PAGE, state.page * PAGE);
@@ -742,90 +938,100 @@
     var full = geosIn.filter(function (g) { return isNum(g.k_geo); }).length;
 
     var kpis = [
-      { label: 'Ниш в выборке', value: int(rows.length), hint: state.geo === WW ? 'концептов каталога, одна строка на концепт' : 'кластеров ключей в ' + geoName(state.geo) },
-      { label: 'Квадрант «Цель»', value: int(q.target || 0), deltaColor: 'var(--green)', hint: 'свобода ≥ 75 и чистота ≥ p50 гео' },
-      { label: 'С молодыми органиками', value: int(forMatrix.filter(function (n) { return n.young >= 1; }).length), hint: 'зашли в топ-20 моложе ' + M.young_months + ' мес без закупки' },
-      { label: 'Медиана свободы · чистоты', value: fix(median(forMatrix.map(function (n) { return n.freedom; })), 0) + ' · ' + pct(median(forMatrix.map(function (n) { return n.purity; }))), hint: 'по нишам выборки' },
-      { label: 'Основа ранга', value: full ? 'полная' : 'без ёмкости', hint: 'полная в ' + full + ' гео, без ёмкости в ' + (geosIn.length - full) + ': курс копится' }
+      { label: f.rec ? 'Рекомендуемый топ' : 'Ниш в выборке', tip: f.rec ? 'n.rec' : 'nk.count', value: int(rows.length), hint: f.rec ? 'первые ' + REC.top_n + ' по рекомендуемому скору' : state.geo === WW ? 'концептов каталога, одна строка на концепт' : 'кластеров ключей в ' + geoName(state.geo) },
+      { label: 'Квадрант «Цель»', tip: 'nk.target', value: int(q.target || 0), hint: 'свобода ≥ 75 и чистота ≥ p50 гео' },
+      { label: 'С молодыми органиками', tip: 'nk.young', value: int(forMatrix.filter(function (n) { return n.young >= 1; }).length), hint: 'зашли в топ-20 моложе ' + M.young_months + ' мес без закупки' },
+      { label: 'УБТ-ниш', tip: 'nk.ubt', value: int(forMatrix.filter(function (n) { return n.ubt === 1; }).length), hint: 'узнают из соцсетей и видео' },
+      { label: 'Медиана свободы · чистоты', tip: 'nc.freedom', value: fix(median(forMatrix.map(function (n) { return n.freedom; })), 0) + ' · ' + pct(median(forMatrix.map(function (n) { return n.purity; }))), hint: 'по нишам выборки' },
+      { label: 'Основа ранга', tip: 'nk.basis', value: full ? 'полная' : 'без ёмкости', hint: 'полная в ' + full + ' гео, без ёмкости в ' + (geosIn.length - full) + ': курс копится' }
     ];
     var cell = function (key, cls) {
       var x = QUAD[key];
-      return '<button class="mx-cell ' + cls + '" data-act="nf-quad" data-quad="' + key + '" aria-pressed="' + (f.quad === key) + '"><span class="mx-count">' + int(q[key] || 0) + '</span><span class="mx-name">' + x[0] + '</span><span class="mx-what">' + esc(x[2]) + '</span></button>';
+      return '<button class="mx-cell ' + cls + '" data-act="nf-quad" data-quad="' + key + '" data-tip="q.' + key + '" aria-pressed="' + (f.quad === key) + '"><span class="mx-count">' + int(q[key] || 0) + '</span><span class="mx-name">' + x[0] + '</span><span class="mx-what">' + esc(x[2]) + '</span></button>';
     };
     var matrix = '<div class="matrix-wrap"><div class="card"><div class="matrix">' +
-      '<div class="mx-axis y">свобода ≥ 75</div>' + cell('bought', 'bought') + cell('target', 'target') +
-      '<div class="mx-axis y">свобода &lt; 75</div>' + cell('pass', 'pass') + cell('mature', 'mature') +
-      '<div></div><div class="mx-axis">чистота &lt; p50</div><div class="mx-axis">чистота ≥ p50</div>' +
+      '<div class="mx-axis y" data-tip="nc.freedom">свобода ≥ 75</div>' + cell('bought', 'bought') + cell('target', 'target') +
+      '<div class="mx-axis y" data-tip="nc.freedom">свобода &lt; 75</div>' + cell('pass', 'pass') + cell('mature', 'mature') +
+      '<div></div><div class="mx-axis" data-tip="nc.purity">чистота &lt; p50</div><div class="mx-axis" data-tip="nc.purity">чистота ≥ p50</div>' +
       '</div></div>' +
       '<div class="card panel"><div class="panel-title">Как читать</div><div class="panel-sub" style="margin-top:8px">' +
         '<b>Свобода</b> — есть ли куда встать: свободный спрос, пустота выдачи, незанятость ASO, спрос на конкурента, входы новичков, оборот и клоны.<br><br>' +
         '<b>Ёмкость</b> — сколько установок в месяц даст свободное место (оценка порядка).<br><br>' +
         '<b>Чистота</b> — доля спроса, которая уходит приложениям без закупки, с весом по месту в топ-10.<br><br>' +
-        '<b>Срок</b> — через сколько месяцев после релиза молодые органики вошли в топ-10.</div>' +
+        '<b>УБТ</b> — узнают ли приложения ниши из TikTok, YouTube и Reels, по отзывам.</div>' +
         '<div class="actions">' + (q.undetermined ? '<button class="btn" data-act="nf-quad" data-quad="undetermined">Не определено: ' + int(q.undetermined) + '</button>' : '') +
         (f.quad !== 'all' ? '<button class="btn" data-act="nf-quad" data-quad="all">Все квадранты</button>' : '') + '</div></div></div>';
 
-    var sel = function (act, label, cur, options) {
-      return '<span class="field"><label for="n-' + act + '">' + label + '</label><select id="n-' + act + '" data-act="nf" data-key="' + act + '">' +
-        options.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (String(cur) === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></span>';
-    };
-    var chk = function (key, label) { return '<label class="check"><input type="checkbox" data-act="nf-check" data-key="' + key + '"' + (f[key] ? ' checked' : '') + '> ' + label + '</label>'; };
+    var sel = function (key, label, cur, options, tip) { return selectField('n-', 'nf', key, label, cur, options, tip); };
+    var chk = function (key, label, tip) { return '<label class="check"><input type="checkbox" data-act="nf-check" data-key="' + key + '"' + (f[key] ? ' checked' : '') + '> ' + label + '</label>' + tipIcon(tip); };
     var cols = [
       { t: '#', v: function (n, i) { return '<div style="display:flex;align-items:center;gap:7px">' + starBtn('n', n.concept || (n.geo + '|' + n.niche_id)) + '<span class="num muted strong" style="font-size:12.5px">' + ((state.page - 1) * PAGE + i + 1) + '</span></div>'; } },
-      { t: 'Ниша', v: function (n) {
+      { t: 'Ниша', tip: 'nc.niche', v: function (n) {
         var us = n.concept && n._w && n._w.us_niche_id ? nicheByKey[REF + '|' + n._w.us_niche_id] : null;
         return '<button class="niche-cell" data-act="open-niche" data-geo="' + esc(n.geo) + '" data-niche="' + esc(n.niche_id) + '"><div class="strong">' + esc(n.concept || n.head) + '</div>' +
           '<div class="muted small">' + esc(n.head) + (us && n.geo !== REF ? ' · US: ' + esc(us.head) : '') + (n.concept ? '' : ' · вне каталога') + '</div></button>';
       } },
-      { t: 'Квадрант', v: function (n) {
-        var extra = (n.closed ? ' <span class="badge b-red">ниша закрыта</span>' : '') + (n.tail_clean ? ' <span class="badge b-green">хвост чист</span>' : '') +
-          (n.incomplete.length ? '<div class="muted small" title="' + esc(n.incomplete.map(function (k) { return MISSING[k] || k; }).join('\n')) + '" style="margin-top:3px">неполные: ' + esc(n.incomplete.map(function (k) { return MISSING_SHORT[k] || k; }).join(', ')) + '</div>' : '');
+      { t: 'Квадрант', tip: 'nc.quad', v: function (n) {
+        var extra = (n.closed ? ' <span class="badge b-red" data-tip="b.closed">ниша закрыта</span>' : '') + (n.tail_clean ? ' <span class="badge b-green" data-tip="b.tail_clean">хвост чист</span>' : '') +
+          (n.incomplete.length ? '<div class="muted small" data-tip="b.incomplete" data-tip-val="' + esc(n.incomplete.map(function (k) { return MISSING[k] || k; }).join('\n')) + '" style="margin-top:3px">неполные: ' + esc(n.incomplete.map(function (k) { return MISSING_SHORT[k] || k; }).join(', ')) + '</div>' : '');
         return quadBadge(n.quadrant, extra);
       } }
     ];
-    if (state.geo === WW) cols.push({ t: 'Гео', v: function (n) {
+    if (state.geo === WW) cols.push({ t: 'Гео', tip: 'nc.geo', v: function (n) {
       var w = n._w || {}, us = w.us_niche_id ? nicheByKey[REF + '|' + w.us_niche_id] : null;
-      var tip = 'В US: ' + (us ? (QUAD[us.quadrant] || QUAD.undetermined)[0] + ', свобода ' + fix(us.freedom, 0) + ', чистота ' + pct(us.purity) : 'нет ниши') +
-        '\nСамое дешёвое гео: ' + (w.cheapest_geo ? w.cheapest_geo + ', door ' + short(w.cheapest_door) : '—');
-      return '<div title="' + esc(tip) + '">' + geoPlus(n.geo, n.geos_count, (nichesByConcept[n.concept] || []).map(function (x) { return x.geo; }).join(',')) +
+      var val = 'В US: ' + (us ? (QUAD[us.quadrant] || QUAD.undetermined)[0] + ', свобода ' + fix(us.freedom, 0) + ', чистота ' + pct(us.purity) : 'нет ниши') +
+        '\nСамое дешёвое гео: ' + (w.cheapest_geo ? w.cheapest_geo + ', door ' + short(w.cheapest_door) : '—') + '\nУБТ-ниша в ' + int(w.ubt_geos) + ' гео';
+      return '<div data-tip="nc.geo" data-tip-val="' + esc(val) + '">' + geoPlus(n.geo, n.geos_count, (nichesByConcept[n.concept] || []).map(function (x) { return x.geo; }).join(',')) +
         '<div class="muted small nowrap" style="margin-top:3px">«Цель» в ' + int(w.target_geos) + ' · дешевле всего ' + esc(w.cheapest_geo || '—') + '</div></div>';
     } });
     cols = cols.concat([
-      { t: 'Свобода', r: true, v: function (n) {
+      { t: 'Рекомендация', tip: 'nc.rec', r: true, v: function (n) { return recCell(n.rec_pct, 'nc.rec'); } },
+      { t: 'Свобода', tip: 'nc.freedom', r: true, v: function (n) {
         if (!isNum(n.freedom)) return dash('компонент с данными меньше половины веса');
         var top = n.components.filter(function (c) { return isNum(c.contrib); }).sort(function (a, b) { return b.contrib - a.contrib; }).slice(0, 3);
-        return '<div title="' + esc(top.map(function (c) { return (COMP[c.name] || [c.name])[0] + ': ' + fix(c.contrib, 2); }).join('\n')) + '">' + meter(n.freedom, freedomColor(n.freedom)) + '</div>';
+        return '<div data-tip="nc.freedom" data-tip-val="' + esc('крупнейшие вклады:\n' + top.map(function (c) { return (COMP[c.name] || [c.name])[0] + ': ' + fix(c.contrib, 2); }).join('\n')) + '">' + meter(n.freedom, freedomColor(n.freedom)) + '</div>';
       } },
-      { t: 'Ёмкость', r: true, v: function (n) { return '<span class="num strong">' + capacityText(n) + '</span>'; } },
-      { t: 'Чистота', r: true, v: function (n) { return isNum(n.purity) ? '<span class="num strong" title="проверено ' + pct(n.purity_cov) + ' трафика ядра">' + pct(n.purity) + '</span>' : dash('проверено ' + pct(n.purity_cov) + ' трафика ядра, нужно ' + pct(M.purity_min)); } },
-      { t: 'Срок', r: true, v: function (n) { return '<span class="num">' + ttoText(n) + '</span>'; } },
-      { t: 'Свободных ключей', r: true, v: function (n) { return isNum(n.free_keys) ? '<span class="num strong">' + n.free_keys + '</span><span class="muted num"> / ' + n.keywords_count + '</span>' : dash('door по ключам есть меньше чем у половины ядра'); } },
-      { t: 'door', r: true, v: function (n) { return doorHtml(n); } },
-      { t: 'Молодые органики', r: true, v: function (n) { return isNum(n.young) ? '<span class="num strong" style="color:' + (n.young > 0 ? 'var(--green)' : 'var(--muted)') + '">' + n.young + '</span>' : dash('возраст известен меньше чем у половины топ-20'); } },
-      { t: 'Кандидаты', r: true, title: 'без закупки / всего прошедших воронку', v: function (n) { return '<span class="num strong">' + int(n.cand_organic) + '</span><span class="muted num"> / ' + int(n.cand) + '</span>'; } },
-      { t: 'Деньги', r: true, title: 'money_ratio гео к US', v: function (n) { return '<span class="num">' + fix(n.money_ratio, 2) + '</span>'; } },
-      { t: 'Ранг', r: true, title: 'процентиль ранга среди ниш гео', v: function (n) { return isNum(n.rank_pct) ? '<span class="num strong">' + fix(n.rank_pct, 0) + '</span>' : dash(); } }
+      { t: 'Ёмкость', tip: 'nc.capacity', r: true, v: function (n) { return '<span class="num strong">' + capacityText(n) + '</span>'; } },
+      { t: 'Чистота', tip: 'nc.purity', r: true, v: function (n) { return isNum(n.purity) ? '<span class="num strong" data-tip="nc.purity" data-tip-val="проверено ' + pct(n.purity_cov) + ' трафика ядра">' + pct(n.purity) + '</span>' : dash('проверено ' + pct(n.purity_cov) + ' трафика ядра, нужно ' + pct(M.purity_min)); } },
+      { t: 'УБТ', tip: 'nc.ubt', r: true, v: function (n) {
+        if (!isNum(n.ubt_share)) return '<span class="muted" data-tip="nc.ubt" data-tip-val="' + esc('разметку отзывов имеют ' + int(n.ubt_apps) + ' приложений, нужно ' + M.ubt_niche_min_apps) + '">—</span>';
+        var val = 'доля с признаком ' + pct(n.ubt_share) + ' из ' + int(n.ubt_apps) + ' приложений с разметкой' + (isNum(GEO[n.geo].ubtNicheP75) ? ' · порог p75 ниш гео ' + pct(GEO[n.geo].ubtNicheP75) : '');
+        return n.ubt === 1 ? '<span class="badge b-purple" data-tip="nc.ubt" data-tip-val="' + esc(val) + '">УБТ ' + pct(n.ubt_share) + '</span>'
+          : '<span class="num muted" data-tip="nc.ubt" data-tip-val="' + esc(val) + '">' + pct(n.ubt_share) + '</span>';
+      } },
+      { t: 'Срок', tip: 'nc.tto', r: true, v: function (n) { return '<span class="num">' + ttoText(n) + '</span>'; } },
+      { t: 'Свободных ключей', tip: 'nc.freekeys', r: true, v: function (n) { return isNum(n.free_keys) ? '<span class="num strong">' + n.free_keys + '</span><span class="muted num"> / ' + n.keywords_count + '</span>' : dash('door по ключам есть меньше чем у половины ядра'); } },
+      { t: 'door', tip: 'nc.door', r: true, v: function (n) { return doorHtml(n); } },
+      { t: 'Молодые органики', tip: 'nc.young', r: true, v: function (n) { return isNum(n.young) ? '<span class="num strong" style="color:' + (n.young > 0 ? 'var(--green)' : 'var(--muted)') + '">' + n.young + '</span>' : dash('возраст известен меньше чем у половины топ-20'); } },
+      { t: 'Кандидаты', tip: 'nc.cand', r: true, v: function (n) { return '<span class="num strong">' + int(n.cand_organic) + '</span><span class="muted num"> / ' + int(n.cand) + '</span>'; } },
+      { t: 'Деньги', tip: 'nc.money', r: true, v: function (n) { return '<span class="num">' + fix(n.money_ratio, 2) + '</span>'; } },
+      { t: 'Ранг', tip: 'nc.rank', r: true, v: function (n) { return isNum(n.rank_pct) ? '<span class="num strong">' + fix(n.rank_pct, 0) + '</span>' : dash(); } }
     ]);
 
     $('view').innerHTML = '<section class="page">' +
-      pageHead('Методика v2.0 · ' + geoName(state.geo), 'Топ ниш', state.geo === WW
-        ? 'Концепты каталога ворлдвайд: каждая ниша — в гео, где её ранг выше, с небольшой поправкой на деньги гео. Ранг — ключ сортировки; решение принимается по четырём числам и матрице.'
-        : 'Ниши ' + esc(geoName(state.geo)) + ' на ' + esc(dmy(GEO[state.geo].date)) + '. Ранг — ключ сортировки; решение принимается по четырём числам и матрице.') +
+      pageHead('Методика v2.0 · ' + geoName(state.geo), f.rec ? 'Рекомендуемый топ ниш' : 'Топ ниш', f.rec
+        ? 'Рекомендуемый топ: ниши, где свободные ключи дают вход на ASO. Скор — свободные ключи, остальная свобода, чистота, молодые органики, монетизация и ёмкость; «Мимо» и закрытые ниши исключены.'
+        : state.geo === WW
+          ? 'Концепты каталога ворлдвайд: каждая ниша — в гео, где её ранг выше, с небольшой поправкой на деньги гео. Ранг — ключ сортировки; решение принимается по четырём числам и матрице.'
+          : 'Ниши ' + esc(geoName(state.geo)) + ' на ' + esc(dmy(GEO[state.geo].date)) + '. Ранг — ключ сортировки; решение принимается по четырём числам и матрице.') +
       kpiCards(kpis) + matrix +
       '<div class="card" style="overflow:hidden">' +
-        '<div class="toolbar first">' + chk('young', 'Есть молодые органики') + chk('cand', 'Есть кандидаты без закупки') + chk('full', 'Только полные данные') + '</div>' +
-        (catList.length ? '<div class="toolbar"><button class="pill" data-act="nf-cat" data-cat="all" aria-pressed="' + (f.cat === 'all') + '">Все категории</button>' +
+        '<div class="toolbar first">' +
+          '<button class="rec-toggle" data-act="rec-niches" aria-pressed="' + f.rec + '">Рекомендуемый топ</button>' + tipIcon('n.rec') +
+          chk('young', 'Есть молодые органики', 'n.young') + chk('cand', 'Есть кандидаты без закупки', 'n.cand') + chk('full', 'Только полные данные', 'n.full') + '</div>' +
+        (catList.length ? '<div class="toolbar">' + tipIcon('n.cat') + '<button class="pill" data-act="nf-cat" data-cat="all" aria-pressed="' + (f.cat === 'all') + '">Все категории</button>' +
           catList.map(function (c) { return '<button class="pill" data-act="nf-cat" data-cat="' + esc(c) + '" aria-pressed="' + (f.cat === c) + '">' + esc(c === 'GAME' ? 'Игры' : genre(c)) + ' <span class="num" style="opacity:.7">' + cats[c] + '</span></button>'; }).join('') + '</div>' : '') +
         '<div class="toolbar">' +
-          sel('quad', 'Квадрант', f.quad, [['all', 'все']].concat(Object.keys(QUAD).map(function (k) { return [k, QUAD[k][0]]; }))) +
-          sel('freedom', 'Свобода', f.freedom, [['all', 'любая'], ['75', '≥ 75'], ['50', '≥ 50']]) +
-          sel('purity', 'Чистота', f.purity, [['all', 'любая'], ['p50', '≥ p50 гео']]) +
-          '<div class="toolbar-right">' + sel('sort', 'Сортировка', f.sort, [['rank', 'Ранг'], ['freedom', 'Свобода'], ['capacity', 'Ёмкость'], ['purity', 'Чистота'], ['tto', 'Срок'], ['young', 'Молодые органики'], ['door', 'door']]) + '</div>' +
+          sel('channel', 'Канал роста', f.channel, [['all', 'любой'], ['organic', CHANNEL.organic], ['organic_ubt', CHANNEL.organic_ubt], ['ubt', CHANNEL.ubt]], 'n.channel') +
+          sel('quad', 'Квадрант', f.quad, [['all', 'все']].concat(Object.keys(QUAD).map(function (k) { return [k, QUAD[k][0]]; })), 'n.quad') +
+          sel('freedom', 'Свобода', f.freedom, [['all', 'любая'], ['75', '≥ 75'], ['50', '≥ 50']], 'n.freedom') +
+          sel('purity', 'Чистота', f.purity, [['all', 'любая'], ['p50', '≥ p50 гео']], 'n.purity') +
+          (f.rec ? '' : '<div class="toolbar-right">' + sel('sort', 'Сортировка', f.sort, [['rank', 'Ранг'], ['rec', 'Рекомендуемый скор'], ['freedom', 'Свобода'], ['capacity', 'Ёмкость'], ['purity', 'Чистота'], ['tto', 'Срок'], ['young', 'Молодые органики'], ['door', 'door']], 'n.sort') + '</div>') +
         '</div>' +
-        tableHtml(cols, slice, { minWidth: state.geo === WW ? 1480 : 1400, empty: 'Под фильтры ничего не попало' }) +
+        tableHtml(cols, slice, { minWidth: state.geo === WW ? 1640 : 1560, empty: f.rec ? 'Под фильтры не попала ни одна рекомендуемая ниша' : 'Под фильтры ничего не попало' }) +
         pager(rows.length, state.page) +
       '</div>' +
-      '<p class="note">Ёмкость пуста, пока у гео нет курса «спрос → установки»: для него нужно окно ' + M.min_window + ' дней между снимками и ' + M.calib_min + ' органических приложений в топ-10. До этого ранг считается без ёмкости — свобода × чистота. «≤» у срока — верхняя граница: приложение уже было в топ-10 на первом снимке.</p>' +
+      '<p class="note">Наведите на название колонки, бейдж или «?» — подсказка объяснит термин, расчёт и назначение. Ёмкость пуста, пока у гео нет курса «спрос → установки»: нужно окно ' + M.min_window + ' дней между снимками и ' + M.calib_min + ' органических приложений в топ-10. «≤» у срока — верхняя граница: приложение уже было в топ-10 на первом снимке.</p>' +
     '</section>';
   }
 
@@ -837,7 +1043,7 @@
     var siblings = n.concept ? (nichesByConcept[n.concept] || []).slice().sort(function (a, b) { return (b.rank_pct ?? -1) - (a.rank_pct ?? -1); }) : [n];
     var comps = n.components.map(function (c) {
       var name = COMP[c.name] || [c.name, ''];
-      return '<tr><td><div class="strong">' + esc(name[0]) + '</div><div class="muted small">' + esc(name[1]) + '</div></td>' +
+      return '<tr><td data-tip="comp.' + c.name + '"><div class="strong">' + esc(name[0]) + '</div><div class="muted small">' + esc(name[1]) + '</div></td>' +
         '<td class="r num">' + (isNum(c.raw) ? fix(c.raw, 3) : '—') + '</td><td class="r num">' + (isNum(c.n) ? fix(c.n, 2) : '—') + '</td><td class="r num">' + fix(c.w, 2) + '</td>' +
         '<td class="r">' + (isNum(c.contrib) ? '<span class="num strong">' + fix(c.contrib, 3) + '</span>' : '<span class="muted small">' + esc(MISSING[c.name] || 'нет данных') + '</span>') + '</td></tr>';
     }).join('');
@@ -859,14 +1065,15 @@
         '<button class="icon-btn" data-act="close" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>' +
       '<div class="drawer-body">' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="geo-code">' + esc(geo) + '</span>' + quadBadge(n.quadrant) +
-          (n.closed ? '<span class="badge b-red">ниша закрыта</span>' : '') + (n.tail_clean ? '<span class="badge b-green">хвост чист</span>' : '') +
+          (n.closed ? '<span class="badge b-red" data-tip="b.closed">ниша закрыта</span>' : '') + (n.tail_clean ? '<span class="badge b-green" data-tip="b.tail_clean">хвост чист</span>' : '') +
+          (n.ubt === 1 ? '<span class="badge b-purple" data-tip="nc.ubt">УБТ-ниша</span>' : '') + '<span class="badge b-accent" data-tip="nc.rec">рекомендация ' + (isNum(n.rec_pct) ? fix(n.rec_pct, 0) : '—') + '</span>' +
           (n.incomplete.length ? '<span class="badge b-orange" title="' + esc(n.incomplete.map(function (k) { return MISSING[k] || k; }).join('\n')) + '">неполные данные</span>' : '') +
           '<span class="badge b-muted">ранг ' + (isNum(n.rank_pct) ? fix(n.rank_pct, 0) : '—') + ' · ' + (n.rank_basis === 'full' ? 'полная основа' : 'без ёмкости') + '</span></div>' +
         '<div class="card four">' +
-          '<div><div class="four-label">Свобода</div><div class="four-val" style="color:' + freedomColor(n.freedom) + '">' + fix(n.freedom, 0) + '</div><div class="four-hint">процентиль среди ниш гео</div></div>' +
-          '<div><div class="four-label">Ёмкость</div><div class="four-val">' + (isNum(n.capacity) ? '≈ ' + short(n.capacity) : '—') + '</div><div class="four-hint">' + (isNum(n.capacity) ? short(n.capacity_lo) + '–' + short(n.capacity_hi) + ' установок/мес' : esc(g.k_status || 'нет курса гео')) + '</div></div>' +
-          '<div><div class="four-label">Чистота</div><div class="four-val">' + pct(n.purity) + '</div><div class="four-hint">проверено ' + pct(n.purity_cov) + ' трафика</div></div>' +
-          '<div><div class="four-label">Срок</div><div class="four-val">' + (isNum(n.tto) ? (n.tto_kind === 'upper' ? '≤' : '≈') + fix(n.tto, 1) : '—') + '</div><div class="four-hint">' + (n.tto_kind === 'upper' ? 'верхняя граница, мес' : n.tto_kind === 'measured' ? 'измерено, мес' : 'нет молодых органиков') + '</div></div>' +
+          '<div><div class="four-label" data-tip="nc.freedom">Свобода</div><div class="four-val" style="color:' + freedomColor(n.freedom) + '">' + fix(n.freedom, 0) + '</div><div class="four-hint">процентиль среди ниш гео</div></div>' +
+          '<div><div class="four-label" data-tip="nc.capacity">Ёмкость</div><div class="four-val">' + (isNum(n.capacity) ? '≈ ' + short(n.capacity) : '—') + '</div><div class="four-hint">' + (isNum(n.capacity) ? short(n.capacity_lo) + '–' + short(n.capacity_hi) + ' установок/мес' : esc(g.k_status || 'нет курса гео')) + '</div></div>' +
+          '<div><div class="four-label" data-tip="nc.purity">Чистота</div><div class="four-val">' + pct(n.purity) + '</div><div class="four-hint">проверено ' + pct(n.purity_cov) + ' трафика</div></div>' +
+          '<div><div class="four-label" data-tip="nc.tto">Срок</div><div class="four-val">' + (isNum(n.tto) ? (n.tto_kind === 'upper' ? '≤' : '≈') + fix(n.tto, 1) : '—') + '</div><div class="four-hint">' + (n.tto_kind === 'upper' ? 'верхняя граница, мес' : n.tto_kind === 'measured' ? 'измерено, мес' : 'нет молодых органиков') + '</div></div>' +
         '</div>' +
         '<div class="card panel"><div class="panel-title">Из чего сложилась свобода</div><div class="panel-sub">n — нормировка по нишам гео (p10–p90), вклад = n × вес / сумма весов непустых компонент. Сумма вкладов = ' + fix(n.freedom_raw, 3) + '</div>' +
           '<div class="tbl-scroll"><table class="mini" style="min-width:520px"><thead><tr><th>Компонента</th><th class="r">Значение</th><th class="r">n</th><th class="r">Вес</th><th class="r">Вклад</th></tr></thead><tbody>' + comps + '</tbody></table></div></div>' +
@@ -906,8 +1113,16 @@
           '<div><dt>Монетизация у топ-10</dt><dd>' + pct(n.monetized) + '</dd></div>' +
           '<div><dt>Закупка у топ-10 головного</dt><dd>' + pct(n.top10_ads_share) + '</dd></div>' +
           '<div><dt>Жалобы лидеров: деньги · реклама · не работает</dt><dd>' + (pain ? pct(pain.money) + ' · ' + pct(pain.ads) + ' · ' + pct(pain.broken) : '—') + '</dd></div>' +
-          '<div><dt>УБТ-сигнал: всплески без обновления</dt><dd>' + (spikes.length ? pct(median(spikes)) : 'копится: нужно 20 дневных точек') + '</dd></div>' +
+          '<div><dt>Всплески установок без обновления</dt><dd>' + (spikes.length ? pct(median(spikes)) : 'копится: нужно 20 дневных точек') + '</dd></div>' +
         '</dl></div>' +
+        '<div class="card panel"><div class="panel-title">УБТ — трафик из соцсетей и видео</div><div class="panel-sub">по отзывам приложений топ-20 ключей и кандидатов</div><dl class="kv">' +
+          '<div><dt data-tip="nc.ubt">Доля приложений с признаком</dt><dd>' + (isNum(n.ubt_share) ? pct(n.ubt_share) + ' из ' + int(n.ubt_apps) : 'мало разметки: ' + int(n.ubt_apps) + ' из ' + M.ubt_niche_min_apps) + '</dd></div>' +
+          '<div><dt data-tip="nc.ubt">УБТ-ниша</dt><dd>' + (n.ubt === 1 ? 'да' : n.ubt === 0 ? 'нет' : '—') + (isNum(g.ubtNicheP75) ? ' · порог p75 ' + pct(g.ubtNicheP75) : '') + '</dd></div>' +
+          '<div><dt data-tip="c.ubt">С признаком среди кандидатов</dt><dd>' + int((appsByNiche[geo + '|' + nicheId] || []).filter(function (a) { return a.ubt === 1; }).length) + ' из ' + int((appsByNiche[geo + '|' + nicheId] || []).length) + '</dd></div>' +
+        '</dl></div>' +
+        '<div class="card panel"><div class="panel-title" data-tip="rec.parts.niche">Рекомендуемый скор</div><div class="panel-sub">процентиль ' + (isNum(n.rec_pct) ? fix(n.rec_pct, 0) : '— (квадрант «Мимо» или ниша закрыта)') + ' · значение части · вклад в итог</div>' +
+          recBars(n.rec_parts, ['Свободные ключи', 'Свобода', 'Чистота', 'Молодые органики', 'Монетизация у топа', 'Ёмкость или спрос'],
+            [REC.niche_weights.free_keys, REC.niche_weights.freedom, REC.niche_weights.purity, REC.niche_weights.young_organic, REC.niche_weights.monetized, REC.niche_weights.capacity], 'rec.parts.niche') + '</div>' +
         '<div class="card panel"><div class="panel-title">Кандидаты</div><div class="panel-sub">прошли воронку в ' + esc(geoName(geo)) + ': ' + int(n.cand_organic) + ' без закупки из ' + int(n.cand) + (state.hidePaid ? ' · закупающие скрыты' : '') + '</div>' +
           (cands.length ? '<table class="mini"><thead><tr><th>Приложение</th><th>Органика</th><th>Проверки</th><th class="r">Индекс</th></tr></thead><tbody>' + cands.slice(0, 12).map(function (a) {
             return '<tr><td><button class="niche-cell" data-act="open-app" data-app="' + esc(a.app_id) + '" data-geo="' + esc(a.geo) + '"><span class="strong">' + esc(a.title || a.app_id) + '</span></button></td><td>' + levelBadge(a) + '</td><td>' + checksHtml(a) + '</td><td class="r num">' + fix(a.prescore, 0) + '</td></tr>';
@@ -958,7 +1173,8 @@
         '<button class="icon-btn" data-act="close" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>' +
       '<div class="drawer-body">' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="geo-code">' + esc(geo) + '</span>' + (a.genre_id ? '<span class="tag">' + esc(genre(a.genre_id)) + '</span>' : '') +
-          levelBadge(a) + trafficBadge(a) + a.disq.filter(function (x) { return x === 'fraud' || x === 'wall'; }).map(function (x) { return '<span class="badge b-red">' + (x === 'fraud' ? 'накрутка' : 'стена авторитета') + '</span>'; }).join('') +
+          levelBadge(a) + (a.ubt === 1 ? ubtBadge(a) : '') + trafficBadge(a) + a.disq.filter(function (x) { return x === 'fraud' || x === 'wall'; }).map(function (x) { return '<span class="badge b-red" data-tip="b.' + x + '">' + (x === 'fraud' ? 'накрутка' : 'стена авторитета') + '</span>'; }).join('') +
+          '<span class="badge b-accent" data-tip="c.rec">рекомендация ' + (isNum(a.rec_pct) ? fix(a.rec_pct, 0) : '—') + '</span>' +
           '<a style="margin-left:auto;font-weight:700;font-size:13px" href="https://play.google.com/store/apps/details?id=' + encodeURIComponent(id) + '&gl=' + encodeURIComponent(geo) + '" target="_blank" rel="noopener">Открыть в Google Play ↗</a></div>' +
         kpiCards([
           { label: 'Индекс', value: fix(a.prescore, 0), hint: 'prescore · пройдено ' + a.passed + ' из 7' },
@@ -969,7 +1185,7 @@
         '<div class="card panel"><div class="panel-title">Семь проверок</div><div class="panel-sub">образец годится, когда проходит все; непроверенное пройденным не считается</div><div class="check-list" style="margin-top:8px">' +
           a.checks.map(function (v, i) {
             var lab = v === 1 ? ['пройдена', 'b-green'] : v === 0 ? ['провалена', 'b-red'] : ['не проверена', 'b-muted'];
-            return '<div class="check-row"><i class="chk ' + (v === 1 ? 'chk-1' : v === 0 ? 'chk-0' : 'chk-n') + '"></i><span class="strong">' + esc(CHECKS[i]) + '</span><span class="badge ' + lab[1] + '">' + lab[0] + '</span><span class="why">' + esc(notes[i]) + '</span></div>';
+            return '<div class="check-row"><i class="chk ' + (v === 1 ? 'chk-1' : v === 0 ? 'chk-0' : 'chk-n') + '"></i><span class="strong" data-tip="chk.' + i + '">' + esc(CHECKS[i]) + '</span><span class="badge ' + lab[1] + '">' + lab[0] + '</span><span class="why">' + esc(notes[i]) + '</span></div>';
           }).join('') + '</div></div>' +
         '<div class="card panel"><div class="panel-title">Органика и история рекламы</div><dl class="kv">' +
           '<div><dt>Ступень</dt><dd>' + (LEVEL[a.level] || LEVEL.unchecked)[0] + '</dd></div>' +
@@ -989,6 +1205,16 @@
           '<div><dt>aso_share · p25 гео</dt><dd>' + fix(a.aso_share, 2) + ' · ' + fix(g.asoP25, 2) + '</dd></div>' +
           '<div><dt>Всплески без обновления листинга</dt><dd>' + (isNum(a.spike) ? pct(a.spike) : 'копится') + '</dd></div>' +
         '</dl></div>' +
+        '<div class="card panel"><div class="panel-title" data-tip="c.ubt">УБТ — трафик из соцсетей и видео</div><div class="panel-sub">упоминания TikTok, YouTube, Instagram/Reels, блогеров и фразы вида «увидел в тиктоке» в отзывах на всех собранных языках</div><dl class="kv">' +
+          '<div><dt data-tip="c.ubt">Признак УБТ</dt><dd>' + (a.ubt === 1 ? 'есть' : a.ubt === 0 ? 'нет' : '— (отзывов меньше ' + M.ubt_min_reviews + ')') + '</dd></div>' +
+          '<div><dt data-tip="f.channel">Канал роста</dt><dd>' + esc(CHANNEL[channelOf(a)]) + (a.ubt === 1 && channelOf(a) === 'paid' ? ' · и УБТ' : '') + '</dd></div>' +
+          '<div><dt>Упоминаний · отзывов</dt><dd>' + int(a.ubt_mentions) + ' · ' + int(a.ubt_reviews) + '</dd></div>' +
+          '<div><dt>Доля · порог p75 гео</dt><dd>' + pct(a.ubt_share, 1) + ' · ' + pct(g.ubtP75, 1) + '</dd></div>' +
+          (a.ubt_related ? '<div style="grid-column:1/-1"><dt>Как считалось</dt><dd style="font-family:var(--f-ui);font-weight:500">площадка в названии или функциональная категория — учтены только фразы-источники</dd></div>' : '') +
+        '</dl></div>' +
+        '<div class="card panel"><div class="panel-title" data-tip="rec.parts.app">Рекомендуемый скор</div><div class="panel-sub">процентиль ' + (isNum(a.rec_pct) ? fix(a.rec_pct, 0) : '— (закупка, накрутка или стена)') + ' среди приложений гео · значение части · вклад в итог</div>' +
+          recBars(a.rec_parts, ['Рост из поиска (ASO)', 'Свобода ниши', 'Пройденные проверки', 'Индекс копируемости', 'Молодость и прирост', 'Монетизация'],
+            [REC.app_weights.aso, REC.app_weights.freedom, REC.app_weights.checks, REC.app_weights.prescore, REC.app_weights.youth, REC.app_weights.monetization], 'rec.parts.app') + '</div>' +
         '<div class="card panel"><div class="panel-title">Ключи, где приложение в топ-50</div><div class="panel-sub">вклад = спрос ключа × CTR места; топ-8 по вкладу · в топ-10 по ' + (a.kw_top10 ?? '—') + ', в топ-50 по ' + (a.kw_top50 ?? '—') + ' ключам</div>' +
           (a.kw.length ? '<table class="mini"><thead><tr><th>Ключ</th><th class="r">Место</th><th class="r">Вклад</th></tr></thead><tbody>' + a.kw.map(function (k) { return '<tr><td class="strong">' + esc(k[0]) + '</td><td class="r num">' + k[1] + '</td><td class="r num">' + fix(k[2], 2) + '</td></tr>'; }).join('') + '</tbody></table>' : '<div class="empty" style="padding:18px">Нет ключей ядра с этим приложением в топ-50</div>') + '</div>' +
         (n ? '<div class="card panel"><div class="panel-title">Ниша: ' + esc(n.concept || n.head) + '</div><div class="panel-sub">' + esc(n.head) + ' · ' + (QUAD[n.quadrant] || QUAD.undetermined)[0] + '</div>' +
@@ -1157,6 +1383,8 @@
     if (act === 'nf-cat') { state.nf.cat = t.getAttribute('data-cat'); state.page = 1; render(); return; }
     if (act === 'nf-quad') { var qd = t.getAttribute('data-quad'); state.nf.quad = state.nf.quad === qd ? 'all' : qd; state.page = 1; render(); return; }
     if (act === 'clear-niche') { state.af.niche = null; state.page = 1; render(); return; }
+    if (act === 'rec-apps') { state.af.rec = !state.af.rec; state.page = 1; hideTip(); render(); return; }
+    if (act === 'rec-niches') { state.nf.rec = !state.nf.rec; state.page = 1; hideTip(); render(); return; }
     if (act === 'fav') {
       var kind = t.getAttribute('data-kind'), id = t.getAttribute('data-id'), list = kind === 'n' ? state.nfavs : state.favs, i = list.indexOf(id);
       if (i >= 0) list.splice(i, 1); else list.push(id);
@@ -1190,7 +1418,50 @@
     var root = $('drawer-root'), a = appByKey[root.getAttribute('data-geo') + '|' + root.getAttribute('data-app')];
     if (a && $('calc-out')) $('calc-out').innerHTML = calcOut(a);
   });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeDrawer(); $('geo-menu').hidden = true; } });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { hideTip(); closeDrawer(); $('geo-menu').hidden = true; } });
+
+  // ---------------- всплывающие подсказки ----------------
+  // Свои, а не title браузера: у вариантов выпадающих списков и у значков «?» стандартная
+  // подсказка не показывается, а объяснение из трёх частей в неё не помещается.
+  var tipEl = document.createElement('div');
+  tipEl.className = 'tip-pop'; tipEl.hidden = true; tipEl.setAttribute('role', 'tooltip');
+  document.body.appendChild(tipEl);
+  var tipFor = null;
+  function tipHtml(el) {
+    var g = GLOSS[el.getAttribute('data-tip')], val = el.getAttribute('data-tip-val');
+    if (!g && !val) return '';
+    var h = '';
+    if (g) {
+      h += '<h4>' + esc(g.t) + '</h4>';
+      if (g.what) h += '<p><b>Что это</b>' + esc(g.what) + '</p>';
+      if (g.how) h += '<p><b>Как считается</b>' + esc(g.how) + '</p>';
+      if (g.why) h += '<p><b>Зачем</b>' + esc(g.why) + '</p>';
+      if (g.opts) h += '<p><b>Варианты</b></p><ul>' + g.opts.map(function (o) { return '<li><b style="display:inline;text-transform:none;letter-spacing:0;font-size:12.5px;color:var(--text)">' + esc(o[0]) + '</b> — ' + esc(o[1]) + '</li>'; }).join('') + '</ul>';
+    }
+    if (val) h += '<div class="tip-val">' + esc(val).replace(/\n/g, '<br>') + '</div>';
+    return h;
+  }
+  function showTip(el) {
+    var html = tipHtml(el);
+    if (!html) return;
+    tipFor = el; tipEl.innerHTML = html; tipEl.hidden = false;
+    var r = el.getBoundingClientRect(), w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+    var left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), window.innerWidth - w - 8);
+    var top = r.bottom + 8;
+    if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 8);
+    tipEl.style.left = left + 'px'; tipEl.style.top = top + 'px';
+  }
+  function hideTip() { tipFor = null; tipEl.hidden = true; }
+  document.addEventListener('mouseover', function (e) {
+    var el = e.target.closest('[data-tip],[data-tip-val]');
+    if (el === tipFor) return;
+    if (el) showTip(el); else hideTip();
+  });
+  document.addEventListener('focusin', function (e) { var el = e.target.closest('[data-tip],[data-tip-val]'); if (el) showTip(el); });
+  document.addEventListener('focusout', hideTip);
+  window.addEventListener('scroll', hideTip, true);
+  // На сенсорных экранах наведения нет: значок «?» открывает подсказку касанием.
+  document.addEventListener('click', function (e) { var el = e.target.closest('.tip-i'); if (el) { e.preventDefault(); if (tipFor === el) hideTip(); else showTip(el); } });
   var qTimer = null;
   $('q').addEventListener('input', function (e) { clearTimeout(qTimer); qTimer = setTimeout(function () { state.q = e.target.value.trim(); state.page = 1; render(); }, 160); });
   if (window.matchMedia) { var mq = window.matchMedia('(prefers-color-scheme: dark)'); if (mq.addEventListener) mq.addEventListener('change', renderHeader); }

@@ -380,28 +380,30 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
 
   tick('weight+calib');
   // ---------- УБТ по отзывам (ТЗ v2.2) ----------
-  // Доля отзывов на языках гео с упоминанием соцсетей и видео. У приложений, где площадка есть
-  // в названии, описании или ниша про видео, названия площадок в отзывах — про функцию, а не
-  // про источник, поэтому для них считаются только фразы-источники («увидел в тиктоке»).
+  // Доля отзывов с упоминанием соцсетей и видео — на всех языках: отзыв хранится один раз, под
+  // языком первого гео, где собиралось приложение, и у поздних гео своих отзывов почти нет
+  // (IT — у 12 приложений из 255). Признак описывает само приложение; порог p75 — внутри гео.
+  // У приложений, где площадка есть в названии, описании или ниша про видео, названия площадок
+  // в отзывах — про функцию, а не про источник, поэтому для них считаются только фразы-источники
+  // («увидел в тиктоке»).
   const ubtLex = ubtLexicon();
   const platformRe = new RegExp(ubtLex.platform_related_regex, 'iu');
   const relatedConcepts = new Set(ubtLex.platform_related_concepts || []);
   const relatedGenres = new Set(ubtLex.platform_related_genres || []);
   const ubtIds = new Set(appRows.map((a) => a.app_id));
   for (const kw of allKeywords) { const s = latest(kw); if (s) for (const a of s.top20) ubtIds.add(a); }
-  const langIn = g.review_langs.map(() => '?').join(',');
   // Два простых запроса вместо одного с вложенными EXISTS на каждую строку: тот шёл минутами
   // на миллионе отзывов, эти — доли секунды (число отзывов по индексу приложения, метки — по
   // версии классификатора, их единицы тысяч).
   const ubtRaw = new Map();
   for (const r of d.prepare(
     `SELECT app_id, COUNT(*) AS n FROM raw_reviews
-      WHERE lang IN (${langIn}) AND app_id IN (SELECT value FROM json_each(?)) GROUP BY app_id`
-  ).all(...g.review_langs, JSON.stringify([...ubtIds]))) ubtRaw.set(r.app_id, { n: r.n, ph: 0, anyu: 0, reviews: new Map() });
+      WHERE app_id IN (SELECT value FROM json_each(?)) GROUP BY app_id`
+  ).all(JSON.stringify([...ubtIds]))) ubtRaw.set(r.app_id, { n: r.n, ph: 0, anyu: 0, reviews: new Map() });
   for (const r of d.prepare(
     `SELECT rv.app_id, rv.review_id, l.label FROM review_labels l JOIN raw_reviews rv ON rv.review_id=l.review_id
-      WHERE l.classifier_version=? AND rv.lang IN (${langIn})`
-  ).all(ubtLex.version, ...g.review_langs)) {
+      WHERE l.classifier_version=?`
+  ).all(ubtLex.version)) {
     const cur = ubtRaw.get(r.app_id);
     if (!cur) continue;
     const prev = cur.reviews.get(r.review_id) || { ph: 0 };
@@ -921,6 +923,8 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
       wall_installs: niches.map((n) => n.wall_installs), wall_ratings: niches.map((n) => n.wall_ratings),
       aso_share: [...asoShare.values()].map((x) => x.share),
       ubt_share: appRows.map((a) => ubtOf(a.app_id).share),
+      // Порог признака УБТ — p75 среди упоминаемых (доля > 0), как в ubtSignal.
+      ubt_share_mentioned: appRows.map((a) => ubtOf(a.app_id).share).filter((s) => s != null && s > 0),
       ubt_niche_share: nicheRows.map((r) => r.ubtNicheShare),
     };
     for (const [metric, vals] of Object.entries(qSets)) {

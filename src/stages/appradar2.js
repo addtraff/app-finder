@@ -34,6 +34,9 @@ export function collect(d) {
   const mp10 = quantile(mvals, 0.1), mp90 = quantile(mvals, 0.9);
   const moneyN = Object.fromEntries(Object.entries(money).map(([g, v]) => [g, norm(v, mp10, mp90) ?? 0.5]));
   const pick = (score, geo) => (score == null ? null : score * (1 - V.money_weight + V.money_weight * moneyN[geo]));
+  // Лучшее гео для рекомендуемого топа: процентиль у первых мест гео одинаковый (100), поэтому
+  // при равенстве решает сырой рекомендуемый скор, как и везде — с поправкой на деньги гео.
+  const recOrder = (x, y) => (pick(y.rec_pct, y.geo) - pick(x.rec_pct, x.geo)) || ((pick(y.rec_score, y.geo) ?? -1) - (pick(x.rec_score, x.geo) ?? -1));
 
   const geos = [], appRows = [], nicheRows = [], keyRows = [];
   for (const g of cfg.geos.geos) {
@@ -62,6 +65,8 @@ export function collect(d) {
       fdsP75: r4(geoQ(d, g.geo, date, 'free_demand_share', 'p75')),
       freeKeysP75: r4(geoQ(d, g.geo, date, 'free_keys_count', 'p75')),
       doorKeyP25: r4(geoQ(d, g.geo, date, 'door_key', 'p25')),
+      ubtP75: r4(geoQ(d, g.geo, date, 'ubt_share_mentioned', 'p75')),
+      ubtNicheP75: r4(geoQ(d, g.geo, date, 'ubt_niche_share', 'p75')),
     };
 
     const apps = all(d,
@@ -71,7 +76,7 @@ export function collect(d) {
               m.kw_top10_count, m.kw_top50_count,
               a.title, a.developer, a.genre_id,
               n.concept, n.head_keyword AS niche_head, n.freedom_pct AS niche_freedom, n.quadrant AS niche_quadrant,
-              n.door AS niche_door, n.organic_capacity AS niche_capacity
+              n.door AS niche_door, n.organic_capacity AS niche_capacity, n.ubt_flag AS niche_ubt_flag
          FROM metrics_app_v2 v
          JOIN metrics_app_geo m ON m.app_id=v.app_id AND m.geo=v.geo AND m.snapshot_date=v.snapshot_date
          JOIN apps a ON a.app_id=v.app_id
@@ -80,9 +85,15 @@ export function collect(d) {
         ORDER BY m.prescore DESC`, g.geo, date);
     // В отчёт идут сильнейшие строки гео: страница ограничена 16 МБ, а хвост по индексу
     // копируемости в решении не участвует. Сколько отброшено — видно на странице «Сбор и планы».
+    // Рекомендуемые (первые top_n × 3 по рекомендуемому скору) остаются в отчёте, даже если по
+    // индексу копируемости они ниже отсечки: рекомендуемый топ считается по всем строкам гео.
     const cap = V.report_apps_per_geo || 500;
-    const trimmed = Math.max(0, apps.length - cap);
-    apps.length = Math.min(apps.length, cap);
+    const recKeep = new Set(apps.filter((a) => a.rec_pct != null).sort((x, y) => y.rec_pct - x.rec_pct)
+      .slice(0, (V.recommended?.top_n || 50) * 3).map((a) => a.app_id));
+    const kept = apps.filter((a, i) => i < cap || recKeep.has(a.app_id));
+    const trimmed = apps.length - kept.length;
+    apps.length = 0;
+    apps.push(...kept);
 
     for (const a of apps) {
       appRows.push({
@@ -107,6 +118,9 @@ export function collect(d) {
         kw_top10: a.kw_top10_count, kw_top50: a.kw_top50_count,
         kw: parse(a.keywords_json, []).slice(0, 8).map((k) => [k.kw, k.pos, r4(k.contrib)]),
         niche_weak: r4(baseById.get(a.niche_id)?.weak_share ?? null), niche_gap: r4(baseById.get(a.niche_id)?.index_gap_leader ?? null),
+        ubt: a.ubt_signal, ubt_mentions: a.ubt_mentions, ubt_reviews: a.ubt_reviews, ubt_share: r4(a.ubt_share), ubt_related: a.ubt_related,
+        rec_pct: r4(a.rec_pct), rec_score: r4(a.rec_score), rec_parts: parse(a.rec_parts),
+        niche_ubt: a.niche_ubt_flag ?? null,
       });
     }
 
@@ -133,6 +147,8 @@ export function collect(d) {
         incomplete: parse(n.incomplete, []), partial: n.partial_window,
         leader_share: r4(b.leader_share ?? null), new_share_18m: r4(b.new_share_18m ?? null), weak_share: r4(b.weak_share ?? null),
         index_gap_leader: r4(b.index_gap_leader ?? null),
+        ubt_share: r4(n.ubt_share), ubt_apps: n.ubt_apps, ubt: n.ubt_flag,
+        rec_pct: r4(n.rec_pct), rec_score: r4(n.rec_score), rec_parts: parse(n.rec_parts),
       });
     }
     for (const k of all(d, `SELECT niche_id, keyword, is_head, suggest_score, door_key, is_free, paid_ctr_share, ads_checked_share, top10_cards
@@ -172,8 +188,12 @@ export function collect(d) {
       if (s > bestScore || (s === bestScore && r.geo === ref)) { best = r; bestScore = s; }
     }
     const us = rows.find((r) => r.geo === ref);
+    // Для рекомендуемого топа — гео, где рекомендуемый скор выше (он может не совпадать с лучшим по индексу).
+    const recBest = rows.filter((r) => r.rec_pct != null).sort(recOrder)[0] || null;
     worldApps.push({ app_id: id, geo: best.geo, geos: rows.map((r) => r.geo).sort().join(','), geos_count: rows.length,
-      us_prescore: us ? us.prescore : null });
+      us_prescore: us ? us.prescore : null, rec_geo: recBest ? recBest.geo : null, rec_pct: recBest ? recBest.rec_pct : null,
+      rec_geos: rows.filter((r) => r.rec_pct != null && r.rec_pct >= 90).length,
+      ubt_any: rows.some((r) => r.ubt === 1) ? 1 : 0 });
   }
 
   // ---------- ворлдвайд: ниши по концепту ----------
@@ -202,6 +222,10 @@ export function collect(d) {
       target_geos: rows.filter((r) => r.quadrant === 'target').length,
       cheapest_geo: cheapest ? cheapest.geo : null, cheapest_door: cheapest ? cheapest.door : null,
       young_unique: young.size, us_niche_id: us ? us.niche_id : null,
+      rec_geo: (rows.filter((r) => r.rec_pct != null).sort(recOrder)[0] || {}).geo || null,
+      rec_niche_id: (rows.filter((r) => r.rec_pct != null).sort(recOrder)[0] || {}).niche_id || null,
+      rec_geos: rows.filter((r) => r.rec_pct != null && r.rec_pct >= 90).length,
+      ubt_geos: rows.filter((r) => r.ubt === 1).length,
     });
   }
 
@@ -215,6 +239,8 @@ export function collect(d) {
       db_size_mb: fs.existsSync(DB_PATH) ? Math.round(fs.statSync(DB_PATH).size / 1048576) : 0,
       ttl: V.evidence_ttl_days, young_months: V.young_months, min_window: V.min_window_days, full_window: V.full_window_days,
       entry_window: V.entry_window_days, calib_min: V.calibration_min_obs, money_weight: V.money_weight, purity_min: V.purity_min_checked_share,
+      ubt_min_mentions: V.ubt_min_mentions, ubt_min_reviews: V.ubt_min_reviews, ubt_niche_min_apps: V.ubt_niche_min_apps,
+      rec: V.recommended,
     },
     geos, apps: appRows, niches: nicheRows, keys: keyRows, worldApps, worldNiches, timeline,
     collection: collectCollection(d, lastDate),
