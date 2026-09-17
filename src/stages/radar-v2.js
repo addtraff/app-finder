@@ -261,6 +261,32 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     return out;
   };
 
+  // Предварительная дельта (решение заказчика 17.09: «где прошло мало времени — всё равно
+  // посчитать»). Окно — от самого раннего снимка за 30 дней до последнего, любой длины от
+  // preview_min_window_days. Установки у приложения общие для всех гео (совпадают у 96 %
+  // приложений в один день), поэтому ряд собирается из карточек любого гео — так окно длиннее,
+  // чем по истории одного гео. Официальный installs_delta_30d (окно ≥ 14 дней) не меняется:
+  // на нём держатся курс, 3b и рекомендуемый скор; предварительная — только для просмотра.
+  const previewHist = new Map();
+  for (const r of d.prepare(
+    `SELECT app_id, snapshot_date, MAX(max_installs) AS installs, MAX(ratings_count) AS ratings FROM raw_app_page
+      WHERE app_id IN (SELECT value FROM json_each(?)) AND snapshot_date<=? AND snapshot_date>=? AND max_installs IS NOT NULL
+      GROUP BY app_id, snapshot_date ORDER BY snapshot_date`
+  ).all(JSON.stringify(appRows.map((r) => r.app_id)), D, shift(D, -V.full_window_days))) {
+    if (r.ratings != null && r.ratings > r.installs) continue; // артефакт Play, как в installsOf
+    if (!previewHist.has(r.app_id)) previewHist.set(r.app_id, []);
+    previewHist.get(r.app_id).push(r);
+  }
+  const deltaPreview = (id) => {
+    const s = previewHist.get(id);
+    if (!s || s.length < 2) return { delta: null, raw: null, w: null, from: null };
+    const past = s[0], now = s[s.length - 1];
+    const w = daysBetween(past.snapshot_date, now.snapshot_date);
+    if (w < (V.preview_min_window_days ?? 1)) return { delta: null, raw: null, w: null, from: null };
+    const raw = now.installs - past.installs;
+    return { delta: (raw * V.full_window_days) / w, raw, w, from: past.snapshot_date };
+  };
+
   tick('metrics+history');
   // ---------- органика: ступени и улика ----------
   const ads = loadAdsEvidence(d);
@@ -804,6 +830,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
       ads_google_active: o.googleActive, ads_meta: o.meta, ads_meta_checked: o.metaChecked, ads_ever_found: o.ever,
       attribution_sdk: o.attribution, tracking_names: o.trackingNames, apk_parsed: o.apkParsed,
       installs: m.installs ?? null, installs_delta_30d: round(dl.delta), delta_window_days: dl.w, delta_partial: dl.partial,
+      ...(() => { const p = deltaPreview(m.app_id); return { delta_preview: round(p.delta), delta_preview_raw: p.raw, delta_preview_w: p.w, delta_preview_from: p.from }; })(),
       search_weight: round(weight.get(m.app_id) ?? null), explained: round(aso?.explained ?? null), aso_share: round(aso?.share ?? null),
       traffic_source: traffic, exogenous_spike_rate: round(spike),
       keywords_json: JSON.stringify((kwContrib.get(m.app_id) || []).sort((a, b) => b.contrib - a.contrib).slice(0, 15)),

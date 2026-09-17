@@ -31,6 +31,7 @@
     "young_months": 12,
     "min_window_days": 14,
     "full_window_days": 30,
+    "preview_min_window_days": 1,
     "entry_window_days": 90,
     "calibration_min_obs": 30,
     "purity_min_checked_share": 0.6,

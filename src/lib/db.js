@@ -416,6 +416,11 @@ const MIGRATIONS = [
   ['metrics_niche_v2', 'rec_score', 'REAL'],
   ['metrics_niche_v2', 'rec_pct', 'REAL'],
   ['metrics_niche_v2', 'rec_parts', 'TEXT'],
+  // Предварительная дельта: окно любой длины, установки из карточек всех гео
+  ['metrics_app_v2', 'delta_preview', 'REAL'],
+  ['metrics_app_v2', 'delta_preview_raw', 'INTEGER'],
+  ['metrics_app_v2', 'delta_preview_w', 'INTEGER'],
+  ['metrics_app_v2', 'delta_preview_from', 'TEXT'],
 ];
 
 function migrate(d) {
