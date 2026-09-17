@@ -30,17 +30,23 @@ function pickAppsToRefresh(d, geo, date, cycle, budget, force) {
     // без свежей карточки прошедшее воронку приложение из дня выпадает — в US так пропали
     // 141 из 271 строк. Прошедшие воронку берутся и при общем статусе rejected: статус один на
     // все гео, вердикт воронки — свой в каждом, и в US так не обновлялись 324 из 394.
+    const refreshDays = Math.max(1, Number(config().budget.daily?.card_refresh_days ?? 2));
     const registry = d.prepare(
       `SELECT a.app_id FROM apps a
         WHERE ((a.status <> 'rejected'
                 AND (a.watch_level IN ('A','B')
                      OR (a.watch_level='C' AND NOT EXISTS (
                            SELECT 1 FROM raw_app_page p WHERE p.app_id=a.app_id AND p.geo=? AND p.snapshot_date > date(?, '-7 day')))))
-               OR EXISTS (SELECT 1 FROM screen_result s WHERE s.app_id=a.app_id AND s.geo=?
-                            AND s.reject_reason IS NULL AND s.snapshot_date > date(?, '-14 day')))
+               OR (EXISTS (SELECT 1 FROM screen_result s WHERE s.app_id=a.app_id AND s.geo=?
+                             AND s.reject_reason IS NULL AND s.snapshot_date > date(?, '-14 day'))
+                   -- Прошедшим воронку хватает карточки раз в card_refresh_days: отчёт держит
+                   -- строку 7 дней (5.16), а прирост считается по разнице снимков, не по их
+                   -- числу. Иначе на 30 гео уходит вдвое больше времени, чем есть в сутках.
+                   AND NOT EXISTS (SELECT 1 FROM raw_app_page p WHERE p.app_id=a.app_id AND p.geo=?
+                                     AND p.snapshot_date > date(?, '-${refreshDays} day'))))
           AND NOT EXISTS (SELECT 1 FROM raw_app_page p WHERE p.app_id=a.app_id AND p.geo=? AND p.snapshot_date=?)
         ORDER BY CASE a.watch_level WHEN 'A' THEN 0 WHEN 'B' THEN 1 ELSE 2 END`
-    ).all(geo, date, geo, date, geo, date).map((r) => r.app_id);
+    ).all(geo, date, geo, date, geo, date, geo, date).map((r) => r.app_id);
 
     // Топ-10 ключей ядра гео (решение заказчика 17.09). Воронка смотрит только на карточки гео
     // за день, поэтому без этого добора 8 947 приложений с карточками ни разу не проходили
