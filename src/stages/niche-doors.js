@@ -158,14 +158,20 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
   // много приложений, чья карточка снята только там, где их нашли впервые. Текстовые метрики
   // (ключ в заголовке, релевантность) по-прежнему только по карточке своего гео — заголовок
   // локализован.
+  // Только для приложений выдачи этого гео без своей карточки: выбор последней карточки по всей
+  // таблице с чтением полных строк после добора карточек шёл минутами.
   const anyCard = new Map();
-  for (const r of d.prepare(
-    `SELECT p.app_id, p.max_installs, p.score, p.ratings_count, p.released, p.hl, p.updated_ts, p.title, p.summary
-       FROM raw_app_page p
-       JOIN (SELECT app_id, MAX(snapshot_date) md FROM raw_app_page GROUP BY app_id) f
-         ON f.app_id=p.app_id AND f.md=p.snapshot_date`
-  ).all()) {
-    if (!installs.has(r.app_id) && !anyCard.has(r.app_id)) anyCard.set(r.app_id, { ...r, local: 0 });
+  const needAny = new Set();
+  for (const rows of byKw.values()) for (const r of rows) if (!installs.has(r.app_id)) needAny.add(r.app_id);
+  if (needAny.size) {
+    for (const r of d.prepare(
+      `SELECT p.app_id, p.max_installs, p.score, p.ratings_count, p.released, p.hl, p.updated_ts, p.title, p.summary
+         FROM raw_app_page p
+        WHERE p.app_id IN (SELECT value FROM json_each(?))
+          AND p.snapshot_date=(SELECT MAX(x.snapshot_date) FROM raw_app_page x WHERE x.app_id=p.app_id)`
+    ).all(JSON.stringify([...needAny]))) {
+      if (!anyCard.has(r.app_id)) anyCard.set(r.app_id, { ...r, local: 0 });
+    }
   }
   const cardOf = (id) => installs.get(id) || anyCard.get(id);
 

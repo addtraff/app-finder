@@ -31,6 +31,7 @@ import * as methodologyReport from './stages/methodology-report.js';
 import * as appradar from './stages/appradar.js';
 import * as radarV2 from './stages/radar-v2.js';
 import * as appradar2 from './stages/appradar2.js';
+import * as analyzeUbt from './stages/analyze-ubt.js';
 
 const STAGES = {
   'collect-charts': collectCharts,
@@ -56,6 +57,7 @@ const STAGES = {
   'appradar': appradar,                 // третий отчёт: те же данные в оформлении AppRadar
   'radar-v2': radarV2,                  // методика v2.0: свобода, ёмкость, чистота, семь проверок
   'appradar2': appradar2,               // отчёт AppRadar 2 по методике v2.0 (все гео сразу)
+  'analyze-ubt': analyzeUbt,            // признаки УБТ в отзывах: соцсети, видео, блогеры
 };
 
 function csvLines(text) {
@@ -100,6 +102,7 @@ const DISCOVERY = [
   ['niche-doors', {}],
   ['enrich-reviews', {}],
   ['analyze-pain', {}],
+  ['analyze-ubt', {}],
   ['analyze-tracking', {}],
   ['score', {}],
   ['quantiles', { scope: 'niche' }],
@@ -131,6 +134,7 @@ const LIGHT_DISCOVERY = [
   ['niche-doors', {}],
   ['enrich-reviews', {}],
   ['analyze-pain', {}],
+  ['analyze-ubt', {}],
   ['analyze-tracking', {}],
   ['score', {}],
   ['quantiles', { scope: 'niche' }],
@@ -149,6 +153,7 @@ const DAILY = [
   ['screen', {}],
   ['niche-doors', {}],
   ['analyze-pain', {}],
+  ['analyze-ubt', {}],
   ['analyze-tracking', {}],
   ['score', {}],
   ['quantiles', { scope: 'niche' }],

@@ -17,6 +17,17 @@ import { hostOf, META_DETECTOR } from './check-ads.js';
 import { screenAsOf } from '../lib/snapshots.js';
 import { ageMonthsAt, parseReleased } from '../lib/dates.js';
 import { quantile, quantileSet, norm, median, log } from '../lib/util.js';
+import { ubtLexicon } from './analyze-ubt.js';
+
+// Взвешенное среднее по доступным частям: пустая часть исключается вместе с весом.
+function weighted(parts) {
+  let s = 0, w = 0;
+  for (const [v, wt] of parts) {
+    if (v == null || !Number.isFinite(v)) continue;
+    s += v * wt; w += wt;
+  }
+  return w ? s / w : null;
+}
 
 const DAY = 86400000;
 const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / DAY);
@@ -99,6 +110,9 @@ export function loadAdsEvidence(d) {
 export async function run({ geo, date, runId, cycle = 'daily' }) {
   const d = db();
   startRun(runId, 'radar-v2', geo, cycle, date);
+  // RADAR_TIMING=1 — длительность этапов стадии в лог.
+  let tickAt = Date.now();
+  const tick = (name) => { if (process.env.RADAR_TIMING) log(`  radar-v2 ${geo}: ${name} ${Date.now() - tickAt} мс`); tickAt = Date.now(); };
   clearQCache();
   const cfg = config();
   const V = cfg.scoring.v2;
@@ -161,11 +175,12 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
   }
   const latest = (kw) => { const l = snaps.get(kw); return l && l.length ? l[l.length - 1] : null; };
 
+  tick('serp');
   // ---------- карточки: последняя на день и история установок ----------
   const cards = new Map();
   const cardHist = new Map();
   for (const r of d.prepare(
-    `SELECT app_id, snapshot_date, hl, max_installs, score, ratings_count, released, updated_ts, title,
+    `SELECT app_id, snapshot_date, hl, max_installs, score, ratings_count, released, updated_ts, title, summary,
             developer_id, developer_website, privacy_policy, title_hash, short_desc_hash, listing_hash, genre_id
        FROM raw_app_page WHERE geo=? AND snapshot_date<=?`
   ).all(geo, D)) {
@@ -179,15 +194,21 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
   // Карточка того же приложения из другого гео — для полей, общих для Play: установки, дата
   // релиза, разработчик, сайт и политика (для рекламы). Заголовок локализован, поэтому
   // загруженность ASO считается только по карточкам своего гео.
+  // Берутся только приложения выдачи ключей ядра без своей карточки: последняя карточка по
+  // всей таблице (GROUP BY app_id с чтением полных строк) после добора карточек шла 9 минут.
   const anyCards = new Map();
-  for (const r of d.prepare(
-    `SELECT p.app_id, p.snapshot_date, p.hl, p.max_installs, p.score, p.ratings_count, p.released, p.updated_ts, p.title,
-            p.developer_id, p.developer_website, p.privacy_policy, p.genre_id
-       FROM raw_app_page p
-       JOIN (SELECT app_id, MAX(snapshot_date) md FROM raw_app_page WHERE snapshot_date<=? GROUP BY app_id) f
-         ON f.app_id=p.app_id AND f.md=p.snapshot_date`
-  ).all(D)) {
-    if (!cards.has(r.app_id) && !anyCards.has(r.app_id)) anyCards.set(r.app_id, r);
+  const needAny = new Set();
+  for (const list of snaps.values()) for (const s of list) for (const x of s.list) if (!cards.has(x.app)) needAny.add(x.app);
+  if (needAny.size) {
+    for (const r of d.prepare(
+      `SELECT p.app_id, p.snapshot_date, p.hl, p.max_installs, p.score, p.ratings_count, p.released, p.updated_ts, p.title, p.summary,
+              p.developer_id, p.developer_website, p.privacy_policy, p.genre_id
+         FROM raw_app_page p
+        WHERE p.app_id IN (SELECT value FROM json_each(?))
+          AND p.snapshot_date=(SELECT MAX(x.snapshot_date) FROM raw_app_page x WHERE x.app_id=p.app_id AND x.snapshot_date<=?)`
+    ).all(JSON.stringify([...needAny]), D)) {
+      if (!anyCards.has(r.app_id)) anyCards.set(r.app_id, r);
+    }
   }
   const cardOf = (id) => cards.get(id) || anyCards.get(id);
   const installsOf = (id) => {
@@ -198,6 +219,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
   };
   const ageOf = (id) => { const c = cardOf(id); return c ? ageMonthsAt(c.released, c.hl, D) : null; };
 
+  tick('cards');
   // Метрики приложений на день и история установок (канонический источник, A2).
   const appRows = d.prepare(
     `SELECT m.*, s.reject_reason AS screen_reject, s.snapshot_date AS screen_date
@@ -239,6 +261,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     return out;
   };
 
+  tick('metrics+history');
   // ---------- органика: ступени и улика ----------
   const ads = loadAdsEvidence(d);
   const orgCache = new Map();
@@ -284,6 +307,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
   };
   const organicLevels = new Set(['confirmed', 'no_signs']);
 
+  tick('ads-evidence');
   // ---------- ключи ядра ----------
   const kwMetric = new Map(); // kw -> {door_key, door_app, cards, paid, checkedShare, serpDate}
   for (const kw of allKeywords) {
@@ -313,6 +337,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
   }
   const doorKeyP25 = quantile([...kwMetric.values()].map((k) => k.door_key), 0.25);
 
+  tick('keywords');
   // ---------- вес приложения в поиске гео и курс ----------
   const weight = new Map(), kwContrib = new Map();
   for (const kw of allKeywords) {
@@ -353,6 +378,64 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
   }
   const asoP25 = quantile([...asoShare.values()].map((x) => x.share), 0.25);
 
+  tick('weight+calib');
+  // ---------- УБТ по отзывам (ТЗ v2.2) ----------
+  // Доля отзывов на языках гео с упоминанием соцсетей и видео. У приложений, где площадка есть
+  // в названии, описании или ниша про видео, названия площадок в отзывах — про функцию, а не
+  // про источник, поэтому для них считаются только фразы-источники («увидел в тиктоке»).
+  const ubtLex = ubtLexicon();
+  const platformRe = new RegExp(ubtLex.platform_related_regex, 'iu');
+  const relatedConcepts = new Set(ubtLex.platform_related_concepts || []);
+  const relatedGenres = new Set(ubtLex.platform_related_genres || []);
+  const ubtIds = new Set(appRows.map((a) => a.app_id));
+  for (const kw of allKeywords) { const s = latest(kw); if (s) for (const a of s.top20) ubtIds.add(a); }
+  const langIn = g.review_langs.map(() => '?').join(',');
+  // Два простых запроса вместо одного с вложенными EXISTS на каждую строку: тот шёл минутами
+  // на миллионе отзывов, эти — доли секунды (число отзывов по индексу приложения, метки — по
+  // версии классификатора, их единицы тысяч).
+  const ubtRaw = new Map();
+  for (const r of d.prepare(
+    `SELECT app_id, COUNT(*) AS n FROM raw_reviews
+      WHERE lang IN (${langIn}) AND app_id IN (SELECT value FROM json_each(?)) GROUP BY app_id`
+  ).all(...g.review_langs, JSON.stringify([...ubtIds]))) ubtRaw.set(r.app_id, { n: r.n, ph: 0, anyu: 0, reviews: new Map() });
+  for (const r of d.prepare(
+    `SELECT rv.app_id, rv.review_id, l.label FROM review_labels l JOIN raw_reviews rv ON rv.review_id=l.review_id
+      WHERE l.classifier_version=? AND rv.lang IN (${langIn})`
+  ).all(ubtLex.version, ...g.review_langs)) {
+    const cur = ubtRaw.get(r.app_id);
+    if (!cur) continue;
+    const prev = cur.reviews.get(r.review_id) || { ph: 0 };
+    if (r.label === 'ubt_phrase') prev.ph = 1;
+    cur.reviews.set(r.review_id, prev);
+  }
+  for (const cur of ubtRaw.values()) {
+    cur.anyu = cur.reviews.size;
+    cur.ph = [...cur.reviews.values()].filter((x) => x.ph).length;
+    cur.reviews = null;
+  }
+  const ubtCache = new Map();
+  const ubtOf = (id) => {
+    if (ubtCache.has(id)) return ubtCache.get(id);
+    const c = cardOf(id);
+    const concept = nicheById.get(metricsById.get(id)?.niche_id)?.concept;
+    const related = (c && (platformRe.test(`${c.title || ''} ${c.summary || ''}`) || relatedGenres.has(c.genre_id))) || relatedConcepts.has(concept) ? 1 : 0;
+    const r = ubtRaw.get(id);
+    const n = r ? r.n : 0;
+    const mentions = r ? (related ? r.ph : r.anyu) : 0;
+    const out = { n, mentions, related, share: n >= V.ubt_min_reviews ? mentions / n : null, signal: null };
+    ubtCache.set(id, out);
+    return out;
+  };
+  // Порог — p75 среди приложений, у которых упоминания вообще есть: у большинства доля нулевая,
+  // и квантиль по всем выродился бы в ноль, то есть «одно упоминание — уже УБТ».
+  const ubtP75 = quantile(appRows.map((a) => ubtOf(a.app_id).share).filter((s) => s != null && s > 0), 0.75);
+  const ubtSignal = (id) => {
+    const u = ubtOf(id);
+    if (u.share == null || ubtP75 == null) return null;
+    return u.mentions >= V.ubt_min_mentions && u.share > 0 && u.share >= ubtP75 ? 1 : 0;
+  };
+
+  tick('ubt');
   // ---------- ниши ----------
   const firstSeenTop10 = (core) => {
     // Первое появление в топ-10 ядра и входы: в топ-10 на снимке, которого не было ни на одном
@@ -487,6 +570,13 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     const cand = appRows.filter((r) => r.niche_id === n.niche_id && r.screen_date && r.screen_reject == null);
     const candPaid = cand.filter((r) => organicOf(r.app_id).level === 'found').length;
 
+    // УБТ ниши: доля приложений топ-20 ядра и кандидатов с признаком — среди тех, где отзывов
+    // на языках гео достаточно для доли.
+    const ubtPool = new Set([...union20, ...cand.map((r) => r.app_id)]);
+    const ubtLabeled = [...ubtPool].filter((a) => ubtSignal(a) != null);
+    const ubtNicheShare = ubtLabeled.length >= V.ubt_niche_min_apps
+      ? ubtLabeled.filter((a) => ubtSignal(a) === 1).length / ubtLabeled.length : null;
+
     const headMetrics = headTop10.map((x) => metricsById.get(x.app)).filter(Boolean);
     const monetKnown = headMetrics.filter((m) => m.monetization_proof != null);
     const monetizedShare = monetKnown.length >= 5 ? monetKnown.filter((m) => m.monetization_proof >= 1).length / monetKnown.length : null;
@@ -501,6 +591,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
       asoSaturation, historyDays, entryRate, lastEntryDays, turnoverUpNew, turnoverWindow, timeToDoor, hhi, cloneDensity,
       purity, coverage, top10AdsShare, youngCount, youngInstalls, youngApps, tto, ttoKind,
       candidates: cand.length, candPaid, monetizedShare, leadersPain,
+      ubtNicheShare, ubtLabeledCount: ubtLabeled.length,
       headTop10: headTop10.map((x) => {
         const o = organicOf(x.app), m = metricsById.get(x.app), age = ageOf(x.app);
         return {
@@ -512,6 +603,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     });
   }
 
+  tick('niches-loop');
   // ---------- индекс свободы ----------
   const W = V.freedom_weights;
   const comp = [
@@ -592,6 +684,37 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
   }
   const rankPct = percentileOf(nicheRows.map((r) => r.rank));
 
+  // УБТ-ниша: доля приложений с признаком не ниже p75 ниш гео и больше нуля.
+  const ubtNicheP75 = quantile(nicheRows.map((r) => r.ubtNicheShare), 0.75);
+  for (const r of nicheRows) {
+    r.ubtFlag = r.ubtNicheShare == null || ubtNicheP75 == null ? null : (r.ubtNicheShare > 0 && r.ubtNicheShare >= ubtNicheP75 ? 1 : 0);
+  }
+
+  // Рекомендуемый топ ниш (ТЗ v2.2): упор на свободные ключи. Квадрант «Мимо» и закрытые ниши
+  // не рекомендуются. Части — доли 0–1; пустые исключаются вместе с весом.
+  const R = V.recommended;
+  const pctFreeKeys = percentileOf(nicheRows.map((r) => r.freeKeysCount));
+  const pctYoung = percentileOf(nicheRows.map((r) => r.youngCount));
+  const pctCap = calib.k != null ? percentileOf(nicheRows.map((r) => r.capacity)) : percentileOf(nicheRows.map((r) => r.n.suggest_score_sum));
+  for (const r of nicheRows) {
+    if (r.quadrant === 'pass' || r.closed) { r.rec = null; r.recParts = null; continue; }
+    const fk = R.free_keys_parts, nw = R.niche_weights;
+    const pct01 = (f, v) => { const p = f(v); return p == null ? null : p / 100; };
+    const parts = [
+      weighted([[r.freeDemandShare, fk.free_demand_share], [pct01(pctFreeKeys, r.freeKeysCount), fk.free_keys_count]]),
+      r.freedomPct == null ? null : r.freedomPct / 100,
+      r.purity,
+      pct01(pctYoung, r.youngCount),
+      r.monetizedShare,
+      pct01(pctCap, calib.k != null ? r.capacity : r.n.suggest_score_sum),
+    ];
+    const ws = [nw.free_keys, nw.freedom, nw.purity, nw.young_organic, nw.monetized, nw.capacity];
+    r.rec = weighted(parts.map((v, i) => [v, ws[i]]));
+    r.recParts = parts.map((v) => round(v, 3));
+  }
+  const recNichePct = percentileOf(nicheRows.map((r) => r.rec));
+
+  tick('freedom+rank+rec-niches');
   // ---------- семь проверок ----------
   const tertile = (vals) => quantile(vals, 2 / 3);
   const weakT = tertile(niches.map((n) => n.weak_share));
@@ -609,6 +732,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
   const fmt = (v, p = 2) => (v == null ? '—' : Number(v).toFixed(p));
 
   const appOut = [];
+  const recIn = [];
   for (const m of appRows) {
     const o = organicOf(m.app_id);
     const card = cards.get(m.app_id);
@@ -684,9 +808,50 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
       checks: JSON.stringify(checks), check_notes: JSON.stringify(notes),
       passed: checks.filter((v) => v === 1).length, failed: checks.filter((v) => v === 0).length,
       unknown: checks.filter((v) => v == null).length, disq: JSON.stringify(disq),
+      ubt_mentions: ubtOf(m.app_id).mentions, ubt_reviews: ubtOf(m.app_id).n, ubt_share: round(ubtOf(m.app_id).share),
+      ubt_signal: ubtSignal(m.app_id), ubt_related: ubtOf(m.app_id).related,
+      rec_score: null, rec_pct: null, rec_parts: null,
     });
+    recIn.push({ m, o, age, delta: dl.delta, traffic, disq, passed: checks.filter((v) => v === 1).length });
   }
 
+  tick('apps-loop');
+  // Рекомендуемый топ приложений (ТЗ v2.2): упор на рост из поиска (ASO) и свободу ниши.
+  // Нормировки — по прошедшим воронку в гео. Закупка, накрутка и стена авторитета не
+  // рекомендуются; непроверенная органика понижается множителем.
+  const nicheRowById = new Map(nicheRows.map((r) => [r.n.niche_id, r]));
+  const recPop = recIn.filter((x) => x.m.screen_date && x.m.screen_reject == null);
+  const pctWeight = percentileOf(recPop.map((x) => weight.get(x.m.app_id) ?? null));
+  const kwLo = quantile(recPop.map((x) => x.m.kw_top10_count), 0.1), kwHi = quantile(recPop.map((x) => x.m.kw_top10_count), 0.9);
+  const ageLo = quantile(recPop.map((x) => x.age), 0.1), ageHi = quantile(recPop.map((x) => x.age), 0.9);
+  const pctDelta = percentileOf(recPop.map((x) => x.delta));
+  recIn.forEach((x, i) => {
+    const out = appOut[i];
+    if (!out.passed_funnel || x.o.level === 'found' || x.disq.includes('fraud') || x.disq.includes('wall')) return;
+    const aw = R.app_weights, ap = R.aso_parts, fp = R.freedom_parts, yp = R.youth_parts;
+    const nr = x.m.niche_id ? nicheRowById.get(x.m.niche_id) : null;
+    const wPct = pctWeight(weight.get(x.m.app_id) ?? null);
+    const ageN = norm(x.age, ageLo, ageHi);
+    const dPct = pctDelta(x.delta);
+    const parts = [
+      weighted([[wPct == null ? null : wPct / 100, ap.search_weight], [norm(x.m.kw_top10_count, kwLo, kwHi), ap.top10_keys],
+        [x.traffic === 'search' ? 1 : x.traffic === 'external' ? 0 : null, ap.traffic_source]]),
+      nr ? weighted([[nr.freeDemandShare, fp.free_demand_share], [nr.freedomPct == null ? null : nr.freedomPct / 100, fp.freedom_pct]]) : null,
+      x.passed / 7,
+      x.m.prescore == null ? null : x.m.prescore / 100,
+      weighted([[ageN == null ? null : 1 - ageN, yp.age], [dPct == null ? null : dPct / 100, yp.growth]]),
+      x.m.monetization_proof,
+    ];
+    const ws = [aw.aso, aw.freedom, aw.checks, aw.prescore, aw.youth, aw.monetization];
+    const base = weighted(parts.map((v, j) => [v, ws[j]]));
+    if (base == null) return;
+    out.rec_score = round(base * (R.level_factor[x.o.level] ?? 0.6));
+    out.rec_parts = JSON.stringify(parts.map((v) => round(v, 3)));
+  });
+  const recAppPct = percentileOf(appOut.map((a) => a.rec_score));
+  for (const a of appOut) a.rec_pct = a.rec_score == null ? null : round(recAppPct(a.rec_score), 3);
+
+  tick('rec-apps');
   // ---------- запись ----------
   const insKw = d.prepare(`INSERT OR REPLACE INTO metrics_keyword_geo
     (geo, snapshot_date, niche_id, keyword, is_head, suggest_score, serp_date, top10_cards, door_key, door_app_id, is_free, paid_in_top10, paid_ctr_share, ads_checked_share)
@@ -698,7 +863,8 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     'money_ratio', 'money_capacity', 'organic_purity', 'purity_coverage', 'top10_ads_share',
     'young_organic_count', 'young_organic_installs', 'young_organic_apps', 'time_to_organic', 'time_to_organic_kind',
     'candidates_count', 'candidates_organic_count', 'candidates_paid_count', 'monetized_share', 'leaders_pain', 'head_top10',
-    'niche_rank', 'rank_basis', 'rank_pct', 'quadrant', 'tail_clean', 'incomplete', 'partial_window'];
+    'niche_rank', 'rank_basis', 'rank_pct', 'quadrant', 'tail_clean', 'incomplete', 'partial_window',
+    'ubt_share', 'ubt_apps', 'ubt_flag', 'rec_score', 'rec_pct', 'rec_parts'];
   const insNiche = d.prepare(`INSERT OR REPLACE INTO metrics_niche_v2 (${nicheCols.join(',')}) VALUES (${nicheCols.map((c) => '@' + c).join(',')})`);
   const appCols = Object.keys(appOut[0] || { app_id: 1 });
   const insApp = appOut.length ? d.prepare(`INSERT OR REPLACE INTO metrics_app_v2 (geo, snapshot_date, ${appCols.join(',')})
@@ -736,6 +902,9 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
         head_top10: JSON.stringify(r.headTop10),
         niche_rank: round(r.rank), rank_basis: r.rank == null ? null : basis, rank_pct: round(r.rank == null ? null : rankPct(r.rank), 3),
         quadrant: r.quadrant, tail_clean: r.tailClean, incomplete: JSON.stringify(r.incomplete), partial_window: partial,
+        ubt_share: round(r.ubtNicheShare), ubt_apps: r.ubtLabeledCount, ubt_flag: r.ubtFlag,
+        rec_score: round(r.rec), rec_pct: r.rec == null ? null : round(recNichePct(r.rec), 3),
+        rec_parts: r.recParts ? JSON.stringify(r.recParts) : null,
       });
     }
     for (const a of appOut) insApp.run({ geo, snapshot_date: D, ...a });
@@ -751,6 +920,8 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
       last_entry_days: nicheRows.map((r) => r.lastEntryDays), freedom_raw: nicheRows.map((r) => r.freedomRaw),
       wall_installs: niches.map((n) => n.wall_installs), wall_ratings: niches.map((n) => n.wall_ratings),
       aso_share: [...asoShare.values()].map((x) => x.share),
+      ubt_share: appRows.map((a) => ubtOf(a.app_id).share),
+      ubt_niche_share: nicheRows.map((r) => r.ubtNicheShare),
     };
     for (const [metric, vals] of Object.entries(qSets)) {
       const q = quantileSet(vals);
@@ -762,8 +933,11 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
   const quad = nicheRows.reduce((acc, r) => { acc[r.quadrant] = (acc[r.quadrant] || 0) + 1; return acc; }, {});
   const levels = appOut.reduce((acc, a) => { acc[a.organic_level] = (acc[a.organic_level] || 0) + 1; return acc; }, {});
   const agePct = appOut.length ? Math.round((100 * appOut.filter((a) => a.age_months != null).length) / appOut.length) : 0;
+  const ubtApps = appOut.filter((a) => a.ubt_signal === 1).length, ubtKnown = appOut.filter((a) => a.ubt_signal != null).length;
   const notes = `день ${D} (ниши ${nicheDate}); ниш ${nicheRows.length}, со свободой ${withFreedom}; квадранты ${JSON.stringify(quad)}; ` +
-    `курс: ${calib.status}; приложений ${appOut.length}, возраст ${agePct} %, органика ${JSON.stringify(levels)}`;
+    `курс: ${calib.status}; приложений ${appOut.length}, возраст ${agePct} %, органика ${JSON.stringify(levels)}; ` +
+    `УБТ ${ubtApps} из ${ubtKnown} с разметкой, УБТ-ниш ${nicheRows.filter((r) => r.ubtFlag === 1).length}; ` +
+    `рекомендуемых приложений ${appOut.filter((a) => a.rec_score != null).length}, ниш ${nicheRows.filter((r) => r.rec != null).length}`;
   finishRun(runId, 'radar-v2', geo, { notes });
   log(`  ${geo}: ${notes}`);
   return { niches: nicheRows.length, apps: appOut.length, date: D };

@@ -312,6 +312,11 @@ CREATE TABLE IF NOT EXISTS metrics_app_v2 (
   checks TEXT, check_notes TEXT, passed INTEGER, failed INTEGER, unknown INTEGER, disq TEXT,
   PRIMARY KEY (app_id, geo, snapshot_date)
 );
+-- До какой строки raw_reviews дошёл классификатор данной версии: разметка УБТ не пишет
+-- метку «ничего не найдено» на каждый из миллиона отзывов, а продолжает с водяного знака.
+CREATE TABLE IF NOT EXISTS label_progress (
+  classifier_version TEXT PRIMARY KEY, max_rowid INTEGER, updated_at TEXT
+);
 CREATE TABLE IF NOT EXISTS metrics_geo_calibration (
   geo TEXT, snapshot_date TEXT, k_geo REAL, k_p25 REAL, k_p75 REAL, n_obs INTEGER,
   n_candidates INTEGER, window_days INTEGER, status TEXT,
@@ -395,6 +400,22 @@ const MIGRATIONS = [
   ['raw_ads_google', 'status', 'TEXT'],
   ['raw_ads_google', 'advertiser_id', 'TEXT'],
   ['raw_ads_google', 'raw_json', 'TEXT'],
+  // ТЗ AppRadar 2 v2.2: УБТ по отзывам и рекомендуемый топ
+  ['metrics_keyword_geo', 'paid_ctr_share', 'REAL'],
+  ['metrics_app_v2', 'ubt_mentions', 'INTEGER'],
+  ['metrics_app_v2', 'ubt_reviews', 'INTEGER'],
+  ['metrics_app_v2', 'ubt_share', 'REAL'],
+  ['metrics_app_v2', 'ubt_signal', 'INTEGER'],
+  ['metrics_app_v2', 'ubt_related', 'INTEGER'],
+  ['metrics_app_v2', 'rec_score', 'REAL'],
+  ['metrics_app_v2', 'rec_pct', 'REAL'],
+  ['metrics_app_v2', 'rec_parts', 'TEXT'],
+  ['metrics_niche_v2', 'ubt_share', 'REAL'],
+  ['metrics_niche_v2', 'ubt_apps', 'INTEGER'],
+  ['metrics_niche_v2', 'ubt_flag', 'INTEGER'],
+  ['metrics_niche_v2', 'rec_score', 'REAL'],
+  ['metrics_niche_v2', 'rec_pct', 'REAL'],
+  ['metrics_niche_v2', 'rec_parts', 'TEXT'],
 ];
 
 function migrate(d) {

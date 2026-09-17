@@ -1,0 +1,236 @@
+{
+  "_note": "УБТ — условно-бесплатный трафик: приложение узнали из соцсетей и видео, а не из поиска Play и не из рекламы. Признак косвенный — упоминания в отзывах. platforms — названия площадок и слова «блогер/инфлюенсер»; phrases — фразы-источники («увидел в тиктоке»). Для приложений, у которых площадка в названии или описании (загрузчики, редакторы «для YouTube»), считаются только phrases: у них названия площадок в отзывах — про функцию, а не про источник. Регулярные выражения без флагов, применяются с 'iu'; границы слова задаются явно, потому что \\b не работает с кириллицей, арабским и CJK. v2 (17.09): голые названия Facebook, Twitch, Reddit, Pinterest, Snapchat убраны — в отзывах это почти всегда вход через аккаунт или функция; функциональные категории и ниши (фото, видео, музыка, соцсети, рекордеры, блокировщики) считаются только по фразам-источникам.",
+  "version": "ubt-v2",
+  "platform_related_regex": "(tik ?tok|you ?tube|instagram|insta\\b|reels|snapchat|twitch|facebook|pinterest|reddit|抖音|油管|小红书|小紅書|틱톡|유튜브|인스타|릴스|쇼츠|ティックトック|ユーチューブ|インスタ|تيك ?توك|يوتيوب|انستقرام|انستغرام|سناب|טיקטוק|יוטיוב|אינסטגרם)",
+  "platform_related_concepts": [
+    "video-compressor",
+    "screen-recorder",
+    "video-to-mp3",
+    "focus-timer",
+    "app-lock",
+    "screen-mirroring",
+    "photo-compressor",
+    "collage-maker",
+    "background-remover",
+    "photo-enhancer",
+    "watermark-remover",
+    "blur-photo",
+    "voice-changer",
+    "ringtone-maker",
+    "mp3-cutter",
+    "notification-history"
+  ],
+  "common_platforms": [
+    "(?<![\\p{L}\\p{N}])tik ?tok(?![\\p{L}])",
+    "(?<![\\p{L}\\p{N}])you ?tube(?![\\p{L}])",
+    "(?<![\\p{L}\\p{N}])youtubers?(?![\\p{L}])",
+    "(?<![\\p{L}\\p{N}])yt shorts(?![\\p{L}])",
+    "(?<![\\p{L}\\p{N}])youtube shorts(?![\\p{L}])",
+    "(?<![\\p{L}\\p{N}])instagram(?![\\p{L}])",
+    "(?<![\\p{L}\\p{N}])insta(?![\\p{L}])",
+    "(?<![\\p{L}\\p{N}])(ig|insta|instagram) reels?(?![\\p{L}])",
+    "(?<![\\p{L}\\p{N}])reels(?![\\p{L}])",
+    "(?<![\\p{L}\\p{N}])tiktokers?(?![\\p{L}])",
+    "(?<![\\p{L}\\p{N}])influencers?(?![\\p{L}])",
+    "(?<![\\p{L}\\p{N}])(v|b)loggers?(?![\\p{L}])"
+  ],
+  "languages": {
+    "en": {
+      "platforms": [],
+      "phrases": [
+        "(saw|seen|found|discovered|heard (about|of))( (it|this|the app|this app))? (on|through|via|from) (tik ?tok|you ?tube|insta(gram)?|reels|shorts|facebook|reddit|twitter)",
+        "(because of|thanks to|after watching|after seeing) (a|an|this|the|some) (tik ?tok|youtuber|tiktoker|influencer|reel|youtube video|tiktok video|instagram video|insta(gram)? reel)",
+        "(tik ?tok|you ?tube|insta(gram)?|reddit) (made me|brought me|led me|sent me|recommended)",
+        "came (here )?from (tik ?tok|you ?tube|insta(gram)?|reddit)",
+        "(a|an|some) (youtuber|tiktoker|influencer|streamer) (recommended|showed|mentioned|used)"
+      ]
+    },
+    "de": {
+      "platforms": [],
+      "phrases": [
+        "(auf|bei|über|via) (tik ?tok|you ?tube|insta(gram)?|facebook|reddit) (gesehen|gefunden|entdeckt)",
+        "durch (ein(en)? )?(video|tik ?tok|youtuber|influencer|reel)",
+        "(youtuber|influencer)(in)? (hat|empfohlen|gezeigt)"
+      ]
+    },
+    "fr": {
+      "platforms": [
+        "(?<![\\p{L}])youtubeu[rs]e?s?(?![\\p{L}])",
+        "(?<![\\p{L}])influenceu[rs]e?s?(?![\\p{L}])"
+      ],
+      "phrases": [
+        "(vu|vue|trouvé|découvert|connu)e? (sur|via|grâce à) (tik ?tok|you ?tube|insta(gram)?|facebook|une vidéo|un youtubeur|une youtubeuse)",
+        "grâce à (un|une) (vidéo|youtubeu[rs]e?|influenceu[rs]e?|tik ?tok)"
+      ]
+    },
+    "es": {
+      "platforms": [
+        "(?<![\\p{L}])influenciador(a|es)?(?![\\p{L}])"
+      ],
+      "phrases": [
+        "(lo |la )?(vi|encontré|descubrí|conocí) (en|por|gracias a) (tik ?tok|you ?tube|insta(gram)?|facebook|un video|un youtuber|un influencer)",
+        "gracias a (un|una) (video|vídeo|youtuber|influencer|tik ?tok)"
+      ]
+    },
+    "pt": {
+      "platforms": [
+        "(?<![\\p{L}])influenciador(a|es)?(?![\\p{L}])",
+        "(?<![\\p{L}])blogueir[ao]s?(?![\\p{L}])"
+      ],
+      "phrases": [
+        "(vi|conheci|achei|descobri|encontrei) (no|na|pelo|pela|em um|num) (tik ?tok|you ?tube|insta(gram)?|facebook|vídeo|video|reels)",
+        "por causa de (um|uma) (vídeo|video|youtuber|influencer|tik ?tok)"
+      ]
+    },
+    "it": {
+      "platforms": [],
+      "phrases": [
+        "(vist[oa]|trovat[oa]|scopert[oa]|conosciut[oa]) (su|tramite|grazie a) (tik ?tok|you ?tube|insta(gram)?|facebook|un video|uno youtuber|un influencer)",
+        "grazie a (un|uno|una) (video|youtuber|influencer|tik ?tok)"
+      ]
+    },
+    "nl": {
+      "platforms": [],
+      "phrases": [
+        "(gezien|gevonden|ontdekt) (op|via) (tik ?tok|you ?tube|insta(gram)?|facebook)",
+        "via (een )?(video|youtuber|influencer)"
+      ]
+    },
+    "sv": {
+      "platforms": [],
+      "phrases": [
+        "(såg|hittade|upptäckte)( den| appen)? (på|via) (tik ?tok|you ?tube|insta(gram)?|facebook)",
+        "tack vare (en )?(video|youtuber|influencer)"
+      ]
+    },
+    "no": {
+      "platforms": [],
+      "phrases": [
+        "(så|fant|oppdaget)( den| appen)? (på|via) (tik ?tok|you ?tube|insta(gram)?|facebook)",
+        "takket være (en )?(video|youtuber|influencer)"
+      ]
+    },
+    "da": {
+      "platforms": [],
+      "phrases": [
+        "(så|fandt|opdagede)( den| appen)? (på|via) (tik ?tok|you ?tube|insta(gram)?|facebook)",
+        "takket være (en )?(video|youtuber|influencer)"
+      ]
+    },
+    "fi": {
+      "platforms": [
+        "(?<![\\p{L}])tiktok(ista|issa|in)?(?![\\p{L}])",
+        "(?<![\\p{L}])youtube(sta|ssa|n)?(?![\\p{L}])",
+        "(?<![\\p{L}])instagram(ista|issa|in)?(?![\\p{L}])"
+      ],
+      "phrases": [
+        "(näin|löysin|bongasin).{0,25}(tiktokista|youtubesta|instagramista|facebookista)",
+        "(tiktokista|youtubesta|instagramista) (löysin|näin|bongasin|tänne)"
+      ]
+    },
+    "pl": {
+      "platforms": [
+        "(?<![\\p{L}])tiktok(a|u|iem)?(?![\\p{L}])",
+        "(?<![\\p{L}])instagram(a|ie|em)?(?![\\p{L}])",
+        "(?<![\\p{L}])rolk[aię](?![\\p{L}])"
+      ],
+      "phrases": [
+        "(zobaczył|widział|znalazł|odkrył)(em|am)? (na|w|z) (tiktoku|youtube|instagramie|facebooku|filmiku)",
+        "(z|dzięki) (tiktoka|youtube|instagrama|filmikowi|youtuberowi|influencerowi)"
+      ]
+    },
+    "tr": {
+      "platforms": [
+        "(?<![\\p{L}])tiktok['’]?(ta|da|tan|dan|u)?(?![\\p{L}])",
+        "(?<![\\p{L}])youtube['’]?(da|dan|u)?(?![\\p{L}])",
+        "(?<![\\p{L}])instagram['’]?(da|dan|ı)?(?![\\p{L}])"
+      ],
+      "phrases": [
+        "(tik ?tok|youtube|instagram|facebook)['’]?(ta|da|tan|dan) (gördüm|buldum|keşfettim|öğrendim)",
+        "(bir )?(video|youtuber|fenomen)(da|dan|ın) (gördüm|önerisi|sayesinde)"
+      ]
+    },
+    "ja": {
+      "platforms": [
+        "ティックトック",
+        "ユーチューブ",
+        "ユーチューバー",
+        "インスタ",
+        "インフルエンサー",
+        "リール"
+      ],
+      "phrases": [
+        "(tik ?tok|ティックトック|you ?tube|ユーチューブ|インスタ|instagram|youtuber|ユーチューバー|インフルエンサー)(で|の動画で|さんの動画で)(見|知)",
+        "動画で(見|知)"
+      ]
+    },
+    "ko": {
+      "platforms": [
+        "틱톡",
+        "유튜브",
+        "유튜버",
+        "인스타",
+        "릴스",
+        "쇼츠",
+        "인플루언서"
+      ],
+      "phrases": [
+        "(틱톡|유튜브|인스타|릴스|쇼츠|유튜버)(에서|보고|영상 ?보고|추천)",
+        "영상 ?보고 (알|설치|깔)"
+      ]
+    },
+    "zh": {
+      "platforms": [
+        "抖音",
+        "油管",
+        "小红书",
+        "小紅書",
+        "網紅",
+        "网红",
+        "博主",
+        "(?<![\\p{L}])ig(?![\\p{L}])"
+      ],
+      "phrases": [
+        "(在)?(抖音|tik ?tok|you ?tube|油管|ig|instagram|小红书|小紅書)(上)?(看到|看見|看见|發現|发现|推薦|推荐)",
+        "(看|看到)(了)?(影片|视频|視頻)(才|後|后)?(下載|下载|知道)"
+      ]
+    },
+    "ar": {
+      "platforms": [
+        "تيك ?توك",
+        "يوتيوب",
+        "يوتيوبر",
+        "انستقرام",
+        "انستغرام",
+        "انستا",
+        "مؤثر(ة|ين)?"
+      ],
+      "phrases": [
+        "(شفت|شفته|شاهدت|لقيت|عرفت|اكتشفت).{0,20}(تيك ?توك|يوتيوب|انستقرام|انستغرام|سناب|فيديو)",
+        "(من|عن طريق) (التيك ?توك|تيك ?توك|اليوتيوب|يوتيوب|الانستقرام|انستقرام|السناب)"
+      ]
+    },
+    "he": {
+      "platforms": [
+        "טיקטוק",
+        "יוטיוב",
+        "יוטיובר",
+        "אינסטגרם",
+        "אינסטה",
+        "משפיענ(ית|ים)?"
+      ],
+      "phrases": [
+        "(ראיתי|מצאתי|גיליתי|שמעתי).{0,20}(בטיקטוק|ביוטיוב|באינסטגרם|בסרטון)",
+        "(דרך|בזכות) (טיקטוק|יוטיוב|אינסטגרם|סרטון)"
+      ]
+    }
+  },
+  "platform_related_genres": [
+    "PHOTOGRAPHY",
+    "VIDEO_PLAYERS",
+    "SOCIAL",
+    "COMMUNICATION",
+    "MUSIC_AND_AUDIO",
+    "ENTERTAINMENT"
+  ]
+}
