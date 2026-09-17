@@ -427,7 +427,9 @@
     'c.geo': { t: 'Гео', what: 'Гео строки; «+N» — в скольких ещё гео приложение прошло воронку.', how: 'В ворлдвайд — гео с наибольшим индексом с поправкой на деньги гео (вес 0,1).', why: 'Широкое присутствие — механика работает не в одной стране.' },
     'c.installs': { t: 'Установки', what: 'Число установок из карточки Play; под ним — рейтинг.', why: 'Масштаб образца: слишком большие — инкумбенты, а не образцы.' },
     'c.age': { t: 'Возраст', what: 'Месяцев с релиза; бейдж — моложе ' + M.young_months + ' мес.', how: 'Дата релиза из карточки на языке гео.', why: 'Молодой образец без закупки — свежее доказательство входа.' },
-    'c.delta': { t: 'Прирост за 30 дней', what: 'Сколько установок приложение набирает в месяц сейчас.', how: 'Разница установок между снимками, приведённая к 30 дням; окно не меньше ' + M.min_window + ' дней. Пока истории меньше — «копится».', why: 'Текущая скорость важнее накопленного счётчика.' },
+    'c.delta': { t: 'Прирост за 30 дней', what: 'Сколько установок приложение набирает в месяц сейчас.', how: 'Разница установок между снимками, приведённая к 30 дням; окно не меньше ' + M.min_window + ' дней. Пока истории меньше, показывается предварительная оценка с пометкой «предв.».', why: 'Текущая скорость важнее накопленного счётчика.' },
+    'c.dpreview': { t: 'Предварительный прирост', what: 'Оценка скорости установок по короткой истории — пока окна в ' + M.min_window + ' дней ещё нет.', how: 'Установки на последнем снимке минус на самом раннем за 30 дней, по карточкам любого гео (установки у приложения общие), приведено к 30 дням. При окне в несколько дней шум большой: Play обновляет счётчик неравномерно.', why: 'Первые выводы о росте до накопления истории. В курс гео, проверку 3b и рекомендуемый скор не входит.' },
+    'c.rowdate': { t: 'Данные на дату', what: 'Строка взята с более раннего дня гео.', how: 'Если в последний день гео карточку приложения не обновляли, берётся его последняя строка не старше ' + M.carry_days + ' дней.', why: 'Приложение не пропадает из отчёта в день, когда его не сняли.' },
     'c.level': { t: 'Органика', what: 'Ступень доказанности роста без закупки.', opts: LEVEL_OPTS },
     'c.traffic': { t: 'Источник трафика', what: 'Поиск или внешний источник.', how: 'aso_share = курс гео × вес в выдаче ÷ прирост; ниже p25 гео — внешний.', why: 'Копировать под ASO — только поисковых.' },
     'c.ubt': { t: 'УБТ', what: 'Признак условно-бесплатного трафика: приложение узнают из соцсетей и видео.', how: UBT_HOW, why: 'Такой образец можно усиливать роликами в TikTok, Shorts и Reels, а не только ASO.' },
@@ -639,6 +641,16 @@
     if (a.ubt === 0) return '<span class="muted small" data-tip="c.ubt" data-tip-val="' + esc(val) + '">нет</span>';
     return '<span class="muted" data-tip="c.ubt" data-tip-val="' + esc('меньше ' + M.ubt_min_reviews + ' собранных отзывов — доля не считается') + '">—</span>';
   }
+  function dpreviewVal(a) {
+    return (a.dp_raw > 0 ? '+' : '') + int(a.dp_raw) + ' установок за ' + a.dp_w + ' дн. (с ' + dmy(a.dp_from) + ') → к 30 дн. ' + (a.dp > 0 ? '+' : '') + short(a.dp);
+  }
+  function dpreviewHtml(a) {
+    return '<span class="num strong" data-tip="c.dpreview" data-tip-val="' + esc(dpreviewVal(a)) + '" style="color:' + (a.dp > 0 ? 'var(--green)' : 'var(--muted)') + '">≈ ' + (a.dp > 0 ? '+' : '') + short(a.dp) + '</span><div class="muted small">предв. · ' + a.dp_w + ' дн.</div>';
+  }
+  function rowDateHtml(a) {
+    var g = GEO[a.geo];
+    return a.row_date && g && g.date && a.row_date < g.date ? '<div class="muted small" data-tip="c.rowdate">данные на ' + esc(dmy(a.row_date)) + '</div>' : '';
+  }
   function channelOf(a) {
     if (a.level === 'found') return 'paid';
     var organic = a.level === 'no_signs' || a.level === 'confirmed';
@@ -763,7 +775,7 @@
     checks: function (a, b) { return (b.passed - a.passed) || ((b.prescore ?? -1) - (a.prescore ?? -1)); },
     rec: function (a, b) { return (b.rec_pct ?? -1) - (a.rec_pct ?? -1) || (b.rec_score ?? -1) - (a.rec_score ?? -1) || ((b.rec_geos || 0) - (a.rec_geos || 0)) || ((b.prescore ?? -1) - (a.prescore ?? -1)); },
     prescore: function (a, b) { return (b.prescore ?? -1) - (a.prescore ?? -1); },
-    delta: function (a, b) { return (b.delta30 ?? -Infinity) - (a.delta30 ?? -Infinity); },
+    delta: function (a, b) { return (b.delta30 ?? b.dp ?? -Infinity) - (a.delta30 ?? a.dp ?? -Infinity); },
     young: function (a, b) { return (a.age_months ?? Infinity) - (b.age_months ?? Infinity); },
     freedom: function (a, b) { return (b.niche_freedom ?? -1) - (a.niche_freedom ?? -1); },
     breadth: function (a, b) { return (b.geos_count - a.geos_count) || ((b.prescore ?? -1) - (a.prescore ?? -1)); }
@@ -812,7 +824,7 @@
     var sel = function (key, label, cur, options, tip) { return selectField('f-', 'af', key, label, cur, options, tip); };
     var cols = [
       { t: '#', v: function (a, i) { return '<div style="display:flex;align-items:center;gap:7px">' + starBtn('a', a.app_id) + '<span class="num muted strong" style="font-size:12.5px">' + ((state.page - 1) * PAGE + i + 1) + '</span></div>'; } },
-      { t: 'Приложение', tip: 'c.app', v: function (a) { return appCell(a); } },
+      { t: 'Приложение', tip: 'c.app', v: function (a) { return appCell(a) + rowDateHtml(a); } },
       { t: 'Ниша', tip: 'c.niche', v: function (a) {
         if (!a.niche_id) return dash('ниша не определена');
         return '<button class="niche-cell" data-act="open-niche" data-geo="' + esc(a.geo) + '" data-niche="' + esc(a.niche_id) + '"><div class="strong nowrap">' + esc(a.concept || a.niche_head) + '</div><div style="margin-top:3px">' + quadBadge(a.niche_quadrant) + '</div></button>';
@@ -828,6 +840,7 @@
       } },
       { t: 'Прирост 30 дн.', tip: 'c.delta', r: true, v: function (a) {
         if (isNum(a.delta30)) return '<span class="num strong" style="color:' + (a.delta30 > 0 ? 'var(--green)' : 'var(--muted)') + '">' + (a.delta30 > 0 ? '+' : '') + short(a.delta30) + '</span>' + (a.delta_partial ? '<div class="muted small">окно ' + a.delta_w + ' дн.</div>' : '');
+        if (isNum(a.dp)) return dpreviewHtml(a);
         var g = GEO[a.geo];
         return '<span class="muted small" data-tip="c.delta">копится: ' + Math.min(g.k_window || 0, M.min_window) + ' из ' + M.min_window + ' дн.</span>';
       } },
@@ -1179,7 +1192,7 @@
         kpiCards([
           { label: 'Индекс', value: fix(a.prescore, 0), hint: 'prescore · пройдено ' + a.passed + ' из 7' },
           { label: 'Установки', value: short(a.installs), hint: fix(a.score, 1) + ' ★ · ' + short(a.ratings_count) + ' оценок' },
-          { label: 'Прирост 30 дн.', value: isNum(a.delta30) ? short(a.delta30) : '—', hint: isNum(a.delta30) ? 'окно ' + a.delta_w + ' дн.' : 'копится: нужно ' + M.min_window + ' дн.' },
+          { label: 'Прирост 30 дн.', tip: isNum(a.delta30) ? 'c.delta' : 'c.dpreview', value: isNum(a.delta30) ? short(a.delta30) : isNum(a.dp) ? '≈ ' + short(a.dp) : '—', hint: isNum(a.delta30) ? 'окно ' + a.delta_w + ' дн.' : isNum(a.dp) ? 'предв.: ' + (a.dp_raw > 0 ? '+' : '') + short(a.dp_raw) + ' за ' + a.dp_w + ' дн.' : 'копится: нужно ' + M.min_window + ' дн.' },
           { label: 'Возраст', value: isNum(a.age_months) ? fix(a.age_months, 0) + ' мес' : '—', hint: a.released ? 'релиз ' + dmy(a.released) : 'дата не разобрана' }
         ]) +
         '<div class="card panel"><div class="panel-title">Семь проверок</div><div class="panel-sub">образец годится, когда проходит все; непроверенное пройденным не считается</div><div class="check-list" style="margin-top:8px">' +
@@ -1199,6 +1212,8 @@
         '</dl></div>' +
         '<div class="card panel"><div class="panel-title">Источник трафика</div><div class="panel-sub">сколько прироста объясняет поиск: курс гео × вес приложения в выдаче; ниже p25 гео — внешний источник</div><dl class="kv">' +
           '<div><dt>Прирост за окно, к 30 дн.</dt><dd>' + (isNum(a.delta30) ? short(a.delta30) + ' · окно ' + a.delta_w + ' дн.' : 'копится') + '</dd></div>' +
+          '<div><dt data-tip="c.dpreview">Предварительный прирост</dt><dd>' + (isNum(a.dp) ? esc(dpreviewVal(a)) : '—') + '</dd></div>' +
+          (a.row_date && g.date && a.row_date < g.date ? '<div><dt data-tip="c.rowdate">Данные на</dt><dd>' + esc(dmy(a.row_date)) + '</dd></div>' : '') +
           '<div><dt>Вес в поиске гео</dt><dd>' + fix(a.weight, 2) + '</dd></div>' +
           '<div><dt>Курс гео</dt><dd>' + (isNum(g.k_geo) ? fix(g.k_geo, 1) + ' · наблюдений ' + g.k_obs : esc(g.k_status || '—')) + '</dd></div>' +
           '<div><dt>Объяснено поиском</dt><dd>' + (isNum(a.explained) ? short(a.explained) : '—') + '</dd></div>' +

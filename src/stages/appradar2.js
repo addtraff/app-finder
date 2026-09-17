@@ -50,6 +50,10 @@ export function collect(d) {
     };
     if (!date) { geos.push({ ...base, date: null }); continue; }
 
+    // Строка приложения — последняя за report_carry_days: дневной проход обновляет не все
+    // карточки, и без переноса приложение выпадало бы из отчёта в день, когда его не сняли.
+    // Вердикт воронки — тоже последний: прошедшее раньше, но отсеянное сегодня не переносится.
+    const carryFrom = new Date(Date.parse(date) - (V.report_carry_days ?? 7) * 864e5).toISOString().slice(0, 10);
     const niches = all(d, `SELECT * FROM metrics_niche_v2 WHERE geo=? AND snapshot_date=?`, g.geo, date);
     const nicheDate = niches[0]?.niche_date || date;
     const baseNiches = all(d, `SELECT niche_id, weak_share, index_gap_leader, wall_installs, wall_ratings, leader_share, new_share_18m, suggest_score_sum
@@ -81,8 +85,10 @@ export function collect(d) {
          JOIN metrics_app_geo m ON m.app_id=v.app_id AND m.geo=v.geo AND m.snapshot_date=v.snapshot_date
          JOIN apps a ON a.app_id=v.app_id
          LEFT JOIN metrics_niche_v2 n ON n.niche_id=v.niche_id AND n.geo=v.geo AND n.snapshot_date=v.snapshot_date
-        WHERE v.geo=? AND v.snapshot_date=? AND v.passed_funnel=1
-        ORDER BY m.prescore DESC`, g.geo, date);
+        WHERE v.geo=? AND v.passed_funnel=1
+          AND v.snapshot_date=(SELECT MAX(x.snapshot_date) FROM metrics_app_v2 x
+                                WHERE x.app_id=v.app_id AND x.geo=v.geo AND x.snapshot_date<=? AND x.snapshot_date>=?)
+        ORDER BY m.prescore DESC`, g.geo, date, carryFrom);
     // В отчёт идут сильнейшие строки гео: страница ограничена 16 МБ, а хвост по индексу
     // копируемости в решении не участвует. Сколько отброшено — видно на странице «Сбор и планы».
     // Рекомендуемые (первые top_n × 3 по рекомендуемому скору) остаются в отчёте, даже если по
@@ -103,6 +109,8 @@ export function collect(d) {
         prescore: r4(a.prescore), installs: a.installs, score: r4(a.score), ratings_count: a.ratings_count,
         age_months: r4(a.age_months), released: a.released, young: a.young,
         delta30: r4(a.installs_delta_30d), delta_w: a.delta_window_days, delta_partial: a.delta_partial,
+        dp: r4(a.delta_preview), dp_raw: a.delta_preview_raw, dp_w: a.delta_preview_w, dp_from: a.delta_preview_from,
+        row_date: a.snapshot_date,
         level: a.organic_level, evidence_date: a.evidence_date, evidence_age: a.evidence_age_days, ads_found: a.ads_found,
         g_checked: a.ads_google_checked, g_host: a.ads_google_host, g_creatives: a.ads_google_creatives,
         g_first: a.ads_google_first_seen, g_last: a.ads_google_last_seen, g_active: a.ads_google_active,
@@ -237,7 +245,7 @@ export function collect(d) {
       generated_at: new Date().toISOString().replace('T', ' ').slice(0, 16) + ' UTC',
       date: lastDate, reference_geo: ref,
       db_size_mb: fs.existsSync(DB_PATH) ? Math.round(fs.statSync(DB_PATH).size / 1048576) : 0,
-      ttl: V.evidence_ttl_days, young_months: V.young_months, min_window: V.min_window_days, full_window: V.full_window_days,
+      ttl: V.evidence_ttl_days, young_months: V.young_months, min_window: V.min_window_days, full_window: V.full_window_days, carry_days: V.report_carry_days ?? 7,
       entry_window: V.entry_window_days, calib_min: V.calibration_min_obs, money_weight: V.money_weight, purity_min: V.purity_min_checked_share,
       ubt_min_mentions: V.ubt_min_mentions, ubt_min_reviews: V.ubt_min_reviews, ubt_niche_min_apps: V.ubt_niche_min_apps,
       rec: V.recommended,
