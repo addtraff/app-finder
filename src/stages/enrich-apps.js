@@ -28,13 +28,14 @@ function pickAppsToRefresh(d, geo, date, cycle, budget, force) {
     // Уровни A и B — ежедневно, C — раз в неделю (ТЗ 5.2). Плюс всё, что прошло воронку в
     // этом гео за последние две недели, независимо от уровня: отчёты показывают день гео, и
     // без свежей карточки прошедшее воронку приложение из дня выпадает — в US так пропали
-    // 141 из 271 строк.
+    // 141 из 271 строк. Прошедшие воронку берутся и при общем статусе rejected: статус один на
+    // все гео, вердикт воронки — свой в каждом, и в US так не обновлялись 324 из 394.
     return d.prepare(
       `SELECT a.app_id FROM apps a
-        WHERE a.status <> 'rejected'
-          AND (a.watch_level IN ('A','B')
-               OR (a.watch_level='C' AND NOT EXISTS (
-                     SELECT 1 FROM raw_app_page p WHERE p.app_id=a.app_id AND p.geo=? AND p.snapshot_date > date(?, '-7 day')))
+        WHERE ((a.status <> 'rejected'
+                AND (a.watch_level IN ('A','B')
+                     OR (a.watch_level='C' AND NOT EXISTS (
+                           SELECT 1 FROM raw_app_page p WHERE p.app_id=a.app_id AND p.geo=? AND p.snapshot_date > date(?, '-7 day')))))
                OR EXISTS (SELECT 1 FROM screen_result s WHERE s.app_id=a.app_id AND s.geo=?
                             AND s.reject_reason IS NULL AND s.snapshot_date > date(?, '-14 day')))
           AND NOT EXISTS (SELECT 1 FROM raw_app_page p WHERE p.app_id=a.app_id AND p.geo=? AND p.snapshot_date=?)
