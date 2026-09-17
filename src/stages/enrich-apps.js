@@ -30,7 +30,7 @@ function pickAppsToRefresh(d, geo, date, cycle, budget, force) {
     // без свежей карточки прошедшее воронку приложение из дня выпадает — в US так пропали
     // 141 из 271 строк. Прошедшие воронку берутся и при общем статусе rejected: статус один на
     // все гео, вердикт воронки — свой в каждом, и в US так не обновлялись 324 из 394.
-    return d.prepare(
+    const registry = d.prepare(
       `SELECT a.app_id FROM apps a
         WHERE ((a.status <> 'rejected'
                 AND (a.watch_level IN ('A','B')
@@ -41,6 +41,27 @@ function pickAppsToRefresh(d, geo, date, cycle, budget, force) {
           AND NOT EXISTS (SELECT 1 FROM raw_app_page p WHERE p.app_id=a.app_id AND p.geo=? AND p.snapshot_date=?)
         ORDER BY CASE a.watch_level WHEN 'A' THEN 0 WHEN 'B' THEN 1 ELSE 2 END`
     ).all(geo, date, geo, date, geo, date).map((r) => r.app_id);
+
+    // Топ-10 ключей ядра гео (решение заказчика 17.09). Воронка смотрит только на карточки гео
+    // за день, поэтому без этого добора 8 947 приложений с карточками ни разу не проходили
+    // воронку, а у 3 565 из топ-10 карточки не было нигде — кандидатов в отчёте выходило втрое
+    // меньше, чем есть в выдаче. Ограничение на день — budget.daily.core_top_cards: за раз
+    // берутся первые по месту в выдаче, остальные догоняются в следующие дни.
+    const seen = new Set(registry);
+    const coreTop = d.prepare(
+      `SELECT r.app_id, MIN(r.position) AS pos,
+              (SELECT COUNT(*) FROM raw_app_page p WHERE p.app_id=r.app_id) AS cards
+         FROM keyword_cores kc
+         JOIN (SELECT keyword, MAX(snapshot_date) md FROM raw_search WHERE geo=? GROUP BY keyword) l ON l.keyword=kc.keyword
+         JOIN raw_search r ON r.geo=kc.geo AND r.keyword=kc.keyword AND r.snapshot_date=l.md AND r.position<=10
+         LEFT JOIN disc_keywords k ON k.geo=kc.geo AND k.keyword=kc.keyword
+        WHERE kc.geo=? AND kc.active=1 AND COALESCE(k.is_brand, 0)=0
+          AND NOT EXISTS (SELECT 1 FROM raw_app_page p WHERE p.app_id=r.app_id AND p.geo=? AND p.snapshot_date=?)
+        GROUP BY r.app_id
+        ORDER BY (cards=0) DESC, pos, r.app_id
+        LIMIT ?`
+    ).all(geo, geo, geo, date, config().budget.daily?.core_top_cards ?? 600).map((r) => r.app_id).filter((id) => !seen.has(id));
+    return registry.concat(coreTop);
   }
   // Обход: карточки для всего, что найдено в гео и ещё без сегодняшней карточки.
   return d.prepare(

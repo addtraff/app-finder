@@ -18,7 +18,8 @@
   },
   "daily": {
     "reviews_per_app": 100,
-    "serp_top_n": 50
+    "serp_top_n": 50,
+    "core_top_cards": 600
   },
   "rpm": {
     "search": 20,
