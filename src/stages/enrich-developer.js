@@ -22,23 +22,37 @@ function domainOf(url) {
 // Слишком общие адреса не склеивают: стоп-лист против ложной склейки честных разработчиков.
 const GENERIC_ADDRESS = [/^\s*$/, /^n\/?a$/i, /^-+$/];
 
-export async function run({ geo, date, runId, cycle = 'discovery' }) {
+export async function run({ geo, date, runId, cycle = 'discovery', scope = null }) {
   const d = db();
   startRun(runId, 'enrich-developer', geo, cycle, date);
   const hl = primaryHl(geo);
   const budget = config().budget.discovery;
 
-  const devs = d.prepare(
-    `SELECT p.developer_id, MIN(p.developer_legal_name) AS legal, MIN(p.developer_address) AS addr,
-            MIN(p.developer_email) AS email, MIN(p.developer_website) AS site, COUNT(DISTINCT p.app_id) AS seen_apps
-       FROM raw_app_page p
-       JOIN apps a ON a.app_id = p.app_id
-      WHERE p.geo=? AND p.developer_id IS NOT NULL AND a.watch_level IN ('A','B','C')
-        AND NOT EXISTS (SELECT 1 FROM raw_developer rd WHERE rd.developer_id=p.developer_id AND rd.snapshot_date=?)
-      GROUP BY p.developer_id
-      ORDER BY seen_apps DESC
-      LIMIT ?`
-  ).all(geo, date, budget.max_developers);
+  // --scope funnel: разработчики прошедших воронку по последнему вердикту гео, без снимка за
+  // неделю и без лимита — обычный отбор (уровни A–C, 100 на гео) кандидатов почти не покрывал.
+  const devs = scope === 'funnel'
+    ? d.prepare(
+      `SELECT p.developer_id, MIN(p.developer_legal_name) AS legal, MIN(p.developer_address) AS addr,
+              MIN(p.developer_email) AS email, MIN(p.developer_website) AS site, COUNT(DISTINCT p.app_id) AS seen_apps
+         FROM raw_app_page p
+        WHERE p.geo=? AND p.developer_id IS NOT NULL
+          AND p.app_id IN (SELECT s.app_id FROM screen_result s WHERE s.geo=? AND s.reject_reason IS NULL
+                             AND s.snapshot_date=(SELECT MAX(snapshot_date) FROM screen_result WHERE geo=?))
+          AND NOT EXISTS (SELECT 1 FROM raw_developer rd WHERE rd.developer_id=p.developer_id AND rd.snapshot_date > date(?, '-7 day'))
+        GROUP BY p.developer_id
+        ORDER BY seen_apps DESC`
+    ).all(geo, geo, geo, date)
+    : d.prepare(
+      `SELECT p.developer_id, MIN(p.developer_legal_name) AS legal, MIN(p.developer_address) AS addr,
+              MIN(p.developer_email) AS email, MIN(p.developer_website) AS site, COUNT(DISTINCT p.app_id) AS seen_apps
+         FROM raw_app_page p
+         JOIN apps a ON a.app_id = p.app_id
+        WHERE p.geo=? AND p.developer_id IS NOT NULL AND a.watch_level IN ('A','B','C')
+          AND NOT EXISTS (SELECT 1 FROM raw_developer rd WHERE rd.developer_id=p.developer_id AND rd.snapshot_date=?)
+        GROUP BY p.developer_id
+        ORDER BY seen_apps DESC
+        LIMIT ?`
+    ).all(geo, date, budget.max_developers);
 
   const ins = d.prepare(`INSERT OR REPLACE INTO raw_developer
     (developer_id, snapshot_date, legal_name, address, address_norm, email, website, domain,
