@@ -298,7 +298,7 @@
     var maxPassed = apps.length ? apps[0].passed : 0;
 
     return '<div class="panel-head"><span class="eyebrow">итог методики</span>' +
-      '<h2>Финалисты на копирование</h2><span class="cnt">' + apps.length + ' в гео ' + state.geo +
+      '<h2>Финалисты на копирование</h2><span class="cnt">' + apps.length + (gd().apps_total > apps.length ? ' сильнейших из ' + gd().apps_total : '') + ' в гео ' + state.geo +
       ' · ' + g.length + ' уникальных по всем гео</span></div>' +
       '<p class="note">Ранжирование — по числу <b>пройденных</b> проверок, затем по <code>prescore</code>. ' +
       'Методика требует все шесть: «образец годится, только если проходит все шесть». Пока проверка №6 ' +

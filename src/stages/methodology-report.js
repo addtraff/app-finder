@@ -91,6 +91,10 @@ function collectGeo(d, geo, date) {
       WHERE m.geo=? AND m.snapshot_date=? AND s.reject_reason IS NULL
       ORDER BY m.prescore DESC`, geo, date)
     .map((r) => ({ ...r, ...sixChecks(r) }));
+  // В HTML — сильнейшие строки гео по индексу (config.scoring.report_caps.methodology):
+  // страница артефакта ограничена 16 МБ. Эту же выборку берёт AppRadar.
+  const appsTotal = apps.length;
+  apps.length = Math.min(apps.length, config().scoring.report_caps?.methodology ?? apps.length);
 
   const niches = all(d,
     `SELECT niche_id, head_keyword, concept, keywords_count, apps_count, door, best_door,
@@ -104,7 +108,7 @@ function collectGeo(d, geo, date) {
     `SELECT COALESCE(reject_reason,'passed') AS reason, COUNT(*) AS count
        FROM screen_result WHERE geo=? AND snapshot_date=? GROUP BY reason ORDER BY count DESC`, geo, screenDateAsOf(d, geo, date));
 
-  return { date, apps, niches, funnel };
+  return { date, apps, apps_total: appsTotal, niches, funnel };
 }
 
 export function collect(d, selectedGeo, date) {

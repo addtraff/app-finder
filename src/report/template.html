@@ -1219,7 +1219,7 @@
       return true;
     });
     renderTable('passed-table', rows, passedRow);
-    el('passed-count').textContent = gd.passed.length + ' в гео ' + state.geo;
+    el('passed-count').textContent = gd.passed.length + (gd.counts.passed > gd.passed.length ? ' сильнейших из ' + gd.counts.passed : '') + ' в гео ' + state.geo;
     el('p-hint').textContent = 'показано ' + rows.length + ' из ' + gd.passed.length;
   }
   el('p-filter').addEventListener('input', function () { renderPassed(D.geoData[state.geo]); });

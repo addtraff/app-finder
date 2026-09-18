@@ -35,7 +35,7 @@ function collectGeo(d, geo, date) {
   // поля metrics_app_geo (m.*), а не узкий набор: раскрывающаяся детализация в таблице
   // показывает пять типов жалоб, источники прихода, антифрод-сигналы и дельты дней 1/7/30 —
   // они посчитаны, но без этого нигде не были видны.
-  const passed = all(d,
+  const passedAll = all(d,
     `SELECT m.*, a.title, a.developer, n.head_keyword AS niche_head, n.door AS niche_door,
             t.found AS tracking_found, t.matched_names AS tracking_matched_names,
             t.matched_in AS tracking_matched_in, t.checked_at AS tracking_checked_at
@@ -49,6 +49,9 @@ function collectGeo(d, geo, date) {
       WHERE m.geo=? AND m.snapshot_date=? AND s.reject_reason IS NULL
       ORDER BY COALESCE(m.policy_auto_ok, 0) DESC,
                CASE WHEN m.prescore IS NULL THEN 1 ELSE 0 END, m.prescore DESC`, geo, date);
+  // В HTML — сильнейшие строки гео (config.scoring.report_caps.dashboard): страница артефакта
+  // ограничена 16 МБ. Счётчик counts.passed — по всем прошедшим.
+  const passed = passedAll.slice(0, config().scoring.report_caps?.dashboard ?? passedAll.length);
 
   const k7 = buildQueue(d, geo, date).slice(0, 60);
 
@@ -72,7 +75,8 @@ function collectGeo(d, geo, date) {
     niches: niches.length,
     niches_with_door: niches.filter((n) => n.door != null).length,
     screened: funnel.reduce((a, r) => a + r.count, 0),
-    passed: passed.length,
+    passed: passedAll.length,
+    passed_shown: passed.length,
     verified_full: passed.filter((r) => r.verification_level === 'полностью').length,
     ads_checked: one(d, `SELECT COUNT(*) c FROM metrics_app_geo WHERE geo=? AND snapshot_date=? AND ads_found<>'unchecked'`, geo, date).c,
   };

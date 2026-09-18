@@ -687,7 +687,8 @@
 
     var lead = state.allGeos
       ? 'Каждое приложение — в гео, где оно выглядит сильнее всего. Отсортировано по индексу копируемости: высокий спрос, слабая выдача, простая механика.'
-      : 'Приложения, прошедшие воронку в ' + esc(GEO_NAMES[state.geo]) + ', по индексу копируемости: высокий спрос, слабая конкуренция в выдаче, простая механика. Снимок ' + esc(g.date) + '.';
+      : 'Приложения, прошедшие воронку в ' + esc(GEO_NAMES[state.geo]) + ', по индексу копируемости: высокий спрос, слабая конкуренция в выдаче, простая механика. Снимок ' + esc(g.date) + '.' +
+        (g.apps_total > g.apps.length ? ' Показаны ' + int(g.apps.length) + ' сильнейших из ' + int(g.apps_total) + ' — страница ограничена по размеру.' : '');
 
     var cols = [
       { t: '#', v: function (a, i) { return '<div style="display:flex;align-items:center;gap:7px">' + starBtn(a.app_id) + '<span class="num muted strong" style="font-size:12.5px">' + ((state.page - 1) * PAGE + i + 1) + '</span></div>'; } },
