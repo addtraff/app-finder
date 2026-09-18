@@ -618,12 +618,158 @@ async function calibrate(page, probeDomain, date) {
   return conf;
 }
 
+// ---------------------------------------------------------------------------
+// --scope dev-name: Google по имени разработчика — для кандидатов без своего домена (сайт и
+// политика на бесплатном хостинге: sites.google.com, github.io и т. п.). По такому домену
+// проверять нечего, но в Ads Transparency рекламодатель верифицирован юрлицом, и подсказка
+// поиска (SearchSuggestions) отдаёт рекламодателей с ID и числом объявлений.
+// Сопоставление строгое: полное совпадение имени после снятия юридических форм. Похожее, но
+// другое имя («Smart Tools co.» и «Smart Tools Plus, LLC») совпадением не считается.
+// Результат пишется в raw_ads_google под ключом «dev:<developer_id>».
+// ---------------------------------------------------------------------------
+const LEGAL_FORMS = new Set(('llc l.l.c ltd limited inc incorporated co company corp corporation gmbh mbh ag kg ug ' +
+  'sl slu sa sas sarl srl sro spa bv nv ab as asa oy oyj ou oü pte pty pvt private plc llp lp fzco fze fz fzllc ' +
+  'dmcc jsc ojsc ooo tov kft zrt sp zoo z.o.o lda ltda me eireli tic sti anonim şirketi sirketi hizmetleri ve ' +
+  'sdn bhd kk kabushiki kaisha 株式会社 有限公司 合同会社').split(/\s+/));
+
+export function normName(s) {
+  const base = String(s || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase()
+    .replace(/[&+]/g, ' and ').replace(/[^\p{L}\p{N}\s]/gu, ' ');
+  return base.split(/\s+/).filter((w) => w && !LEGAL_FORMS.has(w)).join(' ').trim();
+}
+
+export function buildDevNameQueue(d, geo) {
+  const c = cfg();
+  const rows = d.prepare(
+    `SELECT p.app_id, p.developer_id, p.developer, p.developer_legal_name, p.developer_website, p.privacy_policy
+       FROM raw_app_page p
+      WHERE p.geo=? AND p.developer_id IS NOT NULL
+        AND p.app_id IN (SELECT s.app_id FROM screen_result s WHERE s.geo=? AND s.reject_reason IS NULL
+                           AND s.snapshot_date=(SELECT MAX(snapshot_date) FROM screen_result WHERE geo=?))
+        AND p.snapshot_date=(SELECT MAX(x.snapshot_date) FROM raw_app_page x WHERE x.app_id=p.app_id AND x.geo=p.geo)
+      GROUP BY p.app_id`
+  ).all(geo, geo, geo);
+  const done = new Set(d.prepare(`SELECT DISTINCT developer_domain FROM raw_ads_google WHERE status IN ('ok','ambiguous') AND developer_domain LIKE 'dev:%'`)
+    .all().map((r) => r.developer_domain));
+  const byDev = new Map();
+  for (const r of rows) {
+    const host = hostOf(r.developer_website) || hostOf(r.privacy_policy);
+    if (host && !isBlacklisted(host, c.blacklist_hosts)) continue;   // есть свой домен — его проверяет обычная очередь
+    const key = 'dev:' + r.developer_id;
+    if (done.has(key)) continue;
+    if (!byDev.has(key)) byDev.set(key, { key, developer_id: r.developer_id, names: new Set(), apps: [] });
+    const rec = byDev.get(key);
+    for (const n of [r.developer_legal_name, r.developer]) if (n && normName(n).length >= 4) rec.names.add(n.trim());
+    rec.apps.push(r.app_id);
+  }
+  return [...byDev.values()].filter((r) => r.names.size).sort((a, b) => b.apps.length - a.apps.length);
+}
+
+function parseSuggestions(text) {
+  let j = null;
+  try { j = JSON.parse(String(text).replace(/^\)\]\}'[^\n]*\n?/, '')); } catch { return []; }
+  return (j?.['1'] || []).filter((x) => x['1']).map((x) => ({
+    name: x['1']['1'], id: x['1']['2'], country: x['1']['3'],
+    min: Number(x['1']['4']?.['2']?.['1'] ?? 0), max: Number(x['1']['4']?.['2']?.['2'] ?? 0),
+  }));
+}
+
+async function rpcInPage(page, url, req) {
+  return page.evaluate(async ({ url, req }) => {
+    try {
+      const r = await fetch(url, { method: 'POST', credentials: 'include',
+        headers: { 'content-type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+        body: 'f.req=' + encodeURIComponent(req) });
+      return { status: r.ok ? 'ok' : (r.status === 429 ? '429' : 'http_' + r.status), text: await r.text() };
+    } catch (e) { return { status: 'fetch_failed', text: String(e && e.message || e) }; }
+  }, { url, req });
+}
+
+async function googleByName(page, queue, date, c) {
+  const d = db();
+  const insRow = d.prepare(`INSERT OR REPLACE INTO raw_ads_google
+    (developer_domain, checked_at, creatives_found, count, note, status, advertiser_id, raw_json) VALUES (?,?,?,?,?,?,?,?)`);
+  const insField = d.prepare(`INSERT OR REPLACE INTO raw_ads_google_field (developer_domain, checked_at, path, value) VALUES (?,?,?,?)`);
+  let checked = 0, found = 0, failed = 0, inRow = 0;
+  for (const item of queue) {
+    let advertisers = [], bad = null, tried = [];
+    for (const name of item.names) {
+      const res = await rpcInPage(page, c.suggest_rpc_url, c.suggest_payload_template.replace('{{NAME}}', JSON.stringify(name).slice(1, -1)));
+      tried.push(name);
+      await sleep(c.pause_ms);
+      if (res.status !== 'ok') { bad = res.status; break; }
+      const want = normName(name);
+      advertisers.push(...parseSuggestions(res.text).filter((a) => normName(a.name) === want));
+    }
+    if (bad) {
+      failed++; inRow++;
+      insRow.run(item.key, date, null, null, `по имени: ${bad}`, bad, null, null);
+      if (inRow >= (c.retry_stop_after_failures || 20)) { warn(`подряд ${inRow} отказов — остальные разработчики остаются в очереди`); break; }
+      continue;
+    }
+    inRow = 0;
+    const uniq = [...new Map(advertisers.map((a) => [a.id, a])).values()];
+    // Больше двух рекламодателей с тем же именем — однофамильцы («Abdul Rehman»: десять
+    // аккаунтов в PK, IN и US), а не один разработчик: в вердикт такой ответ не идёт.
+    if (uniq.length > (c.name_max_matches ?? 2)) {
+      insRow.run(item.key, date, null, null, `по имени: неоднозначно — ${uniq.length} рекламодателей «${tried.join(' / ')}»`,
+        'ambiguous', null, JSON.stringify({ tried, matched: uniq }));
+      checked++;
+      continue;
+    }
+    const withAds = uniq.filter((a) => a.max > 0).sort((a, b) => b.max - a.max);
+    const best = withAds[0] || uniq[0] || null;
+    let raw = JSON.stringify({ tried, matched: uniq }), count = withAds.reduce((s, a) => s + a.min, 0);
+    d.transaction(() => {
+      insRow.run(item.key, date, withAds.length ? 1 : 0, withAds.length ? count : 0,
+        uniq.length ? `по имени: ${uniq.map((a) => `${a.name} (${a.country}, ${a.min}–${a.max})`).join('; ')}` : `по имени: рекламодателя «${tried.join(' / ')}» нет`,
+        'ok', best ? best.id : null, raw);
+    })();
+    // Даты первого и последнего показа — объявления самого крупного совпавшего рекламодателя.
+    if (withAds.length && c.advertiser_payload_template) {
+      const res = await rpcInPage(page, c.rpc_url, c.advertiser_payload_template.replace('{{ADVERTISER}}', withAds[0].id).replace('{{LIMIT}}', String(c.creatives_limit)));
+      await sleep(c.pause_ms);
+      if (res.status === 'ok') {
+        let parsed = null;
+        try { parsed = JSON.parse(String(res.text).replace(/^\)\]\}'[^\n]*\n?/, '')); } catch { parsed = null; }
+        if (parsed) d.transaction(() => { for (const f of flattenScalars(parsed).slice(0, 4000)) insField.run(item.key, date, f.path, f.value.slice(0, 500)); })();
+      }
+    }
+    checked++; if (withAds.length) found++;
+    if (checked % 20 === 0) log(`  Google по имени: ${checked}/${queue.length}, реклама у ${found}`);
+  }
+  return { checked, found, failed };
+}
+
 export async function run({ geo, date, runId, cycle = 'daily', useBrowser = true, headless = false,
                             limit = null, sequential = false, domains = null, apps = null,
                             skipMeta = false, skipGoogle = false, calibrateOnly = false, force = false, scope = null }) {
   const d = db();
   startRun(runId, 'check-ads', geo, cycle, date);
   let c = cfg();
+
+  if (scope === 'dev-name') {
+    const all = buildDevNameQueue(d, geo);
+    const queue = limit ? all.slice(0, Number(limit)) : all;
+    log(`  ${geo}: Google по имени — разработчиков без своего домена ${all.length}, берём ${queue.length}`);
+    if (!queue.length) { finishRun(runId, 'check-ads', geo, { status: 'ok', notes: 'по имени: очередь пуста' }); return { queued: 0, checked: 0 }; }
+    const chromium = useBrowser ? await loadPlaywright() : null;
+    if (!chromium) { finishRun(runId, 'check-ads', geo, { status: 'manual', notes: 'playwright не установлен' }); return { queued: queue.length, checked: 0 }; }
+    fs.mkdirSync(PROFILE_DIR, { recursive: true });
+    const ctx = await chromium.launchPersistentContext(PROFILE_DIR, { headless, locale: 'en-US', viewport: { width: 1280, height: 860 } });
+    let res = { checked: 0, found: 0, failed: 0 };
+    try {
+      const page = await ctx.newPage();
+      await page.goto('https://adstransparency.google.com/?region=anywhere', { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await page.waitForTimeout(2000);
+      res = await googleByName(page, queue, date, c);
+      await page.close();
+    } finally { await ctx.close(); }
+    finishRun(runId, 'check-ads', geo, { status: 'ok', requests: res.checked, errors: res.failed,
+      notes: `google по имени ${res.checked} разработчиков, реклама у ${res.found}, не удалось ${res.failed}` });
+    log(`  ${geo}: Google по имени — ${res.checked} разработчиков, реклама у ${res.found}, не удалось ${res.failed}`);
+    return { queued: queue.length, checked: res.checked, found: res.found, failed: res.failed };
+  }
   const core = scope === 'core-top' ? buildCoreTopQueues(d, geo) : null;
   if (core) force = true;  // очередь топа ниш додавливается целиком, пейсинг тот же
   const full = skipGoogle ? Object.assign([], { skipped: {} })

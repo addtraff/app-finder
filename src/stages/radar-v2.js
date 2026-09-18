@@ -299,6 +299,10 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
       for (const h of [hostOf(c.developer_website), hostOf(c.privacy_policy)]) {
         if (h && ads.google.has(h)) { gg = { host: h, ...ads.google.get(h) }; break; }
       }
+      // Своего домена нет (бесплатный хостинг) — проверка Google по имени разработчика
+      // (check-ads --scope dev-name), ключ «dev:<developer_id>».
+      const byName = !gg && c.developer_id ? ads.google.get('dev:' + c.developer_id) : null;
+      if (byName) gg = { host: 'по имени разработчика', ...byName };
     }
     const mm = ads.meta.get(id) || null;
     const tr = ads.tracking.get(id) || null;

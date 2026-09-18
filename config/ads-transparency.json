@@ -61,5 +61,9 @@
   "_queue_note": "Очередь по ценности решения, а не по алфавиту. Успешно проверенный домен не переспрашивается никогда; строки с ошибкой остаются в очереди.",
   "min_installs_tail": 300000,
   "_calibrated_at": "2026-09-08",
-  "_calibrated_from": "smart-tools.biz"
+  "_calibrated_from": "smart-tools.biz",
+  "_name_note": "Поиск по имени разработчика (--scope dev-name): SearchSuggestions отдаёт рекламодателей с ID, страной и числом объявлений; объявления рекламодателя — SearchCreatives с фильтром 13. Сняты со страницы 18.09.",
+  "suggest_rpc_url": "https://adstransparency.google.com/anji/_/rpc/SearchService/SearchSuggestions",
+  "suggest_payload_template": "{\"1\":\"{{NAME}}\",\"2\":10,\"3\":10,\"5\":{\"1\":1}}",
+  "advertiser_payload_template": "{\"2\":{{LIMIT}},\"3\":{\"12\":{\"1\":\"\",\"2\":true},\"13\":{\"1\":[\"{{ADVERTISER}}\"]}},\"7\":{\"1\":1,\"2\":0,\"3\":2100}}"
 }

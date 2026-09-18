@@ -217,6 +217,9 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
         break;
       }
     }
+    // Своего домена нет — проверка Google по имени разработчика (check-ads --scope dev-name).
+    const byName = r.developer_id ? googleByDomain.get('dev:' + r.developer_id) : undefined;
+    if (!googleSeen.has(r.app_id) && byName !== undefined) googleSeen.set(r.app_id, byName);
   }
   const adsFound = new Map();
   for (const appId of new Set([...metaSeen.keys(), ...googleSeen.keys()])) {
