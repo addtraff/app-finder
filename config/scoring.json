@@ -1,18 +1,37 @@
 {
   "_note": "Веса prescore круглые и НЕ валидированы — это записанная гипотеза (ТЗ 9.8). Сырьё хранится, пересчёт задним числом возможен.",
   "prescore_weights": {
-    "demand": 0.24, "growth_s": 0.24, "weakness": 0.16,
-    "openness": 0.11, "feasibility": 0.13, "organic": 0.12
+    "demand": 0.24,
+    "growth_s": 0.24,
+    "weakness": 0.16,
+    "openness": 0.11,
+    "feasibility": 0.13,
+    "organic": 0.12
   },
   "policy_penalty": 0.45,
-  "openness_mix": { "door": 0.6, "age": 0.4 },
-  "feasibility": { "thin_bonus": 0.25, "abandoned_bonus": 0.10 },
-  "organic_defaults": {
-    "ads_found": 0.0, "attribution_sdk": 0.0,
-    "src_ads_high": 0.15, "verified_none": 1.0, "unknown": 0.35
+  "openness_mix": {
+    "door": 0.6,
+    "age": 0.4
   },
-  "growth": { "unknown_value": 0.3, "min_days": 14, "min_old_half_reviews": 25 },
-  "fake": { "demand_penalty": 0.75 },
+  "feasibility": {
+    "thin_bonus": 0.25,
+    "abandoned_bonus": 0.1
+  },
+  "organic_defaults": {
+    "ads_found": 0,
+    "attribution_sdk": 0,
+    "src_ads_high": 0.15,
+    "verified_none": 1,
+    "unknown": 0.35
+  },
+  "growth": {
+    "unknown_value": 0.3,
+    "min_days": 14,
+    "min_old_half_reviews": 25
+  },
+  "fake": {
+    "demand_penalty": 0.75
+  },
   "clustering": {
     "min_shared_top10": 4,
     "min_jaccard": 0.25,
@@ -24,7 +43,11 @@
     "leftover_to_concept": true,
     "leftover_min_shared_top10": 2
   },
-  "monetization_proof": { "ok": 1.0, "weak": 0.4, "iap_max_usd_prior": 20 },
+  "monetization_proof": {
+    "ok": 1,
+    "weak": 0.4,
+    "iap_max_usd_prior": 20
+  },
   "v2": {
     "_note": "Методика v2.0 и ТЗ AppRadar 2 (docs/tz-appradar-v2.md, 5.12). Здесь только служебные числа: окна, условия полноты данных, форма кривой CTR и веса. Пороги значений считаются квантилями в стадии radar-v2.",
     "evidence_ttl_days": 30,
@@ -41,7 +64,7 @@
     "spike_min_points": 20,
     "capacity_position": 5,
     "_report_cap_note": "С 16.09 воронка считается в дневном проходе, и в день гео попадает больше тысячи прошедших строк вместо 270. В отчёт берутся сильнейшие по индексу копируемости: страница обязана оставаться в пределах 16 МБ, а методика прямо говорит смотреть руками первые 15, а не все.",
-    "report_apps_per_geo": 500,
+    "report_apps_per_geo": 350,
     "report_carry_days": 7,
     "_ubt_note": "УБТ по отзывам (ТЗ v2.2): признак у приложения — не меньше ubt_min_mentions упоминаний и доля упоминаний не ниже p75 гео; доля считается при ubt_min_reviews отзывах на языках гео. У ниши — доля приложений топ-20 и кандидатов с признаком, при ubt_niche_min_apps приложениях с разметкой; флаг — не ниже p75 ниш гео.",
     "ubt_min_mentions": 3,
@@ -50,28 +73,100 @@
     "recommended": {
       "_note": "Рекомендуемый топ (ТЗ v2.2): взвешенная сумма доступных компонент 0–1, пустые исключаются вместе с весом. Приложения — упор на рост из поиска (ASO) и свободу ниши; ниши — на свободные ключи. Веса и доли частей — гипотеза, не валидированы.",
       "top_n": 50,
-      "app_weights": { "aso": 0.35, "freedom": 0.25, "checks": 0.15, "prescore": 0.10, "youth": 0.10, "monetization": 0.05 },
-      "aso_parts": { "search_weight": 0.5, "top10_keys": 0.3, "traffic_source": 0.2 },
-      "freedom_parts": { "free_demand_share": 0.6, "freedom_pct": 0.4 },
-      "youth_parts": { "age": 0.6, "growth": 0.4 },
-      "level_factor": { "confirmed": 1.0, "no_signs": 1.0, "stale": 0.8, "unchecked": 0.6 },
-      "niche_weights": { "free_keys": 0.40, "freedom": 0.15, "purity": 0.20, "young_organic": 0.10, "monetized": 0.10, "capacity": 0.05 },
-      "free_keys_parts": { "free_demand_share": 0.7, "free_keys_count": 0.3 }
+      "app_weights": {
+        "aso": 0.35,
+        "freedom": 0.25,
+        "checks": 0.15,
+        "prescore": 0.1,
+        "youth": 0.1,
+        "monetization": 0.05
+      },
+      "aso_parts": {
+        "search_weight": 0.5,
+        "top10_keys": 0.3,
+        "traffic_source": 0.2
+      },
+      "freedom_parts": {
+        "free_demand_share": 0.6,
+        "freedom_pct": 0.4
+      },
+      "youth_parts": {
+        "age": 0.6,
+        "growth": 0.4
+      },
+      "level_factor": {
+        "confirmed": 1,
+        "no_signs": 1,
+        "stale": 0.8,
+        "unchecked": 0.6
+      },
+      "niche_weights": {
+        "free_keys": 0.4,
+        "freedom": 0.15,
+        "purity": 0.2,
+        "young_organic": 0.1,
+        "monetized": 0.1,
+        "capacity": 0.05
+      },
+      "free_keys_parts": {
+        "free_demand_share": 0.7,
+        "free_keys_count": 0.3
+      }
     },
     "_ctr_note": "Приор, не измерение Play: калибруется по приложениям, сменившим позицию при неизменном листинге (методика v2.0, P3, п. 19).",
-    "ctr_top10": [1.00, 0.55, 0.38, 0.28, 0.22, 0.18, 0.15, 0.13, 0.11, 0.10],
+    "ctr_top10": [
+      1,
+      0.55,
+      0.38,
+      0.28,
+      0.22,
+      0.18,
+      0.15,
+      0.13,
+      0.11,
+      0.1
+    ],
     "ctr_11_20": 0.05,
     "ctr_21_50": 0.02,
     "freedom_weights": {
-      "free_demand_share": 0.25, "relevance_gap": 0.15, "aso_saturation": 0.15,
-      "demand_per_app": 0.15, "entry_rate": 0.15, "turnover_up_new": 0.10, "clone_density": 0.05
+      "free_demand_share": 0.25,
+      "relevance_gap": 0.15,
+      "aso_saturation": 0.15,
+      "demand_per_app": 0.15,
+      "entry_rate": 0.15,
+      "turnover_up_new": 0.1,
+      "clone_density": 0.05
     },
     "money_weight": 0.1
   },
-  "in_score_features": ["demand", "growth_s", "weakness", "openness", "feasibility", "organic"],
+  "in_score_features": [
+    "demand",
+    "growth_s",
+    "weakness",
+    "openness",
+    "feasibility",
+    "organic"
+  ],
   "candidate_features": [
-    "portfolio_size", "locales_count", "size_mb", "wom_index", "index_breadth",
-    "localization_quality", "suggest_depth", "head_kw_in_title", "installs_per_rating",
-    "growth_s", "pain_fit"
-  ]
+    "portfolio_size",
+    "locales_count",
+    "size_mb",
+    "wom_index",
+    "index_breadth",
+    "localization_quality",
+    "suggest_depth",
+    "head_kw_in_title",
+    "installs_per_rating",
+    "growth_s",
+    "pain_fit"
+  ],
+  "funnel": {
+    "_note": "Воронка screen: квантиль установок гео, выше которого приложение отсеивается как слишком крупное (решение заказчика 18.09).",
+    "too_big_quantile": "p75"
+  },
+  "report_caps": {
+    "_note": "Строк «приложение × гео» в HTML отчётов: страница артефакта ограничена 16 МБ. Берутся сильнейшие по индексу копируемости, счётчики и расчёты считаются по всем строкам. AppRadar берёт выборку отчёта по методике. AppRadar 2 — v2.report_apps_per_geo.",
+    "dashboard": 400,
+    "methodology": 700
+  }
 }

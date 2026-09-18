@@ -79,7 +79,11 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
     .map((r) => [r.app_id, r.discovery_paths_count]));
 
   const Q = (m, lvl) => qv(null, geo, m, date, lvl, { nicheFirst: false });
-  const p95_inst = Q('installs', 'p95');
+  // Порог «слишком крупного» — квантиль установок гео, по умолчанию p75 (решение заказчика
+  // 18.09): при p95 он был 117–237 млн, и в воронку проходили приложения на десятки миллионов
+  // установок — ChatGPT-клиенты, Claude. p75 — 8–15 млн в зависимости от гео.
+  const bigQ = scoring.funnel?.too_big_quantile || 'p75';
+  const big_inst = Q('installs', bigQ);
   const p50_inst = Q('installs', 'p50');
   const p90_upd = Q('days_since_update', 'p90');
   const p10_score = Q('score', 'p10');
@@ -135,8 +139,8 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
       if (c.available === 0) reason = 'not_available';
       else if (refSet && refSet.size && !refSet.has(c.app_id) && key !== String(c.title || '').toLowerCase().trim()) {
         reason = 'regional_clone'; detail = key;
-      } else if (p95_inst != null && c.max_installs != null && c.max_installs > p95_inst) {
-        reason = 'too_big'; detail = `installs ${c.max_installs} > p95 ${Math.round(p95_inst)}`;
+      } else if (big_inst != null && c.max_installs != null && c.max_installs > big_inst) {
+        reason = 'too_big'; detail = `installs ${c.max_installs} > ${bigQ} ${Math.round(big_inst)}`;
       } else if (p90_upd != null && daysUpd != null && daysUpd > p90_upd && p50_inst != null && c.max_installs < p50_inst) {
         reason = 'dead'; detail = `${Math.round(daysUpd)} дн. без апдейта`;
       } else if (p10_score != null && c.score != null && c.score < p10_score && p50_ratings != null && c.ratings_count >= p50_ratings) {
