@@ -94,7 +94,7 @@ function collectGeo(d, geo, date) {
   // В HTML — сильнейшие строки гео по индексу (config.scoring.report_caps.methodology):
   // страница артефакта ограничена 16 МБ. Эту же выборку берёт AppRadar.
   const appsTotal = apps.length;
-  apps.length = Math.min(apps.length, config().scoring.report_caps?.methodology ?? apps.length);
+  if (!process.env.RADAR_REPORT_FULL) apps.length = Math.min(apps.length, config().scoring.report_caps?.methodology ?? apps.length);
 
   const niches = all(d,
     `SELECT niche_id, head_keyword, concept, keywords_count, apps_count, door, best_door,
@@ -244,7 +244,9 @@ export async function run({ geo, date }) {
   const json = JSON.stringify(packRows(data)).replace(/</g, '\\u003c');
   const fragment = tpl.replace('__RADAR_DATA__', () => json).replace('__UNPACK_JS__', () => UNPACK_JS);
 
-  const outDir = path.join(ROOT, 'out');
+  // RADAR_REPORT_FULL=1 — полная версия без отсечки строк, в out/full: для просмотра локально
+  // (http://localhost:8777/full/…), в артефакт такой файл не помещается.
+  const outDir = path.join(ROOT, 'out', process.env.RADAR_REPORT_FULL ? 'full' : '');
   fs.mkdirSync(outDir, { recursive: true });
   fs.writeFileSync(path.join(outDir, 'methodology-artifact.html'), fragment, 'utf8');
   fs.writeFileSync(path.join(outDir, 'methodology.html'), `<!doctype html>

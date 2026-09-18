@@ -164,7 +164,9 @@ export async function run({ geo, date }) {
   const json = JSON.stringify(packRows(data)).replace(/</g, '\\u003c');
   const fragment = tpl.replace('__RADAR_DATA__', () => json).replace('__UNPACK_JS__', () => UNPACK_JS);
 
-  const outDir = path.join(ROOT, 'out');
+  // RADAR_REPORT_FULL=1 — полная версия без отсечки строк, в out/full: для просмотра локально
+  // (http://localhost:8777/full/…), в артефакт такой файл не помещается.
+  const outDir = path.join(ROOT, 'out', process.env.RADAR_REPORT_FULL ? 'full' : '');
   fs.mkdirSync(outDir, { recursive: true });
   fs.writeFileSync(path.join(outDir, 'appradar-artifact.html'), fragment, 'utf8');
   fs.writeFileSync(path.join(outDir, 'appradar.html'), `<!doctype html>

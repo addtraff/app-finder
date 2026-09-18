@@ -51,7 +51,7 @@ function collectGeo(d, geo, date) {
                CASE WHEN m.prescore IS NULL THEN 1 ELSE 0 END, m.prescore DESC`, geo, date);
   // В HTML — сильнейшие строки гео (config.scoring.report_caps.dashboard): страница артефакта
   // ограничена 16 МБ. Счётчик counts.passed — по всем прошедшим.
-  const passed = passedAll.slice(0, config().scoring.report_caps?.dashboard ?? passedAll.length);
+  const passed = process.env.RADAR_REPORT_FULL ? passedAll : passedAll.slice(0, config().scoring.report_caps?.dashboard ?? passedAll.length);
 
   const k7 = buildQueue(d, geo, date).slice(0, 60);
 
@@ -302,7 +302,9 @@ export async function run({ geo, date }) {
   const json = JSON.stringify(packRows(data)).replace(/</g, '\\u003c');
   const fragment = tpl.replace('__RADAR_DATA__', () => json).replace('__UNPACK_JS__', () => UNPACK_JS);
 
-  const outDir = path.join(ROOT, 'out');
+  // RADAR_REPORT_FULL=1 — полная версия без отсечки строк, в out/full: для просмотра локально
+  // (http://localhost:8777/full/…), в артефакт такой файл не помещается.
+  const outDir = path.join(ROOT, 'out', process.env.RADAR_REPORT_FULL ? 'full' : '');
   fs.mkdirSync(outDir, { recursive: true });
   fs.writeFileSync(path.join(outDir, 'artifact.html'), fragment, 'utf8');
 

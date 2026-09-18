@@ -93,7 +93,7 @@ export function collect(d) {
     // копируемости в решении не участвует. Сколько отброшено — видно на странице «Сбор и планы».
     // Рекомендуемые (первые top_n × 3 по рекомендуемому скору) остаются в отчёте, даже если по
     // индексу копируемости они ниже отсечки: рекомендуемый топ считается по всем строкам гео.
-    const cap = V.report_apps_per_geo || 500;
+    const cap = process.env.RADAR_REPORT_FULL ? Infinity : (V.report_apps_per_geo || 500);
     const recKeep = new Set(apps.filter((a) => a.rec_pct != null).sort((x, y) => y.rec_pct - x.rec_pct)
       .slice(0, (V.recommended?.top_n || 50) * 3).map((a) => a.app_id));
     const kept = apps.filter((a, i) => i < cap || recKeep.has(a.app_id));
@@ -261,7 +261,9 @@ export async function run() {
   const tpl = fs.readFileSync(path.join(ROOT, 'src', 'report', 'appradar2.html'), 'utf8');
   const json = JSON.stringify(packRows(data)).replace(/</g, '\\u003c');
   const fragment = tpl.replace('__RADAR_DATA__', () => json).replace('__UNPACK_JS__', () => UNPACK_JS);
-  const outDir = path.join(ROOT, 'out');
+  // RADAR_REPORT_FULL=1 — полная версия без отсечки строк, в out/full: для просмотра локально
+  // (http://localhost:8777/full/…), в артефакт такой файл не помещается.
+  const outDir = path.join(ROOT, 'out', process.env.RADAR_REPORT_FULL ? 'full' : '');
   fs.mkdirSync(outDir, { recursive: true });
   fs.writeFileSync(path.join(outDir, 'appradar2-artifact.html'), fragment, 'utf8');
   fs.writeFileSync(path.join(outDir, 'appradar2.html'), `<!doctype html>
