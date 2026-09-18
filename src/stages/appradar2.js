@@ -89,6 +89,15 @@ export function collect(d) {
           AND v.snapshot_date=(SELECT MAX(x.snapshot_date) FROM metrics_app_v2 x
                                 WHERE x.app_id=v.app_id AND x.geo=v.geo AND x.snapshot_date<=? AND x.snapshot_date>=?)
         ORDER BY m.prescore DESC`, g.geo, date, carryFrom);
+    // Перенесённые строки получили вердикт воронки в свой день — возможно, по прежнему порогу
+    // «слишком крупного» (p95 до 18.09). Порог дня гео применяется к ним заново.
+    const bigQ = config().scoring.funnel?.too_big_quantile || 'p75';
+    const bigInst = qv(null, g.geo, 'installs', date, bigQ, { nicheFirst: false });
+    if (bigInst != null) {
+      const fresh = apps.filter((a) => a.snapshot_date === date || a.installs == null || a.installs <= bigInst);
+      apps.length = 0;
+      apps.push(...fresh);
+    }
     // В отчёт идут сильнейшие строки гео: страница ограничена 16 МБ, а хвост по индексу
     // копируемости в решении не участвует. Сколько отброшено — видно на странице «Сбор и планы».
     // Рекомендуемые (первые top_n × 3 по рекомендуемому скору) остаются в отчёте, даже если по
