@@ -343,7 +343,7 @@
 (function () {
   __UNPACK_JS__
   var D = unpackRows(JSON.parse(document.getElementById('radar-data').textContent));
-  var M = D.meta, REF = M.reference_geo, WW = 'WW', PAGE = 25;
+  var M = D.meta, REF = M.reference_geo, WW = 'WW', PAGE = 25, APP_PAGE = 100;
 
   // ---------------- справочники ----------------
   var GEO_NAMES = { US: 'США', AU: 'Австралия', GB: 'Великобритания', CA: 'Канада', DE: 'Германия', JP: 'Япония',
@@ -595,10 +595,11 @@
         return '<tr' + (opt.rowCls ? ' class="' + opt.rowCls(r) + '"' : '') + '>' + cols.map(function (c) { return '<td class="' + (c.r ? 'r ' : '') + (c.cls || '') + '">' + c.v(r, i) + '</td>'; }).join('') + '</tr>';
       }).join('') + '</tbody></table></div>';
   }
-  function pager(total, page) {
-    var pages = Math.max(1, Math.ceil(total / PAGE));
+  function pager(total, page, size) {
+    size = size || PAGE;
+    var pages = Math.max(1, Math.ceil(total / size));
     if (page > pages) page = pages;
-    var from = total ? (page - 1) * PAGE + 1 : 0, to = Math.min(total, page * PAGE), nums = [];
+    var from = total ? (page - 1) * size + 1 : 0, to = Math.min(total, page * size), nums = [];
     for (var p = 1; p <= pages; p++) { if (p === 1 || p === pages || Math.abs(p - page) <= 1) nums.push(p); else if (nums[nums.length - 1] !== '…') nums.push('…'); }
     return '<div class="pager"><span class="note">Показано ' + from + '–' + to + ' из ' + int(total) + '</span><div class="pager-btns">' +
       '<button class="pg" data-act="page" data-page="' + (page - 1) + '"' + (page <= 1 ? ' disabled' : '') + ' aria-label="Предыдущая">‹</button>' +
@@ -795,9 +796,9 @@
     var rows = state.hidePaid ? noPaid.filter(function (a) { return a.level !== 'found'; }) : noPaid;
     if (f.rec) { rows.sort(APP_SORT.rec); rows = rows.slice(0, REC.top_n); }
     else rows.sort(APP_SORT[f.sort] || APP_SORT.checks);
-    var pages = Math.max(1, Math.ceil(rows.length / PAGE));
+    var pages = Math.max(1, Math.ceil(rows.length / APP_PAGE));
     if (state.page > pages) state.page = pages;
-    var slice = rows.slice((state.page - 1) * PAGE, state.page * PAGE);
+    var slice = rows.slice((state.page - 1) * APP_PAGE, state.page * APP_PAGE);
     var disqHidden = state.showDisq ? 0 : base.filter(function (a) { return a.disq.indexOf('fraud') >= 0 || a.disq.indexOf('wall') >= 0; }).length;
 
     var cats = {}, monets = {};
@@ -823,7 +824,7 @@
 
     var sel = function (key, label, cur, options, tip) { return selectField('f-', 'af', key, label, cur, options, tip); };
     var cols = [
-      { t: '#', v: function (a, i) { return '<div style="display:flex;align-items:center;gap:7px">' + starBtn('a', a.app_id) + '<span class="num muted strong" style="font-size:12.5px">' + ((state.page - 1) * PAGE + i + 1) + '</span></div>'; } },
+      { t: '#', v: function (a, i) { return '<div style="display:flex;align-items:center;gap:7px">' + starBtn('a', a.app_id) + '<span class="num muted strong" style="font-size:12.5px">' + ((state.page - 1) * APP_PAGE + i + 1) + '</span></div>'; } },
       { t: 'Приложение', tip: 'c.app', v: function (a) { return appCell(a) + rowDateHtml(a); } },
       { t: 'Ниша', tip: 'c.niche', v: function (a) {
         if (!a.niche_id) return dash('ниша не определена');
@@ -881,7 +882,7 @@
           (f.rec ? '' : '<div class="toolbar-right">' + sel('sort', 'Сортировка', f.sort, [['checks', 'Пройдено проверок'], ['rec', 'Рекомендуемый скор'], ['prescore', 'Индекс копируемости'], ['delta', 'Прирост за 30 дней'], ['young', 'Сначала молодые'], ['freedom', 'Свобода ниши'], ['breadth', 'Широта по гео']], 'f.sort') + '</div>') +
         '</div>' +
         tableHtml(cols, slice, { minWidth: state.geo === WW ? 1640 : 1580, empty: f.rec ? 'Под фильтры не попал ни один рекомендуемый' : 'Под фильтры ничего не попало' }) +
-        pager(rows.length, state.page) +
+        pager(rows.length, state.page, APP_PAGE) +
       '</div>' +
       '<p class="note">Наведите на название колонки, бейдж или «?» — подсказка объяснит термин, как он считается и зачем нужен. Проверка 3 «вырос без закупки» пройдена только при разборе APK (установочного файла приложения) без SDK атрибуции — сейчас таких нет. Прирост, курс «спрос → установки» и проверка 3b появятся, когда между снимками гео будет ' + M.min_window + ' дней. Выручки нет: Play её не публикует.</p>' +
     '</section>';
