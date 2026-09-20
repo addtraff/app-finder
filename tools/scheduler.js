@@ -1,10 +1,15 @@
 // Расписание сборов на несколько суток (решение заказчика 18.09: «все сборы, которых не хватает»).
-//   K7 по топ-10 ключей ядра — пачками по 10 доменов на гео в 23:30, 07:30 и 15:30:
+//   K7 по топ-10 ключей ядра — пачками по 10 доменов на гео в 07:30, 15:30 и 23:30:
 //     ~900 доменов в сутки, больше Google начинает блокировать по IP;
 //   дневной проход по 30 гео — в 03:05 (начало суток по UTC), в 3 параллельных потока;
 //   после дневного прохода — Google по имени для новых кандидатов, разметка УБТ, слой v2,
 //     английские названия, отчёты для артефактов и полные — в out/full.
-//   node tools/scheduler.js [--days=3]
+//
+// Моменты считаются ОДИН раз от даты запуска и дальше не пересчитываются: раньше следующий
+// момент брался от времени окончания предыдущего этапа, и проход, закончившийся в 17:01,
+// сдвигал следующий на послезавтра — сутки 20.09 так и выпали. Прошедшие моменты
+// пропускаются; запустить этап сразу — ключ --now=daily,k7.
+//   node tools/scheduler.js [--days=3] [--now=daily,k7]
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -16,9 +21,12 @@ const LOG = path.join(LOGS, 'scheduler.log');
 const stamp = () => new Date().toLocaleString('sv-SE').replace(' ', 'T');
 const log = (m) => fs.appendFileSync(LOG, `${stamp()} ${m}\n`);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const DAYS = Number((process.argv.find((a) => a.startsWith('--days=')) || '--days=3').slice(7));
+const arg = (name, def) => (process.argv.find((a) => a.startsWith(`--${name}=`)) || `--${name}=${def}`).slice(name.length + 3);
+const DAYS = Number(arg('days', 3));
+const NOW = new Set(arg('now', '').split(',').filter(Boolean));
 
-const at = (dayOffset, hh, mm) => { const t = new Date(); t.setDate(t.getDate() + dayOffset); t.setHours(hh, mm, 0, 0); return t; };
+const BASE = new Date(); BASE.setHours(0, 0, 0, 0);
+const at = (dayOffset, hh, mm) => new Date(BASE.getTime() + dayOffset * 86400000 + (hh * 60 + mm) * 60000);
 async function until(t, label) {
   if (Date.now() >= t.getTime()) return false;
   log(`${label}: жду до ${t.toLocaleString('sv-SE')}`);
@@ -39,8 +47,9 @@ function run(name, args, env = {}) {
 
 const ALL = ['US', 'AU', 'GB', 'CA', 'DE', 'JP', 'FR', 'KR', 'CH', 'NL', 'SE', 'NO', 'DK', 'FI', 'NZ', 'AT', 'BE', 'IE', 'SG', 'AE', 'IL', 'IT', 'ES', 'SA', 'PT', 'BR', 'TW', 'PL', 'MX', 'TR'];
 const LANES = [['US', 'GB', 'JP', 'CH', 'NO', 'FI', 'IE', 'IL', 'SA', 'TW'], ['AU', 'CA', 'FR', 'NL', 'DK', 'NZ', 'SG', 'IT', 'PT', 'PL'], ['DE', 'KR', 'SE', 'AT', 'BE', 'AE', 'ES', 'BR', 'MX', 'TR']];
+const tag = (t) => `${String(t.getMonth() + 1).padStart(2, '0')}${String(t.getDate()).padStart(2, '0')}-${String(t.getHours()).padStart(2, '0')}${String(t.getMinutes()).padStart(2, '0')}`;
 
-const k7 = (tag) => run(`k7-${tag}`, ['src/cli.js', 'stage', 'check-ads', '--geo', ALL.join(','), '--scope', 'core-top', '--limit', '10', '--sequential', 'yes']);
+const k7 = (t) => run(`k7-${tag(t)}`, ['src/cli.js', 'stage', 'check-ads', '--geo', ALL.join(','), '--scope', 'core-top', '--limit', '10', '--sequential', 'yes']);
 
 async function reports() {
   await run('post', ['src/cli.js', 'stage', 'analyze-ubt', '--geo', 'GB']);
@@ -51,27 +60,29 @@ async function reports() {
   fs.writeFileSync(path.join(LOGS, 'reports.done'), stamp());
 }
 
-async function daily(tag) {
-  await Promise.all(LANES.map((geos, i) => run(`lane${i + 1}-${tag}`, ['src/cli.js', 'daily', '--geo', geos.join(',')],
+async function daily(t) {
+  await Promise.all(LANES.map((geos, i) => run(`lane${i + 1}-${tag(t)}`, ['src/cli.js', 'daily', '--geo', geos.join(',')],
     { RADAR_BROWSER_PROFILE: path.join(ROOT, 'data', `browser-lane${i + 1}`) })));
-  await run(`devname-${tag}`, ['src/cli.js', 'stage', 'check-ads', '--scope', 'dev-name', '--geo', ALL.join(',')]);
+  await run(`devname-${tag(t)}`, ['src/cli.js', 'stage', 'check-ads', '--scope', 'dev-name', '--geo', ALL.join(',')]);
   await reports();
 }
 
-log(`=== расписание на ${DAYS} сут.`);
-const k7Chain = (async () => {
-  for (let day = 0; day < DAYS; day++) {
-    for (const [hh, mm] of day === 0 ? [[23, 30]] : [[7, 30], [15, 30], [23, 30]]) {
-      if (await until(at(day, hh, mm), `K7 ${day}/${hh}:${mm}`) || day > 0) await k7(`${day}-${hh}${mm}`);
-    }
-  }
-})();
+const times = { daily: [], k7: [] };
+for (let day = 0; day < DAYS; day++) {
+  times.daily.push(at(day, 3, 5));
+  for (const [hh, mm] of [[7, 30], [15, 30], [23, 30]]) times.k7.push(at(day, hh, mm));
+}
+log(`=== расписание на ${DAYS} сут., сразу: ${[...NOW].join(',') || 'ничего'}`);
+log(`дневные: ${times.daily.map((t) => t.toLocaleString('sv-SE')).join(', ')}`);
+log(`K7: ${times.k7.map((t) => t.toLocaleString('sv-SE')).join(', ')}`);
+
 const dailyChain = (async () => {
-  for (let day = 1; day < DAYS; day++) {
-    await until(at(day, 3, 5), `дневной +${day}`);
-    const d = at(day, 0, 0);
-    await daily(`${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`);
-  }
+  if (NOW.has('daily')) await daily(new Date());
+  for (const t of times.daily) { if (Date.now() >= t.getTime()) continue; await until(t, 'дневной'); await daily(t); }
 })();
-await Promise.all([k7Chain, dailyChain]);
+const k7Chain = (async () => {
+  if (NOW.has('k7')) await k7(new Date());
+  for (const t of times.k7) { if (Date.now() >= t.getTime()) continue; await until(t, 'K7'); await k7(t); }
+})();
+await Promise.all([dailyChain, k7Chain]);
 log('=== расписание закончено');
