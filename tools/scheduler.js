@@ -7,8 +7,10 @@
 //
 // Моменты считаются ОДИН раз от даты запуска и дальше не пересчитываются: раньше следующий
 // момент брался от времени окончания предыдущего этапа, и проход, закончившийся в 17:01,
-// сдвигал следующий на послезавтра — сутки 20.09 так и выпали. Прошедшие моменты
-// пропускаются; запустить этап сразу — ключ --now=daily,k7.
+// сдвигал следующий на послезавтра — сутки 20.09 так и выпали. Пропускаются только моменты,
+// прошедшие ДО запуска расписания: если этап затянулся и перекрыл следующий момент (проход
+// 20.09 закончился в 03:23 и съел момент 03:05), просроченный запускается сразу, а не через
+// сутки. Запустить этап немедленно — ключ --now=daily,k7.
 //   node tools/scheduler.js [--days=3] [--now=daily,k7]
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -25,6 +27,7 @@ const arg = (name, def) => (process.argv.find((a) => a.startsWith(`--${name}=`))
 const DAYS = Number(arg('days', 3));
 const NOW = new Set(arg('now', '').split(',').filter(Boolean));
 
+const START = Date.now();
 const BASE = new Date(); BASE.setHours(0, 0, 0, 0);
 const at = (dayOffset, hh, mm) => new Date(BASE.getTime() + dayOffset * 86400000 + (hh * 60 + mm) * 60000);
 async function until(t, label) {
@@ -78,11 +81,11 @@ log(`K7: ${times.k7.map((t) => t.toLocaleString('sv-SE')).join(', ')}`);
 
 const dailyChain = (async () => {
   if (NOW.has('daily')) await daily(new Date());
-  for (const t of times.daily) { if (Date.now() >= t.getTime()) continue; await until(t, 'дневной'); await daily(t); }
+  for (const t of times.daily) { if (t.getTime() < START) continue; await until(t, 'дневной'); await daily(t); }
 })();
 const k7Chain = (async () => {
   if (NOW.has('k7')) await k7(new Date());
-  for (const t of times.k7) { if (Date.now() >= t.getTime()) continue; await until(t, 'K7'); await k7(t); }
+  for (const t of times.k7) { if (t.getTime() < START) continue; await until(t, 'K7'); await k7(t); }
 })();
 await Promise.all([dailyChain, k7Chain]);
 log('=== расписание закончено');
