@@ -136,6 +136,11 @@ export function collect(d) {
   // гео и без отсечки строк отчёта — установки у приложения общие для Play. Прирост за окно
   // приводится к 30 дням (× 30 / окно); если есть официальная дельта (окно ≥ 14 дней) — берётся она.
   const growthByApp = new Map();
+  // Рост ниши — сумма прироста её органик-приложений. Своей истории у ниши нет: ядро
+  // пересобирается каждый день, и стена установок топ-10 скачет на десятки процентов от
+  // смены состава, а не от роста. По приложениям история честная, поэтому ниша считается
+  // снизу вверх, из тех же строк, что и отчёт по приложениям.
+  const nicheGrowthByKey = new Map();
   for (const g of cfg.geos.geos) {
     const date = one(d, `SELECT MAX(snapshot_date) m FROM metrics_app_v2 WHERE geo=?`, g.geo)?.m;
     const base = {
@@ -175,7 +180,7 @@ export function collect(d) {
     };
 
     for (const r of all(d,
-      `SELECT v.app_id, v.passed_funnel, v.organic_level, v.installs, v.installs_delta_30d, v.delta_window_days,
+      `SELECT v.app_id, v.niche_id, v.passed_funnel, v.organic_level, v.installs, v.installs_delta_30d, v.delta_window_days,
               v.delta_preview, v.delta_preview_raw, v.delta_preview_w, v.age_months, v.young, v.ubt_signal,
               m.fraud_ok, m.burst_flag, m.installs_per_rating, m.template_review_pct, a.title, a.developer,
               n.concept, n.freedom_pct, n.organic_purity, n.door, n.free_keys_count, n.quadrant, n.closed_flag,
@@ -204,10 +209,22 @@ export function collect(d) {
       const niche = { n_geo: g.geo, n_freedom: r4(r.freedom_pct), n_purity: r4(r.organic_purity),
         n_free_keys: r.free_keys_count, n_young: r.young_organic_count, n_door: r.door,
         n_tto: r4(r.time_to_organic), n_quad: r.quadrant };
-      const row = { app_id: r.app_id, title: r.title, dev: r.developer, concept: r.concept, geo: g.geo, installs: r.installs,
+      const row = { app_id: r.app_id, title: r.title, dev: r.developer, concept: r.concept, niche_id: r.niche_id, geo: g.geo, installs: r.installs,
         official: official ? 1 : 0, w, interp: r4(official ? r.installs_delta_30d : r.delta_preview),
         raw: official ? Math.round((r.installs_delta_30d * w) / 30) : r.delta_preview_raw,
         age: r4(r.age_months), young: r.young, level: r.organic_level, passed: r.passed_funnel ? 1 : 0, ubt: r.ubt_signal === 1 ? 1 : 0, flags };
+      if (r.niche_id) {
+        const key = g.geo + '|' + r.niche_id;
+        let ag = nicheGrowthByKey.get(key);
+        if (!ag) { ag = { geo: g.geo, niche_id: r.niche_id, apps: 0, installs: 0, raw: 0, interp: 0, ws: [], young: 0, ubt: 0, passed: 0, flags: 0, official: 0, easy }; nicheGrowthByKey.set(key, ag); }
+        ag.apps++; ag.installs += r.installs || 0; ag.raw += row.raw || 0; ag.interp += row.interp || 0;
+        ag.ws.push(w);
+        if (r.young) ag.young++;
+        if (row.ubt) ag.ubt++;
+        if (row.passed) ag.passed++;
+        if (row.flags) ag.flags++;
+        if (official) ag.official++;
+      }
       const cur = growthByApp.get(r.app_id);
       if (!cur) { growthByApp.set(r.app_id, { ...row, ...niche, easy, geos: [g.geo] }); continue; }
       cur.geos.push(g.geo);
@@ -430,6 +447,12 @@ export function collect(d) {
     },
     geos, apps: appRows, niches: nicheRows, keys: keyRows, worldApps, worldNiches, timeline, funnel,
     growth: [...growthByApp.values()].map((r) => ({ ...r, geos: r.geos.sort().join(','), geos_count: r.geos.length })),
+    nicheGrowth: [...nicheGrowthByKey.values()].map((a) => {
+      const ws = a.ws.slice().sort((x, y) => x - y);
+      return { geo: a.geo, niche_id: a.niche_id, apps: a.apps, installs: a.installs, raw: Math.round(a.raw),
+        interp: r4(a.interp), w: ws[ws.length >> 1], young: a.young, ubt: a.ubt, passed: a.passed,
+        flags: a.flags, official: a.official, easy: a.easy };
+    }),
     quotes: extra.quotes, appEvents: extra.appEvents, ref: extra.ref,
     collection: collectCollection(d, lastDate),
   };
