@@ -132,6 +132,10 @@ export function collect(d) {
 
   const geos = [], appRows = [], nicheRows = [], keyRows = [], funnel = [];
   const leaderIds = new Set();
+  // Отчёт «Интерполяция — топ роста органик прил за 1 месяц»: одна строка на приложение по всем
+  // гео и без отсечки строк отчёта — установки у приложения общие для Play. Прирост за окно
+  // приводится к 30 дням (× 30 / окно); если есть официальная дельта (окно ≥ 14 дней) — берётся она.
+  const growthByApp = new Map();
   for (const g of cfg.geos.geos) {
     const date = one(d, `SELECT MAX(snapshot_date) m FROM metrics_app_v2 WHERE geo=?`, g.geo)?.m;
     const base = {
@@ -169,6 +173,36 @@ export function collect(d) {
       iprP99: r4(qv(null, g.geo, 'installs_per_rating', date, 'p99', { nicheFirst: false })),
       tmplP95: r4(qv(null, g.geo, 'template_review_pct', date, 'p95', { nicheFirst: false })),
     };
+
+    for (const r of all(d,
+      `SELECT v.app_id, v.passed_funnel, v.organic_level, v.installs, v.installs_delta_30d, v.delta_window_days,
+              v.delta_preview, v.delta_preview_raw, v.delta_preview_w, v.age_months, v.young, v.ubt_signal,
+              m.fraud_ok, m.burst_flag, m.installs_per_rating, m.template_review_pct, a.title, a.developer, n.concept
+         FROM metrics_app_v2 v
+         JOIN metrics_app_geo m ON m.app_id=v.app_id AND m.geo=v.geo AND m.snapshot_date=v.snapshot_date
+         JOIN apps a ON a.app_id=v.app_id
+         LEFT JOIN metrics_niche_v2 n ON n.niche_id=v.niche_id AND n.geo=v.geo AND n.snapshot_date=v.snapshot_date
+        WHERE v.geo=? AND v.snapshot_date=? AND v.organic_level <> 'found'
+          AND (v.installs_delta_30d IS NOT NULL OR v.delta_preview IS NOT NULL)`, g.geo, date)) {
+      const official = r.installs_delta_30d != null;
+      const w = official ? r.delta_window_days : r.delta_preview_w;
+      if (!w) continue;
+      const flags = (r.fraud_ok === 0 ? 1 : 0) + (r.burst_flag === 1 ? 1 : 0)
+        + (r.installs_per_rating != null && ((thresholds.iprP01 != null && r.installs_per_rating < thresholds.iprP01) || (thresholds.iprP99 != null && r.installs_per_rating > thresholds.iprP99)) ? 1 : 0)
+        + (r.template_review_pct != null && thresholds.tmplP95 != null && r.template_review_pct > thresholds.tmplP95 ? 1 : 0);
+      const row = { app_id: r.app_id, title: r.title, dev: r.developer, concept: r.concept, geo: g.geo, installs: r.installs,
+        official: official ? 1 : 0, w, interp: r4(official ? r.installs_delta_30d : r.delta_preview),
+        raw: official ? Math.round((r.installs_delta_30d * w) / 30) : r.delta_preview_raw,
+        age: r4(r.age_months), young: r.young, level: r.organic_level, passed: r.passed_funnel ? 1 : 0, ubt: r.ubt_signal === 1 ? 1 : 0, flags };
+      const cur = growthByApp.get(r.app_id);
+      if (!cur) { growthByApp.set(r.app_id, { ...row, geos: [g.geo] }); continue; }
+      cur.geos.push(g.geo);
+      cur.passed = cur.passed || row.passed; cur.ubt = cur.ubt || row.ubt; cur.flags = Math.max(cur.flags, row.flags);
+      // Лучшая строка: официальная дельта, затем окно длиннее.
+      if (row.official > cur.official || (row.official === cur.official && row.w > cur.w)) {
+        Object.assign(cur, { ...row, geos: cur.geos, passed: cur.passed, ubt: cur.ubt, flags: cur.flags });
+      }
+    }
 
     const apps = all(d,
       `SELECT v.*, m.prescore, m.score, m.ratings_count, m.monetization_type, m.iap_min_usd, m.iap_max_usd, m.contains_ads,
@@ -378,6 +412,7 @@ export function collect(d) {
       rec: V.recommended,
     },
     geos, apps: appRows, niches: nicheRows, keys: keyRows, worldApps, worldNiches, timeline, funnel,
+    growth: [...growthByApp.values()].map((r) => ({ ...r, geos: r.geos.sort().join(','), geos_count: r.geos.length })),
     quotes: extra.quotes, appEvents: extra.appEvents, ref: extra.ref,
     collection: collectCollection(d, lastDate),
   };

@@ -58,8 +58,9 @@ async function reports() {
   await run('post', ['src/cli.js', 'stage', 'analyze-ubt', '--geo', 'GB']);
   await run('post', ['src/cli.js', 'stage', 'radar-v2', '--geo', ALL.join(',')]);
   await run('post', ['tools/restore-en-titles.js']);
-  for (const st of ['dashboard', 'methodology', 'appradar', 'appradar2']) await run('post', ['src/cli.js', 'stage', st, '--geo', 'US']);
-  for (const st of ['dashboard', 'methodology', 'appradar', 'appradar2']) await run('post', ['src/cli.js', 'stage', st, '--geo', 'US'], { RADAR_REPORT_FULL: '1' });
+  // Только AppRadar 2 (решение заказчика 22.09): остальные отчёты заморожены.
+  await run('post', ['src/cli.js', 'stage', 'appradar2', '--geo', 'US']);
+  await run('post', ['src/cli.js', 'stage', 'appradar2', '--geo', 'US'], { RADAR_REPORT_FULL: '1' });
   fs.writeFileSync(path.join(LOGS, 'reports.done'), stamp());
 }
 

@@ -575,7 +575,8 @@
     af: { cat: 'all', level: 'all', channel: 'all', traffic: 'all', minPassed: 0, quad: 'all', age: 'all', monet: 'all', sort: 'checks', niche: null, rec: false },
     nf: { cat: 'all', quad: 'all', freedom: 'all', purity: 'all', channel: 'all', young: false, cand: false, full: false, sort: 'rank', rec: false },
     hidePaid: !!load('appradar2-hide-paid', false), showDisq: false,
-    favs: load('appradar2-favs', []), nfavs: load('appradar2-nfavs', []), cTab: 'collect'
+    favs: load('appradar2-favs', []), nfavs: load('appradar2-nfavs', []), cTab: 'collect',
+    rTab: 'growth', gf: { win: 7, inst: 1000, passed: '1', channel: 'organic', age: 'all', sort: 'interp' }
   };
   var themeSaved = load('appradar-theme', null);
   if (themeSaved === 'light' || themeSaved === 'dark') document.documentElement.setAttribute('data-theme', themeSaved);
@@ -709,6 +710,7 @@
       { id: 'apps', title: 'Топ приложений', svg: '<path d="M4 19V10M10 19V5M16 19v-7M22 19H2"/>', count: D.worldApps.length },
       { id: 'niches', title: 'Топ ниш', svg: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.6"/>', count: D.worldNiches.length },
       { id: 'fav', title: 'Избранное', svg: '<path d="M12 3l2.7 5.7 6.3.8-4.6 4.3 1.2 6.2L12 17l-5.6 3 1.2-6.2L3 9.5l6.3-.8z"/>', count: state.favs.length + state.nfavs.length },
+      { id: 'reports', title: 'Отчёты', svg: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h7M9 9h3"/>', count: REPORTS.length },
       { id: 'collection', title: 'Сбор и планы', svg: '<rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>' }
     ];
     $('nav').innerHTML = items.map(function (c) {
@@ -1581,12 +1583,79 @@
     $('view').innerHTML = '<section class="page">' + pageHead('Сбор и планы', title, lead) + ctabs() + body + '</section>';
   }
 
+  // ---------------- раздел «Отчёты» ----------------
+  var REPORTS = [['growth', 'Интерполяция — топ роста органик прил за 1 месяц']];
+  GLOSS['g.interp'] = { t: 'Интерполяция на 30 дней', what: 'Сколько установок приложение наберёт за месяц при нынешней скорости.', how: 'Прирост за окно наблюдения × 30 / длина окна в днях. Если истории в одном гео уже 14+ дней — берётся официальная дельта методики. Установки у приложения общие для Play, поэтому ряд собирается по карточкам всех гео.', why: 'Сравнить скорость роста приложений с разной длиной истории.' };
+  GLOSS['g.window'] = { t: 'Окно наблюдения', what: 'Сколько дней между первым и последним снимком установок.', how: 'Чем короче окно, тем больше шум: Play обновляет счётчик установок неравномерно. От 14 дней — официальная дельта.', why: 'Понимать, насколько надёжна интерполяция.' };
+  GLOSS['g.rel'] = { t: 'Рост в месяц, %', what: 'Интерполированный прирост за месяц относительно текущих установок.', how: 'Интерполяция на 30 дней / установки.', why: 'Находит небольшие приложения, которые быстро удваиваются, — их проще повторить, чем гигантов.' };
+  GLOSS['g.flags'] = { t: 'Сигналы антифрода', what: 'Признаки, что рост может быть накручен.', how: 'Считаются: установок на оценку вне p01–p99 гео, шаблонных отзывов больше p95 гео, всплеск отзывов, не пройден антифрод методики.', why: 'Рост с сигналами копировать как образец рискованно.' };
+  GLOSS['g.report'] = { t: 'Топ роста органик-приложений', what: 'Приложения без найденной закупки трафика, отсортированные по приросту установок за месяц.', how: 'Органика — ступень «признаков закупки нет» или «органика подтверждена». Прирост — интерполяция собранной дельты на 30 дней.', why: 'Кто прямо сейчас растёт без рекламы — главный кандидат в образцы.' };
+  function reportTabs() { return REPORTS.length > 1 ? '<div class="ctabs">' + REPORTS.map(function (r) { return '<button class="pill" data-act="rtab" data-tab="' + r[0] + '" aria-pressed="' + (state.rTab === r[0]) + '">' + esc(r[1]) + '</button>'; }).join('') + '</div>' : ''; }
+  var GROWTH_SORT = {
+    interp: function (a, b) { return (b.interp || 0) - (a.interp || 0); },
+    rel: function (a, b) { return ((b.installs ? b.interp / b.installs : 0) - (a.installs ? a.interp / a.installs : 0)); },
+    installs: function (a, b) { return (b.installs || 0) - (a.installs || 0); },
+    young: function (a, b) { return (a.age ?? 999) - (b.age ?? 999); }
+  };
+  function renderReports() {
+    var f = state.gf, G = D.growth || [];
+    var all = G.filter(function (r) {
+      if (state.geo !== WW && (',' + r.geos + ',').indexOf(',' + state.geo + ',') < 0) return false;
+      if (f.channel === 'organic' && !(r.level === 'no_signs' || r.level === 'confirmed')) return false;
+      if (f.passed === '1' && !r.passed) return false;
+      if (f.inst && !(r.installs >= f.inst)) return false;
+      if (f.age !== 'all' && !(isNum(r.age) && r.age < Number(f.age))) return false;
+      return matchesQ([r.title, r.app_id, r.concept, r.dev]);
+    });
+    var shortWin = all.filter(function (r) { return !(r.w >= f.win); }).length;
+    var rows = all.filter(function (r) { return r.w >= f.win; }).sort(GROWTH_SORT[f.sort] || GROWTH_SORT.interp);
+    var pages = Math.max(1, Math.ceil(rows.length / APP_PAGE)); if (state.page > pages) state.page = pages;
+    var slice = rows.slice((state.page - 1) * APP_PAGE, state.page * APP_PAGE);
+    var rels = rows.filter(function (r) { return r.installs > 0; }).map(function (r) { return r.interp / r.installs; });
+    var sel = function (key, label, cur, options, tip) { return selectField('g-', 'gf', key, label, cur, options, tip); };
+    var cols = [
+      { t: '#', v: function (r, i) { return '<span class="num muted strong">' + ((state.page - 1) * APP_PAGE + i + 1) + '</span>'; } },
+      { t: 'Приложение', v: function (r) {
+        var inReport = appByKey[r.geo + '|' + r.app_id] || (appsById[r.app_id] || [])[0];
+        return inReport ? appCell(Object.assign({}, inReport, { title: r.title || inReport.title })) : '<div class="app-name">' + esc(r.title || r.app_id) + '</div><div class="app-pkg">' + esc(r.app_id) + (r.dev ? ' · ' + esc(r.dev) : '') + '</div>';
+      } },
+      { t: 'Ниша', v: function (r) { return r.concept ? '<span class="strong">' + esc(r.concept) + '</span>' : dash('ниша не определена'); } },
+      { t: 'Гео', v: function (r) { return geoPlus(r.geo, r.geos_count, r.geos); } },
+      { t: 'Установки', r: true, v: function (r) { return '<span class="num strong">' + short(r.installs) + '</span>'; } },
+      { t: 'Прирост за окно', tip: 'g.window', r: true, v: function (r) { return '<div class="num">' + (r.raw > 0 ? '+' : '') + short(r.raw) + '</div><div class="muted small">' + r.w + ' дн.' + (r.official ? ' · офиц.' : '') + '</div>'; } },
+      { t: 'Интерполяция на 30 дн.', tip: 'g.interp', r: true, v: function (r) { return '<span class="num strong" style="color:' + (r.interp > 0 ? 'var(--green)' : 'var(--muted)') + '">' + (r.interp > 0 ? '+' : '') + short(r.interp) + '</span>'; } },
+      { t: 'Рост в месяц', tip: 'g.rel', r: true, v: function (r) { return r.installs > 0 ? '<span class="num">' + pct(r.interp / r.installs, r.interp / r.installs < 0.1 ? 1 : 0) + '</span>' : dash(); } },
+      { t: 'Возраст', r: true, v: function (r) { return isNum(r.age) ? '<div class="num">' + fix(r.age, 0) + ' мес</div>' + (r.young ? '<span class="badge b-green" style="margin-top:3px">&lt; ' + M.young_months + ' мес</span>' : '') : dash('дата релиза не разобрана'); } },
+      { t: 'Органика', v: function (r) { return levelBadge(r) + (r.ubt ? ' <span class="badge b-purple" data-tip="b.ubt">УБТ</span>' : ''); } },
+      { t: 'Сигналы', tip: 'g.flags', r: true, v: function (r) { return r.flags ? '<span class="badge b-orange">' + r.flags + '</span>' : '<span class="muted small">нет</span>'; } }
+    ];
+    $('view').innerHTML = '<section class="page">' +
+      pageHead('Отчёты', REPORTS[0][1], 'Приложения без найденной закупки трафика, по приросту установок за месяц. Прирост считается по собранной дельте и приводится к 30 дням: прирост за окно × 30 / длина окна. Если в гео накопилось 14+ дней — берётся официальная дельта. Короткие окна шумные: по умолчанию показаны окна от ' + f.win + ' дней.') +
+      reportTabs() +
+      kpiCards([
+        { label: 'Приложений в отчёте', tip: 'g.report', value: int(rows.length), delta: shortWin ? 'ещё ' + int(shortWin) + ' с окном короче' : '', hint: state.geo === WW ? 'по всем гео, одна строка на приложение' : 'присутствуют в ' + geoName(state.geo) },
+        { label: 'Медиана роста в месяц', tip: 'g.rel', value: pct(median(rels), 1), hint: 'интерполяция / установки' },
+        { label: 'Молодых', value: int(rows.filter(function (r) { return r.young; }).length), hint: 'моложе ' + M.young_months + ' мес' },
+        { label: 'С официальной дельтой', tip: 'g.window', value: int(rows.filter(function (r) { return r.official; }).length), hint: 'окно ≥ ' + M.min_window + ' дн. в одном гео' }
+      ]) +
+      '<div class="card" style="overflow:hidden"><div class="toolbar first">' +
+        sel('win', 'Окно', f.win, [[1, 'любое'], [3, '≥ 3 дн.'], [7, '≥ 7 дн.'], [10, '≥ 10 дн.'], [14, '≥ 14 дн. (офиц.)']], 'g.window') +
+        sel('inst', 'Установки', f.inst, [[0, 'любые'], [1000, '≥ 1K'], [10000, '≥ 10K'], [100000, '≥ 100K'], [1000000, '≥ 1M']]) +
+        sel('channel', 'Канал', f.channel, [['organic', 'органика'], ['nobuy', 'органика и непроверенные']], 'f.channel') +
+        sel('passed', 'Воронка', f.passed, [['1', 'только прошедшие'], ['0', 'все, кроме закупки']]) +
+        sel('age', 'Возраст', f.age, [['all', 'любой'], ['12', '< 12 мес'], ['24', '< 24 мес']]) +
+        '<div class="toolbar-right">' + sel('sort', 'Сортировка', f.sort, [['interp', 'Прирост в месяц'], ['rel', 'Рост, %'], ['installs', 'Установки'], ['young', 'Сначала молодые']]) + '</div>' +
+      '</div>' + tableHtml(cols, slice, { minWidth: 1180 }) + pager(rows.length, state.page, APP_PAGE) + '</div>' +
+    '</section>';
+  }
+
   // ---------------- отрисовка и события ----------------
   function render() {
     renderNav(); renderHeader();
     if (state.view === 'apps') renderApps();
     else if (state.view === 'niches') renderNiches();
     else if (state.view === 'fav') renderFav();
+    else if (state.view === 'reports') renderReports();
     else renderCollection();
   }
   document.addEventListener('click', function (e) {
@@ -1601,6 +1670,7 @@
     if (act === 'close') { if (t.classList.contains('overlay') && e.target.closest('[data-stop]')) return; closeDrawer(); return; }
     if (act === 'view') { state.view = t.getAttribute('data-view'); state.page = 1; closeDrawer(); render(); window.scrollTo(0, 0); return; }
     if (act === 'geo') { state.geo = t.getAttribute('data-geo'); state.page = 1; state.af.cat = 'all'; state.nf.cat = 'all'; menu.hidden = true; render(); return; }
+    if (act === 'rtab') { state.rTab = t.getAttribute('data-tab'); state.page = 1; render(); window.scrollTo(0, 0); return; }
     if (act === 'ctab') { state.cTab = t.getAttribute('data-tab'); state.page = 1; hideTip(); render(); window.scrollTo(0, 0); return; }
     if (act === 'page') { state.page = Number(t.getAttribute('data-page')); render(); var head = document.querySelector('.card .toolbar'); if (head) head.scrollIntoView({ block: 'start' }); return; }
     if (act === 'af-cat') { state.af.cat = t.getAttribute('data-cat'); state.page = 1; render(); return; }
@@ -1633,6 +1703,7 @@
     if (act === 'show-disq') { state.showDisq = t.checked; state.page = 1; render(); return; }
     if (act === 'af') { var k = t.getAttribute('data-key'); state.af[k] = k === 'minPassed' ? Number(t.value) : t.value; state.page = 1; render(); return; }
     if (act === 'nf') { state.nf[t.getAttribute('data-key')] = t.value; state.page = 1; render(); return; }
+    if (act === 'gf') { var gk = t.getAttribute('data-key'); state.gf[gk] = (gk === 'win' || gk === 'inst') ? Number(t.value) : t.value; state.page = 1; render(); return; }
     if (act === 'nf-check') { state.nf[t.getAttribute('data-key')] = t.checked; state.page = 1; render(); return; }
   });
   document.addEventListener('input', function (e) {

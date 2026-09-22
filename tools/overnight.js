@@ -63,6 +63,6 @@ log('E: пересчёт и отчёты');
 await run('final', ['src/cli.js', 'stage', 'analyze-ubt', '--geo', 'GB']);
 await run('final', ['src/cli.js', 'stage', 'radar-v2', '--geo', ALL.join(',')]);
 await run('final', ['tools/restore-en-titles.js']);
-for (const st of ['dashboard', 'methodology', 'appradar', 'appradar2']) await run('final', ['src/cli.js', 'stage', st, '--geo', 'US']);
+await run('final', ['src/cli.js', 'stage', 'appradar2', '--geo', 'US']); // остальные отчёты заморожены (22.09)
 fs.writeFileSync(path.join(LOGS, 'overnight.done'), stamp());
 log('=== готово');

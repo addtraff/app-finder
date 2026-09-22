@@ -112,9 +112,8 @@ const DISCOVERY = [
   // на следующие сутки, и отчёт этого дня показывает их как unchecked.
   ['score', {}],
   ['radar-v2', {}],
-  ['dashboard', {}],
-  ['methodology', {}],
-  ['appradar', {}],
+  // Отчёты: только AppRadar 2 (решение заказчика 22.09). Play Market Radar, Методика и
+  // AppRadar заморожены — стадии dashboard, methodology, appradar запускаются лишь вручную.
   ['appradar2', {}],
   ['export', {}],
   ['alerts', {}],
@@ -163,9 +162,8 @@ const DAILY = [
   // на следующие сутки, и отчёт этого дня показывает их как unchecked.
   ['score', {}],
   ['radar-v2', {}],
-  ['dashboard', {}],
-  ['methodology', {}],
-  ['appradar', {}],
+  // Отчёты: только AppRadar 2 (решение заказчика 22.09). Play Market Radar, Методика и
+  // AppRadar заморожены — стадии dashboard, methodology, appradar запускаются лишь вручную.
   ['appradar2', {}],
   ['export', {}],
   ['alerts', {}],
