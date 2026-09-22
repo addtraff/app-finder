@@ -43,7 +43,10 @@
     "leftover_to_concept": true,
     "leftover_min_shared_top10": 2,
     "_concept_note": "Подсказка сохраняет концепт семени, только если в её топ-20 не меньше concept_min_shared_top20 приложений из топ-20 семян того же концепта в гео (22.09: подсказки по началу семени уводили в чужие темы — «control de gastos» → «control remoto universal»).",
-    "concept_min_shared_top20": 2
+    "concept_min_shared_top20": 2,
+    "_purify_note": "Из ядра с преобладающим концептом убираются ключи, не прошедшие сверку с его семенем, и ключи чужой подтверждённой темы (уходят в свою нишу). Подпись концепта ставится нише, только если его подтверждает не меньше concept_min_label_share ключей ядра.",
+    "purify_clusters": true,
+    "concept_min_label_share": 0.34
   },
   "monetization_proof": {
     "ok": 1,

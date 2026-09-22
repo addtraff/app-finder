@@ -112,8 +112,9 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
       const shared = (top20.get(kw) || []).filter((a) => pool.has(a)).length;
       const ok = shared >= minShared ? 1 : 0;
       upConcept.run(ok, geo, kw);
+      s.concept_ok = ok;
       if (ok) conceptCheck.kept++;
-      else { conceptCheck.dropped++; s.concept = null; }
+      else { conceptCheck.dropped++; s.concept_failed = s.concept; s.concept = null; }
     }
   })();
 
@@ -132,7 +133,61 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
       if (shared >= cl.min_shared_top10 && jaccard(a, b) >= cl.min_jaccard) uf.union(keywords[i], keywords[j]);
     }
   }
-  const clusters = uf.groups().filter((c) => c.length >= cl.min_cluster_keywords);
+  let clusters = uf.groups().filter((c) => c.length >= cl.min_cluster_keywords);
+
+  // Чистка кластеров. Склейка по выдаче иногда сводит в один кластер разные темы: «пульт для
+  // телевизора» попадает к «учёту расходов», потому что в топ-10 обоих стоят одни и те же
+  // универсальные приложения. Из кластера с преобладающим концептом убираются ключи, которые
+  // сверку с семенем этой темы не прошли, и ключи с другим подтверждённым концептом — вторые
+  // уходят в кластер своей темы. Ключ без концепта остаётся: он попал сюда по общим
+  // приложениям топ-10, а не по чужой подписи. Снятый ключ не может вернуться в тот же
+  // кластер остатком (banned) — иначе чистка отменяла бы сама себя.
+  const purge = { moved: 0, released: 0, clusters: 0 };
+  const banned = new Map();
+  if (cl.purify_clusters !== false) {
+    const conceptOfKw = (k) => sugScore.get(k)?.concept || null;
+    const mainConcept = (core) => {
+      const cnt = new Map();
+      for (const k of core) { const c = conceptOfKw(k); if (c) cnt.set(c, (cnt.get(c) || 0) + 1); }
+      return [...cnt].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+    };
+    const conceptOfCluster = clusters.map(mainConcept);
+    // Дом для снятого ключа со своим концептом: кластер, где этого концепта больше всего.
+    const homeOf = new Map();
+    conceptOfCluster.forEach((c, i) => {
+      if (!c) return;
+      const n = clusters[i].filter((k) => conceptOfKw(k) === c).length;
+      const best = homeOf.get(c);
+      if (!best || n > best.n) homeOf.set(c, { i, n });
+    });
+    const moves = [];
+    const kept = clusters.map((core, i) => {
+      const c = conceptOfCluster[i];
+      if (!c) return core;
+      const keep = [], drop = [];
+      for (const kw of core) {
+        const s = sugScore.get(kw);
+        if (!s) { keep.push(kw); continue; }
+        if (s.concept === c) { keep.push(kw); continue; }        // семя темы или подтверждённый ключ
+        if (s.concept_failed === c || s.concept) drop.push(kw);  // не прошёл сверку с темой / чужая тема
+        else keep.push(kw);                                      // ключ без концепта — по выдаче
+      }
+      // Ядро не разбираем целиком: если после чистки кластер перестаёт быть нишей, оставляем как был.
+      if (!drop.length || keep.length < cl.min_cluster_keywords) return core;
+      purge.clusters++;
+      for (const kw of drop) {
+        if (!banned.has(kw)) banned.set(kw, new Set());
+        banned.get(kw).add(i);
+        const home = homeOf.get(conceptOfKw(kw));
+        if (home && home.i !== i) { moves.push([home.i, kw]); purge.moved++; }
+        else purge.released++;
+      }
+      return keep;
+    });
+    clusters = kept;
+    for (const [i, kw] of moves) clusters[i].push(kw);
+    if (purge.clusters) log(`  чистка ниш: ${purge.clusters} ядер, снято ${purge.moved + purge.released} ключей (в свою тему ${purge.moved}, в остаток ${purge.released})`);
+  }
 
   // Остаток. Порог «от min_cluster_keywords ключей» оставлял в нишах только то, что склеилось
   // по выдаче: в US это 19 из 69 ниш каталога, остальные ключи молча выпадали. Ключ не
@@ -172,7 +227,9 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
       }
       let bestI = -1, bestShared = 0;
       const mine = top10.get(kw) || [];
+      const ban = banned.get(kw);
       clusterApps.forEach((apps, i) => {
+        if (ban && ban.has(i)) return;
         let shared = 0;
         for (const a of mine) if (apps.has(a)) shared++;
         if (shared > bestShared) { bestShared = shared; bestI = i; }
@@ -273,7 +330,12 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
       const c = sugScore.get(kw)?.concept;
       if (c) conceptCount.set(c, (conceptCount.get(c) || 0) + 1);
     }
-    const concept = [...conceptCount].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+    // Подпись ставится, только если концепт подтверждает не меньше трети ключей ядра. Иначе
+    // одна случайная подсказка давала нише чужое имя: в отчёте стояло «учёт расходов» там,
+    // где ядро про другое. Ниша без подписи показывается по головному ключу.
+    const topConcept = [...conceptCount].sort((a, b) => b[1] - a[1])[0];
+    const concept = topConcept && topConcept[1] / Math.max(1, core.length) >= (cl.concept_min_label_share ?? 0.34)
+      ? topConcept[0] : null;
 
     const coreSet = new Set(core);
     let match = null, bestJ = 0;
