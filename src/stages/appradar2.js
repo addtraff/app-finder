@@ -177,7 +177,9 @@ export function collect(d) {
     for (const r of all(d,
       `SELECT v.app_id, v.passed_funnel, v.organic_level, v.installs, v.installs_delta_30d, v.delta_window_days,
               v.delta_preview, v.delta_preview_raw, v.delta_preview_w, v.age_months, v.young, v.ubt_signal,
-              m.fraud_ok, m.burst_flag, m.installs_per_rating, m.template_review_pct, a.title, a.developer, n.concept
+              m.fraud_ok, m.burst_flag, m.installs_per_rating, m.template_review_pct, a.title, a.developer,
+              n.concept, n.freedom_pct, n.organic_purity, n.door, n.free_keys_count, n.quadrant, n.closed_flag,
+              n.young_organic_count, n.time_to_organic
          FROM metrics_app_v2 v
          JOIN metrics_app_geo m ON m.app_id=v.app_id AND m.geo=v.geo AND m.snapshot_date=v.snapshot_date
          JOIN apps a ON a.app_id=v.app_id
@@ -190,7 +192,15 @@ export function collect(d) {
       const flags = (r.fraud_ok === 0 ? 1 : 0) + (r.burst_flag === 1 ? 1 : 0)
         + (r.installs_per_rating != null && ((thresholds.iprP01 != null && r.installs_per_rating < thresholds.iprP01) || (thresholds.iprP99 != null && r.installs_per_rating > thresholds.iprP99)) ? 1 : 0)
         + (r.template_review_pct != null && thresholds.tmplP95 != null && r.template_review_pct > thresholds.tmplP95 ? 1 : 0);
+      // «Легко зайти в топ-10 на органике»: в нише уже есть молодые органики (кто-то вошёл без
+      // закупки), есть свободные ключи, свобода от 50, чистота не ниже медианы гео, ниша открыта
+      // и не в квадранте «Мимо». Это свойство ниши, а не самого приложения.
+      const easy = r.young_organic_count >= 1 && r.free_keys_count >= 1 && r.freedom_pct != null && r.freedom_pct >= 50
+        && r.organic_purity != null && thresholds.purityP50 != null && r.organic_purity >= thresholds.purityP50
+        && !r.closed_flag && r.quadrant !== 'pass' ? 1 : 0;
       const row = { app_id: r.app_id, title: r.title, dev: r.developer, concept: r.concept, geo: g.geo, installs: r.installs,
+        easy, n_freedom: r4(r.freedom_pct), n_purity: r4(r.organic_purity), n_free_keys: r.free_keys_count,
+        n_young: r.young_organic_count, n_door: r.door, n_tto: r4(r.time_to_organic), n_quad: r.quadrant,
         official: official ? 1 : 0, w, interp: r4(official ? r.installs_delta_30d : r.delta_preview),
         raw: official ? Math.round((r.installs_delta_30d * w) / 30) : r.delta_preview_raw,
         age: r4(r.age_months), young: r.young, level: r.organic_level, passed: r.passed_funnel ? 1 : 0, ubt: r.ubt_signal === 1 ? 1 : 0, flags };
@@ -198,9 +208,10 @@ export function collect(d) {
       if (!cur) { growthByApp.set(r.app_id, { ...row, geos: [g.geo] }); continue; }
       cur.geos.push(g.geo);
       cur.passed = cur.passed || row.passed; cur.ubt = cur.ubt || row.ubt; cur.flags = Math.max(cur.flags, row.flags);
+      cur.easy = cur.easy || row.easy;
       // Лучшая строка: официальная дельта, затем окно длиннее.
       if (row.official > cur.official || (row.official === cur.official && row.w > cur.w)) {
-        Object.assign(cur, { ...row, geos: cur.geos, passed: cur.passed, ubt: cur.ubt, flags: cur.flags });
+        Object.assign(cur, { ...row, geos: cur.geos, passed: cur.passed, ubt: cur.ubt, flags: cur.flags, easy: cur.easy });
       }
     }
 
