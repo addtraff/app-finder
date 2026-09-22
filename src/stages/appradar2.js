@@ -22,6 +22,98 @@ function geoQ(d, geo, date, metric, level) {
   return row ? row.v : null;
 }
 
+// Жалобы с цитатами, история изменений и справочные страницы («Сбор и планы»). Цитаты и события
+// — по приложению, а не по строке гео: одно приложение встречается в десятке гео, данные одни.
+const PAIN_LABELS = ['money', 'ads', 'broken', 'crash', 'missing', 'trust'];
+const EVENT_KINDS = ['listing_changed', 'installs_spike', 'tracking_sdk_found', 'fraud_gate'];
+function collectExtra(d, appRows, leaderIds) {
+  const ids = [...new Set(appRows.map((a) => a.app_id).concat([...leaderIds]))];
+  const domByApp = new Map(appRows.map((a) => [a.app_id, a.pain_dominant]));
+  const ver = one(d, `SELECT classifier_version v FROM review_labels WHERE classifier_version LIKE 'regex%' ORDER BY rowid DESC LIMIT 1`)?.v || 'regex-v1.1';
+  // Цитаты: низкие оценки с меткой жалобы, 25–220 символов, сначала — по доминирующей жалобе
+  // приложения и с большим числом «полезно». Не больше трёх на приложение.
+  const cand = new Map();
+  for (const r of all(d,
+    `SELECT rv.app_id, rv.text, rv.rating, rv.lang, rv.thumbs_up, l.label
+       FROM raw_reviews rv JOIN review_labels l ON l.review_id=rv.review_id AND l.classifier_version=?
+      WHERE rv.app_id IN (SELECT value FROM json_each(?)) AND rv.rating<=2
+        AND l.label IN (${PAIN_LABELS.map(() => '?').join(',')})
+        AND length(rv.text) BETWEEN 25 AND 220`, ver, JSON.stringify(ids), ...PAIN_LABELS)) {
+    if (!cand.has(r.app_id)) cand.set(r.app_id, []);
+    cand.get(r.app_id).push(r);
+  }
+  const quotes = {};
+  for (const [id, list] of cand) {
+    const dom = domByApp.get(id);
+    const seen = new Set();
+    // Порядок: доминирующая жалоба, затем английские (их читают все), затем по «полезно».
+    quotes[id] = list.sort((a, b) => ((b.label === dom) - (a.label === dom)) || ((b.lang === 'en') - (a.lang === 'en')) || ((b.thumbs_up || 0) - (a.thumbs_up || 0)))
+      .filter((r) => { const k = r.text.slice(0, 40); if (seen.has(k)) return false; seen.add(k); return true; })
+      .slice(0, 3).map((r) => [r.label, r.rating, r.text.replace(/\s+/g, ' ').trim(), r.lang]);
+  }
+  // История: смены листинга, скачки установок, найденные трекеры, срабатывания антифрода.
+  // Повторы одного вида с тем же текстом в разных гео и днях схлопываются в последний.
+  const appEvents = {};
+  const evSeen = new Set();
+  for (const r of all(d,
+    `SELECT app_id, snapshot_date, kind, detail, geo FROM events
+      WHERE kind IN (${EVENT_KINDS.map(() => '?').join(',')}) AND app_id IN (SELECT value FROM json_each(?))
+      ORDER BY id DESC`, ...EVENT_KINDS, JSON.stringify(ids))) {
+    const key = r.app_id + '|' + r.kind + '|' + (r.kind === 'fraud_gate' ? '' : r.detail);
+    if (evSeen.has(key)) continue;
+    evSeen.add(key);
+    const list = appEvents[r.app_id] || (appEvents[r.app_id] = []);
+    if (list.length < 8) list.push([r.snapshot_date, r.kind, r.detail, r.geo]);
+  }
+  return { quotes, appEvents, ref: collectRef(d) };
+}
+
+function collectRef(d) {
+  // Квантили-пороги v1 по гео — последняя дата каждого гео.
+  const quantiles = all(d,
+    `SELECT q.geo, q.metric, q.p01, q.p10, q.p25, q.p50, q.p75, q.p90, q.p95, q.p99, q.n, q.snapshot_date AS date
+       FROM niche_quantiles q
+       JOIN (SELECT scope_id, MAX(snapshot_date) md FROM niche_quantiles WHERE scope='geo' AND scope_id NOT LIKE '%:%' GROUP BY scope_id) l
+         ON l.scope_id=q.scope_id AND l.md=q.snapshot_date
+      WHERE q.scope='geo'`).map((r) => ({ ...r, p01: r4(r.p01), p10: r4(r.p10), p25: r4(r.p25), p50: r4(r.p50), p75: r4(r.p75), p90: r4(r.p90), p95: r4(r.p95), p99: r4(r.p99) }));
+  // Реклама: итоги K7 (Google по домену и по имени) и Meta, проверки по дням.
+  const ads = {
+    google_status: all(d, `SELECT COALESCE(status,'нет ответа') status, COUNT(DISTINCT developer_domain) n FROM raw_ads_google WHERE developer_domain NOT LIKE 'dev:%' GROUP BY 1 ORDER BY n DESC`),
+    google_ok: one(d, `SELECT COUNT(DISTINCT developer_domain) n FROM raw_ads_google WHERE status='ok' AND developer_domain NOT LIKE 'dev:%'`).n,
+    google_ads: one(d, `SELECT COUNT(DISTINCT developer_domain) n FROM raw_ads_google WHERE creatives_found>0 AND developer_domain NOT LIKE 'dev:%'`).n,
+    byname: all(d, `SELECT status, COUNT(*) n, SUM(creatives_found) ads FROM raw_ads_google WHERE developer_domain LIKE 'dev:%' GROUP BY 1 ORDER BY n DESC`),
+    meta_checked: one(d, `SELECT COUNT(DISTINCT app_id) n FROM raw_ads_meta WHERE note LIKE 'meta-v2%'`).n,
+    meta_found: one(d, `SELECT COUNT(DISTINCT app_id) n FROM raw_ads_meta WHERE found_by_package_id=1`).n,
+    meta_errors: one(d, `SELECT COUNT(*) n FROM raw_ads_meta WHERE note LIKE 'ошибка%'`).n,
+    tracking_scanned: one(d, `SELECT COUNT(DISTINCT app_id) n FROM raw_tracking_scan`).n,
+    tracking_found: one(d, `SELECT COUNT(DISTINCT app_id) n FROM raw_tracking_scan WHERE found=1`).n,
+    by_day: all(d, `SELECT substr(checked_at,1,10) date, COUNT(DISTINCT developer_domain) n, SUM(creatives_found>0) ads FROM raw_ads_google
+                     WHERE checked_at >= date('now','-14 day') GROUP BY 1 ORDER BY 1`),
+  };
+  // Лента событий — последние 250 значимых.
+  const feed = all(d,
+    `SELECT e.snapshot_date date, e.geo, e.kind, e.detail, e.app_id, a.title FROM events e LEFT JOIN apps a ON a.app_id=e.app_id
+      WHERE e.kind IN ('listing_changed','installs_spike','tracking_sdk_found','niche_door_above_p90','day_partial','k7_rate_limited','k7_captcha')
+      ORDER BY e.id DESC LIMIT 250`);
+  const apk = one(d, `SELECT COUNT(*) n FROM raw_apk`).n;
+  const policy = one(d, `SELECT COUNT(*) n FROM organic_labels WHERE label IN ('policy_ok','policy_fail')`).n;
+  const calOk = one(d, `SELECT COUNT(*) n FROM metrics_geo_calibration WHERE k_geo IS NOT NULL AND snapshot_date=(SELECT MAX(snapshot_date) FROM metrics_geo_calibration)`).n;
+  const firstSnap = one(d, `SELECT MIN(snapshot_date) m FROM raw_app_page`).m;
+  const ambiguous = one(d, `SELECT COUNT(*) n FROM raw_ads_google WHERE developer_domain LIKE 'dev:%' AND status='ambiguous'`).n;
+  const gaps = [
+    { name: 'Разбор APK', why: apk ? `разобрано ${apk} установочных файлов.` : 'не выполняется: установочные файлы пришлось бы скачивать со сторонних сайтов. Поэтому ступень «органика подтверждена» и проверка 3 недостижимы, а SDK атрибуции ищется только по тексту описания и политики.' },
+    { name: 'policy_ok — ручной гейт E7', why: policy ? `размечено вручную: ${policy}.` : 'ручная метка «клон переживёт модерацию Play» не поставлена ни одному приложению: проверка 6 у всех «не проверена».' },
+    { name: 'Прирост за 30 дней, курс «спрос → установки», ёмкость, проверка 3b', why: `нужно окно ≥ 14 дней в одном гео и 30 органиков для курса. История карточек — с ${firstSnap}; курс посчитан в ${calOk} гео из 30. До этого прирост — предварительный, по карточкам всех гео.` },
+    { name: 'Всплески установок без обновления листинга', why: 'нужно 20 дневных точек за 30 дней в гео — копится.' },
+    { name: 'Флаг «ниша закрыта», входы за 90 дней', why: 'нужно окно 90 дней истории выдачи.' },
+    { name: 'Даты объявлений Meta', why: 'Meta Ad Library вне ЕС показывает только активные объявления без дат: история закупки в Meta — только «найдено когда-либо в наших проверках».' },
+    { name: 'Google по имени разработчика', why: `у приложений с сайтом на бесплатном хостинге Google проверяется по имени; одноимённые рекламодатели (больше двух) дают «неоднозначно» — таких ${ambiguous}, в вердикт они не идут.` },
+    { name: 'УБТ — ролики в соцсетях', why: 'признак УБТ считается только по упоминаниям в отзывах; сами ролики в TikTok, Shorts и Reels не собираются.' },
+    { name: 'Выручка, конверсия, удержание', why: 'Play их не отдаёт: только ручной ввод в калькулятор окупаемости.' },
+  ];
+  return { quantiles, ads, feed, gaps };
+}
+
 export function collect(d) {
   clearQCache();
   const cfg = config();
@@ -38,7 +130,8 @@ export function collect(d) {
   // при равенстве решает сырой рекомендуемый скор, как и везде — с поправкой на деньги гео.
   const recOrder = (x, y) => (pick(y.rec_pct, y.geo) - pick(x.rec_pct, x.geo)) || ((pick(y.rec_score, y.geo) ?? -1) - (pick(x.rec_score, x.geo) ?? -1));
 
-  const geos = [], appRows = [], nicheRows = [], keyRows = [];
+  const geos = [], appRows = [], nicheRows = [], keyRows = [], funnel = [];
+  const leaderIds = new Set();
   for (const g of cfg.geos.geos) {
     const date = one(d, `SELECT MAX(snapshot_date) m FROM metrics_app_v2 WHERE geo=?`, g.geo)?.m;
     const base = {
@@ -71,6 +164,10 @@ export function collect(d) {
       doorKeyP25: r4(geoQ(d, g.geo, date, 'door_key', 'p25')),
       ubtP75: r4(geoQ(d, g.geo, date, 'ubt_share_mentioned', 'p75')),
       ubtNicheP75: r4(geoQ(d, g.geo, date, 'ubt_niche_share', 'p75')),
+      // Антифрод (карточка приложения, «Достоверность роста»): те же пороги, что у fraud_gate.
+      iprP01: r4(qv(null, g.geo, 'installs_per_rating', date, 'p01', { nicheFirst: false })),
+      iprP99: r4(qv(null, g.geo, 'installs_per_rating', date, 'p99', { nicheFirst: false })),
+      tmplP95: r4(qv(null, g.geo, 'template_review_pct', date, 'p95', { nicheFirst: false })),
     };
 
     const apps = all(d,
@@ -78,6 +175,8 @@ export function collect(d) {
               m.demand, m.src_ads_pct, m.feasibility, m.monetization_proof, m.policy_ok, m.policy_auto_ok, m.fraud_ok,
               m.days_since_update, m.installs_per_month_lifetime, m.pain_dominant, m.pain_money, m.pain_ads, m.pain_broken,
               m.kw_top10_count, m.kw_top50_count,
+              m.installs_per_rating, m.burst_flag, m.template_review_pct, m.review_lang_mismatch, m.polarization,
+              m.rating_recent_30d, m.crash_pct,
               a.title, a.developer, a.genre_id,
               n.concept, n.head_keyword AS niche_head, n.freedom_pct AS niche_freedom, n.quadrant AS niche_quadrant,
               n.door AS niche_door, n.organic_capacity AS niche_capacity, n.ubt_flag AS niche_ubt_flag
@@ -138,11 +237,21 @@ export function collect(d) {
         ubt: a.ubt_signal, ubt_mentions: a.ubt_mentions, ubt_reviews: a.ubt_reviews, ubt_share: r4(a.ubt_share), ubt_related: a.ubt_related,
         rec_pct: r4(a.rec_pct), rec_score: r4(a.rec_score), rec_parts: parse(a.rec_parts),
         niche_ubt: a.niche_ubt_flag ?? null,
+        ipr: r4(a.installs_per_rating), burst: a.burst_flag, tmpl: r4(a.template_review_pct), lang_mis: r4(a.review_lang_mismatch),
+        polar: r4(a.polarization), rating30: r4(a.rating_recent_30d), crash: r4(a.crash_pct),
       });
     }
 
+    const painOf = d.prepare(`SELECT pain_dominant, pain_money, pain_ads, pain_broken FROM metrics_app_geo
+                                WHERE app_id=? AND geo=? AND snapshot_date<=? ORDER BY snapshot_date DESC LIMIT 1`);
     for (const n of niches) {
       const top = parse(n.head_top10, []);
+      // Лидеры — первые три места головного ключа: на что жалуются их пользователи (карточка ниши).
+      const leaders = top.slice().sort((x, y) => x.pos - y.pos).slice(0, 3).map((x) => {
+        const p = painOf.get(x.app_id, g.geo, date) || {};
+        leaderIds.add(x.app_id);
+        return [x.app_id, x.title, x.pos, p.pain_dominant ?? null, r4(p.pain_money ?? null), r4(p.pain_ads ?? null), r4(p.pain_broken ?? null), x.level];
+      });
       const b = baseById.get(n.niche_id) || {};
       nicheRows.push({
         geo: g.geo, niche_id: n.niche_id, concept: n.concept, head: n.head_keyword, keywords_count: n.keywords_count,
@@ -159,7 +268,7 @@ export function collect(d) {
         young: n.young_organic_count, young_installs: n.young_organic_installs, young_apps: parse(n.young_organic_apps, []).slice(0, 12),
         tto: r4(n.time_to_organic), tto_kind: n.time_to_organic_kind,
         cand: n.candidates_count, cand_organic: n.candidates_organic_count, cand_paid: n.candidates_paid_count,
-        monetized: r4(n.monetized_share), pain: parse(n.leaders_pain), top10: top,
+        monetized: r4(n.monetized_share), pain: parse(n.leaders_pain), top10: top, leaders,
         rank: r4(n.niche_rank), rank_basis: n.rank_basis, rank_pct: r4(n.rank_pct), quadrant: n.quadrant, tail_clean: n.tail_clean,
         incomplete: parse(n.incomplete, []), partial: n.partial_window,
         leader_share: r4(b.leader_share ?? null), new_share_18m: r4(b.new_share_18m ?? null), weak_share: r4(b.weak_share ?? null),
@@ -175,11 +284,19 @@ export function collect(d) {
     }
 
     const allV2 = all(d, `SELECT organic_level, evidence_age_days, age_months FROM metrics_app_v2 WHERE geo=? AND snapshot_date=?`, g.geo, date);
+    const screenDate = one(d, `SELECT MAX(snapshot_date) m FROM screen_result WHERE geo=? AND snapshot_date<=?`, g.geo, date)?.m;
+    if (screenDate) for (const r of all(d, `SELECT COALESCE(reject_reason,'passed') reason, COUNT(*) n FROM screen_result WHERE geo=? AND snapshot_date=? GROUP BY 1`, g.geo, screenDate)) {
+      funnel.push({ geo: g.geo, date: screenDate, reason: r.reason, n: r.n });
+    }
+    const doors = niches.map((n) => n.door).filter((v) => v != null).sort((a, b) => a - b);
     const share = (arr, f) => (arr.length ? r4(arr.filter(f).length / arr.length) : null);
     geos.push({
       ...base, date, niche_date: nicheDate, ...thresholds,
       k_geo: r4(calib.k_geo ?? null), k_status: calib.status ?? null, k_window: calib.window_days ?? 0, k_obs: calib.n_obs ?? 0,
       niches: niches.length, apps: apps.length, apps_trimmed: trimmed,
+      door_median: doors.length ? doors[Math.floor(doors.length / 2)] : null,
+      cards_day: one(d, `SELECT COUNT(DISTINCT app_id) c FROM raw_app_page WHERE geo=? AND snapshot_date=?`, g.geo, date).c,
+      core_keys: one(d, `SELECT COUNT(*) c FROM keyword_cores WHERE geo=? AND active=1`, g.geo).c,
       history_days: niches.reduce((m, n) => Math.max(m, n.history_days || 0), 0),
       age_cov: share(allV2, (a) => a.age_months != null),
       ads_cov: share(apps, (a) => ['found', 'confirmed', 'no_signs'].includes(a.organic_level)),
@@ -247,6 +364,7 @@ export function collect(d) {
   }
 
   const timeline = all(d, `SELECT snapshot_date AS date, geo, COUNT(DISTINCT app_id) AS cards FROM raw_app_page GROUP BY snapshot_date, geo ORDER BY snapshot_date`);
+  const extra = collectExtra(d, appRows, leaderIds);
   const lastDate = geos.map((g) => g.date).filter(Boolean).sort().pop() || null;
 
   return {
@@ -259,7 +377,8 @@ export function collect(d) {
       ubt_min_mentions: V.ubt_min_mentions, ubt_min_reviews: V.ubt_min_reviews, ubt_niche_min_apps: V.ubt_niche_min_apps,
       rec: V.recommended,
     },
-    geos, apps: appRows, niches: nicheRows, keys: keyRows, worldApps, worldNiches, timeline,
+    geos, apps: appRows, niches: nicheRows, keys: keyRows, worldApps, worldNiches, timeline, funnel,
+    quotes: extra.quotes, appEvents: extra.appEvents, ref: extra.ref,
     collection: collectCollection(d, lastDate),
   };
 }

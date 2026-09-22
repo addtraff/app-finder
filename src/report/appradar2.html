@@ -208,6 +208,10 @@
   .bar-val { margin-left: auto; font-family: var(--f-num); font-size: 12.5px; font-weight: 700; white-space: nowrap; }
   .bar-track { height: 7px; border-radius: 5px; background: var(--border); overflow: hidden; }
   .bar-fill { height: 7px; }
+  .ctabs { display: flex; flex-wrap: wrap; gap: 8px; }
+  .quote { border-left: 3px solid var(--border); padding: 6px 12px; margin-top: 10px; font-size: 13px; line-height: 1.45; }
+  .quote .q-meta { color: var(--muted); font-size: 11.5px; margin-bottom: 4px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .panel-title .badge { margin-left: 6px; vertical-align: 1px; }
   .table-head { display: flex; align-items: center; gap: 12px; padding: 15px 18px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
   .note { color: var(--muted); font-size: 12.5px; text-wrap: pretty; }
   .empty { padding: 40px 24px; text-align: center; color: var(--muted); }
@@ -571,7 +575,7 @@
     af: { cat: 'all', level: 'all', channel: 'all', traffic: 'all', minPassed: 0, quad: 'all', age: 'all', monet: 'all', sort: 'checks', niche: null, rec: false },
     nf: { cat: 'all', quad: 'all', freedom: 'all', purity: 'all', channel: 'all', young: false, cand: false, full: false, sort: 'rank', rec: false },
     hidePaid: !!load('appradar2-hide-paid', false), showDisq: false,
-    favs: load('appradar2-favs', []), nfavs: load('appradar2-nfavs', [])
+    favs: load('appradar2-favs', []), nfavs: load('appradar2-nfavs', []), cTab: 'collect'
   };
   var themeSaved = load('appradar-theme', null);
   if (themeSaved === 'light' || themeSaved === 'dark') document.documentElement.setAttribute('data-theme', themeSaved);
@@ -1050,6 +1054,13 @@
   }
 
   // ---------------- карточка ниши ----------------
+  function doorRatio(s, us) { return us && isNum(s.door) && isNum(us.door) && us.door > 0 ? s.door / us.door : null; }
+  function doorVsUs(s, us) { var r = doorRatio(s, us); return s === us ? '<span class="muted small">база</span>' : isNum(r) ? fix(r, 2) + '×' : '—'; }
+  function arbBadge(s, us) {
+    var r = doorRatio(s, us);
+    if (s === us || !isNum(r)) return '';
+    return r <= 0.5 && isNum(s.money_ratio) && s.money_ratio >= 0.5 ? '<span class="badge b-green">вход дешевле</span>' : r >= 2 ? '<span class="badge b-muted">дороже</span>' : '';
+  }
   function openNiche(geo, nicheId) {
     var n = nicheByKey[geo + '|' + nicheId];
     if (!n) return;
@@ -1070,6 +1081,7 @@
     var cands = (appsByNiche[geo + '|' + nicheId] || []).filter(function (a) { return !(state.hidePaid && a.level === 'found'); }).sort(APP_SORT.checks);
     var spikes = (appsByNiche[geo + '|' + nicheId] || []).map(function (a) { return a.spike; }).filter(isNum);
     var pain = n.pain;
+    var usN = siblings.filter(function (s) { return s.geo === REF; })[0];
     var starId = n.concept || (n.geo + '|' + n.niche_id);
 
     var html = '<div class="overlay" data-act="close"><div class="drawer" role="dialog" aria-modal="true" aria-label="' + esc(n.concept || n.head) + '" data-stop="1">' +
@@ -1115,11 +1127,11 @@
           (young.length ? '<table class="mini"><thead><tr><th>Приложение</th><th>Гео</th><th class="r">Возраст</th><th class="r">Установки</th></tr></thead><tbody>' + young.slice(0, 20).map(function (y) {
             return '<tr><td class="strong">' + esc(y.title || y.app_id) + '</td><td><span class="geo-code">' + y.geo + '</span></td><td class="r num">' + fix(y.age, 1) + ' мес</td><td class="r num">' + short(y.installs) + '</td></tr>';
           }).join('') + '</tbody></table>' : '<div class="empty" style="padding:18px">Не найдено ни одного — вход без закупки в этой нише пока не доказан</div>') + '</div>' +
-        '<div class="card panel"><div class="panel-title">Гео-разрез</div><div class="panel-sub">' + (n.concept ? 'все гео, где есть этот концепт' : 'ниша вне каталога — только это гео') + '</div>' +
-          '<div class="tbl-scroll"><table class="mini" style="min-width:600px"><thead><tr><th>Гео</th><th>Квадрант</th><th class="r">Свобода</th><th class="r">Ёмкость</th><th class="r">Чистота</th><th class="r">door</th><th class="r">Деньги</th><th class="r">Снимок</th></tr></thead><tbody>' +
+        '<div class="card panel"><div class="panel-title">Гео-разрез</div><div class="panel-sub">' + (n.concept ? 'все гео, где есть этот концепт · «вход дешевле» — door не больше половины US при деньгах гео не меньше половины US' : 'ниша вне каталога — только это гео') + '</div>' +
+          '<div class="tbl-scroll"><table class="mini" style="min-width:600px"><thead><tr><th>Гео</th><th>Квадрант</th><th class="r">Свобода</th><th class="r">Ёмкость</th><th class="r">Чистота</th><th class="r">door</th><th class="r">door к US</th><th class="r">Деньги</th><th>Вход</th><th class="r">Снимок</th></tr></thead><tbody>' +
           siblings.map(function (s) {
             return '<tr' + (s.geo === geo ? ' class="hl"' : '') + '><td><button class="niche-cell" data-act="open-niche" data-geo="' + s.geo + '" data-niche="' + esc(s.niche_id) + '"><span class="geo-code">' + s.geo + '</span></button></td><td>' + quadBadge(s.quadrant) + '</td>' +
-              '<td class="r num">' + fix(s.freedom, 0) + '</td><td class="r num">' + capacityText(s) + '</td><td class="r num">' + pct(s.purity) + '</td><td class="r num">' + short(s.door) + '</td><td class="r num">' + fix(s.money_ratio, 2) + '</td><td class="r num">' + esc(dmy(GEO[s.geo].date)) + '</td></tr>';
+              '<td class="r num">' + fix(s.freedom, 0) + '</td><td class="r num">' + capacityText(s) + '</td><td class="r num">' + pct(s.purity) + '</td><td class="r num">' + short(s.door) + '</td><td class="r num">' + doorVsUs(s, usN) + '</td><td class="r num">' + fix(s.money_ratio, 2) + '</td><td>' + arbBadge(s, usN) + '</td><td class="r num">' + esc(dmy(GEO[s.geo].date)) + '</td></tr>';
           }).join('') + '</tbody></table></div></div>' +
         '<div class="card panel"><div class="panel-title">Деньги</div><dl class="kv">' +
           '<div><dt>Деньги гео к US</dt><dd>' + fix(n.money_ratio, 2) + '</dd></div>' +
@@ -1129,6 +1141,7 @@
           '<div><dt>Жалобы лидеров: деньги · реклама · не работает</dt><dd>' + (pain ? pct(pain.money) + ' · ' + pct(pain.ads) + ' · ' + pct(pain.broken) : '—') + '</dd></div>' +
           '<div><dt>Всплески установок без обновления</dt><dd>' + (spikes.length ? pct(median(spikes)) : 'копится: нужно 20 дневных точек') + '</dd></div>' +
         '</dl></div>' +
+        leadersBlock(n) +
         '<div class="card panel"><div class="panel-title">УБТ — трафик из соцсетей и видео</div><div class="panel-sub">по отзывам приложений топ-20 ключей и кандидатов</div><dl class="kv">' +
           '<div><dt data-tip="nc.ubt">Доля приложений с признаком</dt><dd>' + (isNum(n.ubt_share) ? pct(n.ubt_share) + ' из ' + int(n.ubt_apps) : 'мало разметки: ' + int(n.ubt_apps) + ' из ' + M.ubt_niche_min_apps) + '</dd></div>' +
           '<div><dt data-tip="nc.ubt">УБТ-ниша</dt><dd>' + (n.ubt === 1 ? 'да' : n.ubt === 0 ? 'нет' : '—') + (isNum(g.ubtNicheP75) ? ' · порог p75 ' + pct(g.ubtNicheP75) : '') + '</dd></div>' +
@@ -1145,6 +1158,81 @@
       '</div></div></div>';
     $('drawer-root').innerHTML = html;
     var btn = $('drawer-root').querySelector('.drawer [data-act="close"]'); if (btn) btn.focus();
+  }
+
+  // ---------------- блоки карточек: жалобы, достоверность роста, история, конкуренты ----------------
+  var PAIN = { money: 'деньги и подписка', ads: 'реклама', broken: 'не работает', crash: 'вылетает', missing: 'не хватает функций', trust: 'не доверяют' };
+  var EV = { listing_changed: 'обновление листинга', installs_spike: 'скачок установок', tracking_sdk_found: 'найден трекер атрибуции', fraud_gate: 'антифрод',
+    niche_door_above_p90: 'door ниши выше p90', day_partial: 'неполный день сбора', k7_rate_limited: 'K7: Google ограничил запросы', k7_captcha: 'K7: проверка на робота' };
+  function stars(n) { var k = Math.max(1, Math.min(5, n || 1)); return '<span style="color:var(--orange)">' + new Array(k + 1).join('★') + '</span>'; }
+  function barRow(label, v, color) {
+    return '<div><div class="bar-head"><span class="bar-label">' + esc(label) + '</span><span class="bar-val">' + pct(v) + '</span></div>' +
+      '<div class="bar-track"><div class="bar-fill" style="width:' + (isNum(v) ? Math.min(100, v * 100).toFixed(1) : 0) + '%;background:' + (color || 'var(--accent)') + '"></div></div></div>';
+  }
+  function quoteHtml(q, who) {
+    return '<div class="quote"><div class="q-meta">' + (who ? '<b>' + esc(who) + '</b>' : '') + '<span class="badge b-muted">' + esc(PAIN[q[0]] || q[0]) + '</span>' + stars(q[1]) + (q[3] ? '<span>' + esc(q[3]) + '</span>' : '') + '</div>' + esc(q[2]) + '</div>';
+  }
+  function painBlock(a) {
+    var q = (D.quotes && D.quotes[a.app_id]) || [];
+    var has = isNum(a.pain_money) || isNum(a.pain_ads) || isNum(a.pain_broken);
+    return '<div class="card panel"><div class="panel-title">Жалобы пользователей</div><div class="panel-sub">доля отзывов с жалобой среди размеченных; цитаты — оценки 1–2 ★. То, за что ругают образец, — готовое отличие копии</div>' +
+      '<dl class="kv"><div><dt>Главная жалоба</dt><dd>' + esc(PAIN[a.pain_dominant] || (has ? 'не выражена' : '—')) + '</dd></div></dl>' +
+      (has ? '<div class="bars">' + barRow('Деньги и подписка', a.pain_money, 'var(--orange)') + barRow('Реклама', a.pain_ads, 'var(--purple)') + barRow('Не работает', a.pain_broken, 'var(--red)') + '</div>'
+        : '<div class="empty" style="padding:14px">Отзывов с жалобами не размечено</div>') +
+      q.map(function (x) { return quoteHtml(x); }).join('') + '</div>';
+  }
+  function trustBlock(a) {
+    var g = GEO[a.geo], flags = [], iprTxt = '—';
+    if (isNum(a.ipr)) {
+      if (isNum(g.iprP01) && a.ipr < g.iprP01) flags.push('установок на оценку меньше p01 гео — похоже на накрутку оценок');
+      if (isNum(g.iprP99) && a.ipr > g.iprP99) flags.push('установок на оценку больше p99 гео — оценки не набираются, возможна накрутка установок');
+      iprTxt = int(a.ipr) + ' · норма гео ' + short(g.iprP01) + '–' + short(g.iprP99);
+    }
+    if (a.burst === 1) flags.push('всплеск отзывов');
+    if (isNum(a.tmpl) && isNum(g.tmplP95) && a.tmpl > g.tmplP95) flags.push('шаблонных отзывов больше p95 гео');
+    if (a.fraud_ok === 0) flags.push('антифрод методики не пройден');
+    var ev = ((D.appEvents && D.appEvents[a.app_id]) || []).filter(function (e) { return e[1] === 'fraud_gate'; })[0];
+    return '<div class="card panel"><div class="panel-title">Достоверность роста' + (flags.length ? '<span class="badge b-orange">сигналов: ' + flags.length + '</span>' : '<span class="badge b-green">сигналов нет</span>') + '</div>' +
+      '<div class="panel-sub">не накручен ли рост: пороги — квантили гео, те же, что у антифрода методики</div><dl class="kv">' +
+      '<div><dt>Установок на оценку</dt><dd>' + iprTxt + '</dd></div>' +
+      '<div><dt>Шаблонные отзывы · p95 гео</dt><dd>' + pct(a.tmpl) + ' · ' + pct(g.tmplP95) + '</dd></div>' +
+      '<div><dt>Всплеск отзывов</dt><dd>' + (a.burst === 1 ? 'есть' : a.burst === 0 ? 'нет' : '—') + '</dd></div>' +
+      '<div><dt>Рейтинг за 30 дн. · общий</dt><dd>' + fix(a.rating30, 1) + ' · ' + fix(a.score, 1) + '</dd></div>' +
+      '<div><dt>Поляризация оценок</dt><dd>' + fix(a.polar, 2) + '</dd></div>' +
+      '<div><dt>Отзывы не на языках листинга</dt><dd>' + pct(a.lang_mis) + '</dd></div>' +
+      '<div><dt>Вылеты в отзывах</dt><dd>' + pct(a.crash, 1) + '</dd></div>' +
+      '<div><dt>Антифрод методики</dt><dd>' + (a.fraud_ok === 1 ? 'пройден' : a.fraud_ok === 0 ? 'не пройден' : '—') + (ev ? ' · ' + esc(ev[2]) + ' (' + esc(dmy(ev[0])) + ')' : '') + '</dd></div>' +
+      '</dl>' + (flags.length ? '<ul class="manual note">' + flags.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') + '</div>';
+  }
+  function evDetail(e) { return e[1] === 'listing_changed' ? 'версия ' + e[2] : e[2]; }
+  function historyBlock(a) {
+    var list = ((D.appEvents && D.appEvents[a.app_id]) || []).filter(function (e) { return e[1] !== 'fraud_gate'; });
+    return '<div class="card panel"><div class="panel-title">История изменений</div><div class="panel-sub">обновления листинга, скачки установок, найденные трекеры — с начала наблюдения; помогает понять, отчего пошёл рост</div>' +
+      (list.length ? '<table class="mini"><thead><tr><th>Дата</th><th>Событие</th><th>Детали</th><th>Гео</th></tr></thead><tbody>' + list.map(function (e) {
+        return '<tr><td class="num nowrap">' + esc(dmy(e[0])) + '</td><td>' + esc(EV[e[1]] || e[1]) + '</td><td class="small">' + esc(evDetail(e)) + '</td><td><span class="geo-code">' + esc(e[3]) + '</span></td></tr>';
+      }).join('') + '</tbody></table>' : '<div class="empty" style="padding:14px">Изменений не зафиксировано</div>') + '</div>';
+  }
+  function rivalsBlock(a, n) {
+    if (!n || !n.top10 || !n.top10.length) return '';
+    var mine = n.top10.filter(function (x) { return x.app_id === a.app_id; })[0];
+    var best = (a.kw || []).slice().sort(function (x, y) { return x[1] - y[1]; })[0];
+    var sub = mine ? 'место ' + mine.pos + ' в топ-10 по «' + n.head + '»' : 'вне топ-10 по «' + n.head + '»' + (best ? ' · лучшее место — ' + best[1] + ' по «' + best[0] + '»' : '');
+    return '<div class="card panel"><div class="panel-title">Место среди конкурентов</div><div class="panel-sub">' + esc(sub) + ' · кого придётся обойти</div>' +
+      '<div class="tbl-scroll"><table class="mini" style="min-width:520px"><thead><tr><th>#</th><th>Приложение</th><th class="r">Установки</th><th class="r">Возраст</th><th>Органика</th></tr></thead><tbody>' +
+      n.top10.map(function (x) {
+        var row = appByKey[a.geo + '|' + x.app_id];
+        var title = row && x.app_id !== a.app_id ? '<button class="niche-cell" data-act="open-app" data-app="' + esc(x.app_id) + '" data-geo="' + esc(a.geo) + '"><span class="strong">' + esc(x.title || x.app_id) + '</span></button>' : '<span class="strong">' + esc(x.title || x.app_id) + '</span>';
+        return '<tr' + (x.app_id === a.app_id ? ' class="hl"' : '') + '><td class="num">' + x.pos + '</td><td>' + title + '</td><td class="r num">' + short(x.installs) + '</td><td class="r num">' + (isNum(x.age) ? fix(x.age, 0) + ' мес' : '—') + '</td><td>' + levelBadge(x) + '</td></tr>';
+      }).join('') + '</tbody></table></div></div>';
+  }
+  function leadersBlock(n) {
+    var L = n.leaders || [];
+    if (!L.length) return '';
+    return '<div class="card panel"><div class="panel-title">Жалобы лидеров</div><div class="panel-sub">первые три места по «' + esc(n.head) + '»: то, что не нравится пользователям лидеров, — дыра, в которую можно зайти</div>' +
+      '<div class="tbl-scroll"><table class="mini" style="min-width:560px"><thead><tr><th>#</th><th>Приложение</th><th>Главная жалоба</th><th class="r">Деньги</th><th class="r">Реклама</th><th class="r">Не работает</th></tr></thead><tbody>' +
+      L.map(function (l) { return '<tr><td class="num">' + l[2] + '</td><td class="strong">' + esc(l[1] || l[0]) + '</td><td>' + esc(PAIN[l[3]] || '—') + '</td><td class="r num">' + pct(l[4]) + '</td><td class="r num">' + pct(l[5]) + '</td><td class="r num">' + pct(l[6]) + '</td></tr>'; }).join('') +
+      '</tbody></table></div>' +
+      L.map(function (l) { var q = (D.quotes && D.quotes[l[0]]) || []; return q.length ? quoteHtml(q[0], l[1] || l[0]) : ''; }).join('') + '</div>';
   }
 
   // ---------------- карточка приложения ----------------
@@ -1221,6 +1309,7 @@
           '<div><dt>aso_share · p25 гео</dt><dd>' + fix(a.aso_share, 2) + ' · ' + fix(g.asoP25, 2) + '</dd></div>' +
           '<div><dt>Всплески без обновления листинга</dt><dd>' + (isNum(a.spike) ? pct(a.spike) : 'копится') + '</dd></div>' +
         '</dl></div>' +
+        trustBlock(a) + historyBlock(a) +
         '<div class="card panel"><div class="panel-title" data-tip="c.ubt">УБТ — трафик из соцсетей и видео</div><div class="panel-sub">упоминания TikTok, YouTube, Instagram/Reels, блогеров и фразы вида «увидел в тиктоке» в отзывах на всех собранных языках</div><dl class="kv">' +
           '<div><dt data-tip="c.ubt">Признак УБТ</dt><dd>' + (a.ubt === 1 ? 'есть' : a.ubt === 0 ? 'нет' : '— (отзывов меньше ' + M.ubt_min_reviews + ')') + '</dd></div>' +
           '<div><dt data-tip="f.channel">Канал роста</dt><dd>' + esc(CHANNEL[channelOf(a)]) + (a.ubt === 1 && channelOf(a) === 'paid' ? ' · и УБТ' : '') + '</dd></div>' +
@@ -1228,11 +1317,13 @@
           '<div><dt>Доля · порог p75 гео</dt><dd>' + pct(a.ubt_share, 1) + ' · ' + pct(g.ubtP75, 1) + '</dd></div>' +
           (a.ubt_related ? '<div style="grid-column:1/-1"><dt>Как считалось</dt><dd style="font-family:var(--f-ui);font-weight:500">площадка в названии или функциональная категория — учтены только фразы-источники</dd></div>' : '') +
         '</dl></div>' +
+        painBlock(a) +
         '<div class="card panel"><div class="panel-title" data-tip="rec.parts.app">Рекомендуемый скор</div><div class="panel-sub">процентиль ' + (isNum(a.rec_pct) ? fix(a.rec_pct, 0) : '— (закупка, накрутка или стена)') + ' среди приложений гео · значение части · вклад в итог</div>' +
           recBars(a.rec_parts, ['Рост из поиска (ASO)', 'Свобода ниши', 'Пройденные проверки', 'Индекс копируемости', 'Молодость и прирост', 'Монетизация'],
             [REC.app_weights.aso, REC.app_weights.freedom, REC.app_weights.checks, REC.app_weights.prescore, REC.app_weights.youth, REC.app_weights.monetization], 'rec.parts.app') + '</div>' +
         '<div class="card panel"><div class="panel-title">Ключи, где приложение в топ-50</div><div class="panel-sub">вклад = спрос ключа × CTR места; топ-8 по вкладу · в топ-10 по ' + (a.kw_top10 ?? '—') + ', в топ-50 по ' + (a.kw_top50 ?? '—') + ' ключам</div>' +
           (a.kw.length ? '<table class="mini"><thead><tr><th>Ключ</th><th class="r">Место</th><th class="r">Вклад</th></tr></thead><tbody>' + a.kw.map(function (k) { return '<tr><td class="strong">' + esc(k[0]) + '</td><td class="r num">' + k[1] + '</td><td class="r num">' + fix(k[2], 2) + '</td></tr>'; }).join('') + '</tbody></table>' : '<div class="empty" style="padding:18px">Нет ключей ядра с этим приложением в топ-50</div>') + '</div>' +
+        rivalsBlock(a, n) +
         (n ? '<div class="card panel"><div class="panel-title">Ниша: ' + esc(n.concept || n.head) + '</div><div class="panel-sub">' + esc(n.head) + ' · ' + (QUAD[n.quadrant] || QUAD.undetermined)[0] + '</div>' +
           '<div class="kv"><div><dt>Свобода</dt><dd>' + fix(n.freedom, 0) + '</dd></div><div><dt>Ёмкость</dt><dd>' + capacityText(n) + '</dd></div>' +
           '<div><dt>Чистота</dt><dd>' + pct(n.purity) + '</dd></div><div><dt>Срок</dt><dd>' + ttoText(n) + '</dd></div></div>' +
@@ -1310,6 +1401,7 @@
   }
   function covBadge(v) { return isNum(v) ? '<span class="badge num ' + (v >= 0.9 ? 'b-green' : v >= 0.6 ? 'b-orange' : 'b-red') + '">' + pct(v) + '</span>' : dash(); }
   function renderCollection() {
+    if (state.cTab !== 'collect') return renderRef();
     var C = D.collection, byDate = {};
     D.timeline.forEach(function (t) { byDate[t.date] = (byDate[t.date] || 0) + t.cards; });
     var dates = Object.keys(byDate).sort();
@@ -1331,6 +1423,7 @@
     }).join('');
     $('view').innerHTML = '<section class="page">' +
       pageHead('', 'Сбор и планы', 'Что уже собрано, какие величины методики v2.0 считаются и когда включатся остальные. Величины, которым нужна история, пусты с подписью «копится» — не нули.') +
+      ctabs() +
       kpiCards([
         { label: 'Гео собрано сегодня', value: String(count('собрано')), delta: 'из ' + C.status.length, hint: 'все обязательные стадии дня закрыты' },
         { label: 'Курс «спрос → установки»', value: withK + ' из ' + D.geos.length, hint: 'нужно окно ' + M.min_window + ' дн. и ' + M.calib_min + ' органиков в топ-10' },
@@ -1374,6 +1467,120 @@
     '</section>';
   }
 
+  // ---------------- справка: воронка, гео, квантили, реклама, события, ключи, пробелы ----------------
+  var CTABS = [['collect', 'Сбор'], ['funnel', 'Воронка отсева'], ['geos', 'Все гео'], ['quant', 'Квантили'], ['ads', 'Реклама'], ['feed', 'События'], ['keys', 'Ключевые слова'], ['gaps', 'Чего нет в данных']];
+  var REASON_TEXT = {
+    passed: 'прошло все этапы — кандидат', institution: 'госпортал, банк, телеком, маркетплейс — копировать нечего',
+    off_category: 'категория вне семян обхода', regulated_category: 'FINANCE / MEDICAL / NEWS / DATING — политики Play',
+    policy_risk_category: 'категория с повышенным риском модерации', policy_risk_permissions: 'SMS, журнал вызовов, спецразрешения, фоновая локация',
+    branded_only: 'в топ-10 только по своему бренду', periphery: 'один путь обнаружения и позиции 31–50',
+    factory: 'фабрика клонов', too_big: 'установки выше p75 гео — не образец, а инкумбент', dead: 'обновление старше p90 при установках ниже p50',
+    broken: 'рейтинг ниже p10 при заметном числе оценок', no_monetization: 'ни рекламы, ни покупок — ниша не платит',
+    low_monetization: 'потолок покупок ниже порога методики и нет рекламы', fraud_extreme: 'установок на оценку вне p01–p99 или рейтинг > 4,9 при 10K+ оценок',
+    regional_clone: 'региональное издание чужого приложения', not_available: 'недоступно в гео', heavy_and_bad: 'размер выше p90 при рейтинге ниже p25',
+    budget: 'локализовано под слишком много гео при малом возрасте — бюджетный игрок', blocklist: 'ручной блок-лист'
+  };
+  var QM = { installs: 'установки', score: 'рейтинг', ratings_count: 'оценок', days_since_update: 'дней без обновления', installs_per_rating: 'установок на оценку',
+    size_mb: 'размер, МБ', src_ads_pct: 'доля «из рекламы» в отзывах', template_review_pct: 'шаблонные отзывы', localized_geo_count: 'локализовано в гео',
+    age_months: 'возраст, мес', installs_growth_7d: 'рост за 7 дн.', installs_growth_30d: 'рост за 30 дн.', iap_max_usd: 'покупки до, $', polarization: 'поляризация оценок' };
+  function ctabs() { return '<div class="ctabs">' + CTABS.map(function (c) { return '<button class="pill" data-act="ctab" data-tab="' + c[0] + '" aria-pressed="' + (state.cTab === c[0]) + '">' + esc(c[1]) + '</button>'; }).join('') + '</div>'; }
+  function refGeo() { return state.geo === WW ? REF : state.geo; }
+  function refNote() { return state.geo === WW ? ' Показано ' + geoName(REF) + ' — выберите гео в шапке.' : ''; }
+  function renderRef() {
+    var tab = state.cTab, title = (CTABS.filter(function (c) { return c[0] === tab; })[0] || ['', ''])[1], lead = '', body = '';
+    if (tab === 'funnel') {
+      var rows = D.funnel.filter(function (r) { return state.geo === WW || r.geo === state.geo; });
+      var by = {}, total = 0;
+      rows.forEach(function (r) { by[r.reason] = (by[r.reason] || 0) + r.n; total += r.n; });
+      var list = Object.keys(by).map(function (k) { return { reason: k, n: by[k] }; }).sort(function (x, y) { return y.n - x.n; });
+      lead = state.geo === WW ? 'Сумма по всем гео на последний день воронки каждого гео. Ничего не удаляется: отсеянное остаётся в реестре с причиной и датой.' : 'Последний день воронки ' + geoName(state.geo) + '.';
+      body = '<div class="card" style="overflow:hidden">' + tableHtml([
+        { t: 'Причина', v: function (r) { return '<span class="strong">' + esc(r.reason === 'passed' ? 'прошло' : r.reason) + '</span>'; } },
+        { t: 'Что значит', v: function (r) { return '<span class="small">' + esc(REASON_TEXT[r.reason] || '') + '</span>'; } },
+        { t: 'Строк', r: true, cls: 'num', v: function (r) { return int(r.n); } },
+        { t: 'Доля', r: true, v: function (r) { return '<div class="meter"><div class="meter-track"><div class="meter-fill" style="width:' + (r.n / total * 100).toFixed(1) + '%;background:' + (r.reason === 'passed' ? 'var(--green)' : 'var(--accent)') + '"></div></div><span class="num small">' + pct(r.n / total, 1) + '</span></div>'; } }
+      ], list, { minWidth: 760 }) + '</div>';
+      if (state.geo === WW) {
+        var per = {};
+        D.funnel.forEach(function (r) { var p = per[r.geo] || (per[r.geo] = { geo: r.geo, date: r.date, total: 0, passed: 0, top: null }); p.total += r.n; if (r.reason === 'passed') p.passed += r.n; else if (!p.top || r.n > p.top.n) p.top = r; });
+        body += '<div class="card" style="overflow:hidden"><div class="table-head"><div class="panel-title">По гео</div></div>' + tableHtml([
+          { t: 'Гео', v: function (p) { return '<span class="geo-code">' + p.geo + '</span> ' + esc(GEO_NAMES[p.geo] || ''); } },
+          { t: 'День', cls: 'num', v: function (p) { return esc(dmy(p.date)); } },
+          { t: 'Просеяно', r: true, cls: 'num', v: function (p) { return int(p.total); } },
+          { t: 'Прошло', r: true, cls: 'num', v: function (p) { return int(p.passed) + ' · ' + pct(p.passed / p.total); } },
+          { t: 'Главная причина отсева', v: function (p) { return p.top ? esc(p.top.reason) + ' <span class="muted small num">' + int(p.top.n) + '</span>' : '—'; } }
+        ], Object.keys(per).map(function (k) { return per[k]; }).filter(function (p) { return matchesQ([p.geo, GEO_NAMES[p.geo]]); }), { minWidth: 700 }) + '</div>';
+      }
+    } else if (tab === 'geos') {
+      lead = 'Всё, что собрано по каждому гео. Деньги гео — приоры справочника, не измерения.';
+      body = '<div class="card" style="overflow:hidden">' + tableHtml([
+        { t: 'Гео', v: function (g) { return '<span class="geo-code">' + g.geo + '</span> <span class="strong">' + esc(GEO_NAMES[g.geo] || g.geo) + '</span>' + (g.is_reference ? ' <span class="badge b-accent">референс</span>' : ''); } },
+        { t: 'Снимок', cls: 'num', v: function (g) { return esc(dmy(g.date)); } },
+        { t: 'Снимков', r: true, cls: 'num', v: function (g) { return g.snapshots; } },
+        { t: 'Найдено', r: true, cls: 'num', v: function (g) { return int(g.discovered); } },
+        { t: 'Карточек за день', r: true, cls: 'num', v: function (g) { return int(g.cards_day); } },
+        { t: 'Ключей', r: true, cls: 'num', v: function (g) { return int(g.keywords_total); } },
+        { t: 'В ядрах', r: true, cls: 'num', v: function (g) { return int(g.core_keys); } },
+        { t: 'Ниш', r: true, cls: 'num', v: function (g) { return int(g.niches); } },
+        { t: 'door, медиана', r: true, cls: 'num', v: function (g) { return short(g.door_median); } },
+        { t: 'Прошло воронку', r: true, cls: 'num', v: function (g) { return int((g.apps || 0) + (g.apps_trimmed || 0)); } },
+        { t: 'Деньги к US', r: true, cls: 'num', v: function (g) { return fix(g.money_ratio, 2); } }
+      ], D.geos.filter(function (g) { return matchesQ([g.geo, GEO_NAMES[g.geo]]); }), { minWidth: 1100 }) + '</div>';
+    } else if (tab === 'quant') {
+      var qg = refGeo();
+      lead = 'Все пороги методики — квантили гео, абсолютных чисел нет: «слабый» — это нижняя треть ниши в этом гео, а не фиксированная цифра.' + refNote();
+      body = '<div class="card" style="overflow:hidden">' + tableHtml([
+        { t: 'Метрика', v: function (q) { return '<span class="strong">' + esc(QM[q.metric] || q.metric) + '</span> <span class="muted small">' + esc(q.metric) + '</span>'; } },
+        { t: 'p01', r: true, cls: 'num', v: function (q) { return short(q.p01); } }, { t: 'p10', r: true, cls: 'num', v: function (q) { return short(q.p10); } },
+        { t: 'p25', r: true, cls: 'num', v: function (q) { return short(q.p25); } }, { t: 'p50', r: true, cls: 'num', v: function (q) { return short(q.p50); } },
+        { t: 'p75', r: true, cls: 'num', v: function (q) { return short(q.p75); } }, { t: 'p90', r: true, cls: 'num', v: function (q) { return short(q.p90); } },
+        { t: 'p95', r: true, cls: 'num', v: function (q) { return short(q.p95); } }, { t: 'p99', r: true, cls: 'num', v: function (q) { return short(q.p99); } },
+        { t: 'n', r: true, cls: 'num', v: function (q) { return int(q.n); } }
+      ], D.ref.quantiles.filter(function (q) { return q.geo === qg && matchesQ([q.metric, QM[q.metric]]); }).sort(function (x, y) { return x.metric < y.metric ? -1 : 1; }), { minWidth: 900 }) + '</div>';
+    } else if (tab === 'ads') {
+      var A = D.ref.ads, bn = {}; (A.byname || []).forEach(function (r) { bn[r.status] = r; });
+      lead = 'Проверка закупки: Google Ads Transparency по домену и по имени разработчика, Meta Ad Library, трекеры атрибуции в тексте. Больше ~300 доменов за раз Google блокирует по IP.';
+      body = kpiCards([
+        { label: 'Google: доменов проверено', value: int(A.google_ok), hint: 'реклама найдена у ' + int(A.google_ads) },
+        { label: 'Google по имени', value: int((bn.ok || {}).n || 0), hint: 'реклама у ' + int((bn.ok || {}).ads || 0) + ' · неоднозначно ' + int((bn.ambiguous || {}).n || 0) + ' · ограничение ' + int((bn['429'] || {}).n || 0) },
+        { label: 'Meta: приложений проверено', value: int(A.meta_checked), hint: 'объявления подтверждены у ' + int(A.meta_found) + ' · ошибок ' + int(A.meta_errors) },
+        { label: 'Трекеры в тексте', value: int(A.tracking_scanned), hint: 'найдены у ' + int(A.tracking_found) }
+      ]) +
+        '<div class="card panel"><div class="panel-title">Проверено доменов Google по дням</div><div class="panel-sub">последние 14 дней</div>' + columns((A.by_day || []).map(function (r) { return { label: r.date.slice(8, 10) + '.' + r.date.slice(5, 7), value: r.n }; })) + '</div>' +
+        '<div class="card" style="overflow:hidden"><div class="table-head"><div class="panel-title">Ответы Google по домену</div></div>' + tableHtml([
+          { t: 'Статус', v: function (r) { return esc(r.status); } }, { t: 'Доменов', r: true, cls: 'num', v: function (r) { return int(r.n); } }
+        ], A.google_status || [], { minWidth: 360 }) + '</div>';
+    } else if (tab === 'feed') {
+      lead = 'Последние 250 значимых событий: обновления листинга, скачки установок, найденные трекеры, пороги door ниш, сбои сбора.';
+      body = '<div class="card" style="overflow:hidden">' + tableHtml([
+        { t: 'Дата', cls: 'num', v: function (e) { return esc(dmy(e.date)); } },
+        { t: 'Гео', v: function (e) { return '<span class="geo-code">' + esc(e.geo || '') + '</span>'; } },
+        { t: 'Событие', v: function (e) { return esc(EV[e.kind] || e.kind); } },
+        { t: 'Приложение', v: function (e) { return e.app_id ? (appByKey[e.geo + '|' + e.app_id] ? '<button class="niche-cell" data-act="open-app" data-app="' + esc(e.app_id) + '" data-geo="' + esc(e.geo) + '"><span class="strong">' + esc(e.title || e.app_id) + '</span></button>' : '<span class="strong">' + esc(e.title || e.app_id) + '</span>') : '—'; } },
+        { t: 'Детали', v: function (e) { return '<span class="small">' + esc(e.kind === 'listing_changed' ? 'версия ' + e.detail : e.detail) + '</span>'; } }
+      ], D.ref.feed.filter(function (e) { return (state.geo === WW || e.geo === state.geo) && matchesQ([e.title, e.app_id, EV[e.kind], e.geo]); }), { minWidth: 880 }) + '</div>';
+    } else if (tab === 'keys') {
+      var kg = refGeo();
+      var krows = D.keys.filter(function (k) { var n = nicheByKey[k.geo + '|' + k.niche_id]; return k.geo === kg && matchesQ([k.keyword, n && n.concept, n && n.head]); })
+        .sort(function (x, y) { return (y.sug || 0) - (x.sug || 0); });
+      var KP = 100, kpages = Math.max(1, Math.ceil(krows.length / KP)); if (state.page > kpages) state.page = kpages;
+      lead = 'Ядро семантики: ключи ниш с весом подсказок, door ключа и долей закупки в топ-10.' + refNote();
+      body = '<div class="card" style="overflow:hidden">' + tableHtml([
+        { t: 'Ключ', v: function (k) { return '<span class="strong">' + esc(k.keyword) + '</span>' + (k.head ? ' <span class="badge b-accent">головной</span>' : ''); } },
+        { t: 'Ниша', v: function (k) { var n = nicheByKey[k.geo + '|' + k.niche_id]; return n ? '<button class="niche-cell" data-act="open-niche" data-geo="' + esc(k.geo) + '" data-niche="' + esc(k.niche_id) + '"><span class="strong">' + esc(n.concept || n.head) + '</span></button>' : '—'; } },
+        { t: 'Спрос', r: true, cls: 'num', v: function (k) { return fix(k.sug, 2); } },
+        { t: 'door ключа', r: true, cls: 'num', v: function (k) { return short(k.door_key); } },
+        { t: 'Свободен', v: function (k) { return k.free ? '<span class="badge b-green">да</span>' : '<span class="muted small">нет</span>'; } },
+        { t: 'Закупка', r: true, cls: 'num', v: function (k) { return pct(k.paid); } },
+        { t: 'Проверено', r: true, cls: 'num', v: function (k) { return pct(k.checked); } }
+      ], krows.slice((state.page - 1) * KP, state.page * KP), { minWidth: 820 }) + pager(krows.length, state.page, KP) + '</div>';
+    } else {
+      lead = 'Пусто — это не ноль. Метрики, которых Play не отдаёт или которые ещё не накопились; в скор они не входят.';
+      body = '<div class="card panel">' + D.ref.gaps.map(function (g) { return '<div class="check-row" style="align-items:flex-start"><span class="strong" style="min-width:240px">' + esc(g.name) + '</span><span class="why">' + esc(g.why) + '</span></div>'; }).join('') + '</div>';
+    }
+    $('view').innerHTML = '<section class="page">' + pageHead('Сбор и планы', title, lead) + ctabs() + body + '</section>';
+  }
+
   // ---------------- отрисовка и события ----------------
   function render() {
     renderNav(); renderHeader();
@@ -1394,6 +1601,7 @@
     if (act === 'close') { if (t.classList.contains('overlay') && e.target.closest('[data-stop]')) return; closeDrawer(); return; }
     if (act === 'view') { state.view = t.getAttribute('data-view'); state.page = 1; closeDrawer(); render(); window.scrollTo(0, 0); return; }
     if (act === 'geo') { state.geo = t.getAttribute('data-geo'); state.page = 1; state.af.cat = 'all'; state.nf.cat = 'all'; menu.hidden = true; render(); return; }
+    if (act === 'ctab') { state.cTab = t.getAttribute('data-tab'); state.page = 1; hideTip(); render(); window.scrollTo(0, 0); return; }
     if (act === 'page') { state.page = Number(t.getAttribute('data-page')); render(); var head = document.querySelector('.card .toolbar'); if (head) head.scrollIntoView({ block: 'start' }); return; }
     if (act === 'af-cat') { state.af.cat = t.getAttribute('data-cat'); state.page = 1; render(); return; }
     if (act === 'nf-cat') { state.nf.cat = t.getAttribute('data-cat'); state.page = 1; render(); return; }
