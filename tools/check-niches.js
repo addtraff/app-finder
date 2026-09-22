@@ -2,7 +2,7 @@
 //   1. Чистота ядра: у ключа ядра не меньше 2 общих приложений в топ-20 с семенами концепта
 //      ниши; у ниш без семян — с остальными ключами ядра (связность).
 //   2. Подпись: концепт ниши подтверждён её ключами (семя или concept_ok=1), а не одной подсказкой.
-//   3. Привязка приложений: прошедшие воронку привязаны к нише не через единственный ключ ядра.
+//   3. Привязка приложений: прошедшие воронку не держатся за нишу единственным не головным ключом.
 //   node tools/check-niches.js [--geo=US,GB] [--out=out/niche-check.json]
 import fs from 'node:fs';
 import path from 'node:path';
@@ -69,7 +69,10 @@ for (const geo of geos) {
     if (!core.size) continue;
     g.apps++;
     const hits = pos.all(geo, a.app_id).filter((r) => core.has(r.keyword) && r.best_position <= 50);
-    if (hits.length <= 1) {
+    // Один ключ ядра — норма, если это головной ключ ниши (ядра маленькие). Подозрительно — один
+    // и не головной: приложение держится за нишу случайным запросом.
+    const head = niches.find((n) => n.niche_id === a.niche_id)?.head_keyword;
+    if (hits.length <= 1 && hits[0]?.keyword !== head) {
       g.appsSingleKey++;
       if (single.length < 400) single.push({ geo, title: a.title, niche: niches.find((n) => n.niche_id === a.niche_id)?.head_keyword, key: hits[0]?.keyword || null });
     }
@@ -83,5 +86,5 @@ const out = path.join(ROOT, arg('out', 'out/niche-check.json'));
 fs.writeFileSync(out, JSON.stringify(report, null, 2));
 console.log(`ниш ${total.niches}, ключей в ядрах ${total.keywords}, чужих ${total.foreign} (${(total.foreign / Math.max(1, total.keywords) * 100).toFixed(1)} %)`);
 console.log(`ниш, где чужих ≥ 25 %: ${total.nichesDirty}; ниш со слабой подписью концепта: ${total.weakLabel}`);
-console.log(`приложений, прошедших воронку, с нишей: ${total.apps}; привязаны через один ключ: ${total.appsSingleKey} (${(total.appsSingleKey / Math.max(1, total.apps) * 100).toFixed(1)} %)`);
+console.log(`приложений, прошедших воронку, с нишей: ${total.apps}; привязаны через один не головной ключ: ${total.appsSingleKey} (${(total.appsSingleKey / Math.max(1, total.apps) * 100).toFixed(1)} %)`);
 console.log('подробно:', out);

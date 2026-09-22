@@ -82,11 +82,23 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
   // если в топ-20 подсказки есть не меньше concept_min_shared_top20 приложений из топ-20
   // семян того же концепта в этом гео. Иначе ключ без концепта: в ниши он попадает лишь по
   // своей выдаче. Семена не проверяются; без выдачи семени судить не о чем — концепт остаётся.
+  // Выдача семени берётся и тогда, когда семя помечено брендом («document scanner» в US,
+  // «angle meter» в GB — на первом месте одноимённое приложение): в кластеры такой ключ не идёт,
+  // но его выдача тематична. Без этого у концепта не было выдачи для сверки, проверка
+  // пропускалась, и в нишу «транспортир» попадали «angry birds» и «anglian water».
+  const seedRows = new Map();
+  for (const row of serp) {
+    const s = sugScore.get(row.keyword);
+    if (!s || s.source !== 'seed' || !s.concept) continue;
+    if (!seedRows.has(row.keyword)) seedRows.set(row.keyword, []);
+    seedRows.get(row.keyword).push(row);
+  }
   const seedApps = new Map();
-  for (const [kw, s] of sugScore) {
-    if (s.source !== 'seed' || !s.concept || !top20.has(kw)) continue;
-    if (!seedApps.has(s.concept)) seedApps.set(s.concept, new Set());
-    for (const a of top20.get(kw)) seedApps.get(s.concept).add(a);
+  for (const [kw, rows] of seedRows) {
+    const c = sugScore.get(kw).concept;
+    if (!seedApps.has(c)) seedApps.set(c, new Set());
+    rows.slice().sort((a, b) => a.position - b.position).filter((r) => !ubiquitous.has(r.app_id))
+      .slice(0, 20).forEach((r) => seedApps.get(c).add(r.app_id));
   }
   const minShared = cl.concept_min_shared_top20 ?? 2;
   const conceptCheck = { kept: 0, dropped: 0 };
