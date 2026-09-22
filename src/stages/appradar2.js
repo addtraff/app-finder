@@ -15,6 +15,14 @@ import { collectCollection } from './dashboard.js';
 const one = (d, sql, ...p) => d.prepare(sql).get(...p);
 const all = (d, sql, ...p) => d.prepare(sql).all(...p);
 const r4 = (v) => (v == null || !Number.isFinite(v) ? null : Number(Number(v).toPrecision(4)));
+// Копилка для роста ниши: одна на всю органику, вторая — только на прошедших воронку.
+const bucket = () => ({ apps: 0, installs: 0, raw: 0, interp: 0, ws: [], young: 0, ubt: 0, flags: 0, official: 0 });
+const flat = (b, p) => {
+  const ws = b.ws.slice().sort((x, y) => x - y);
+  return { [p + 'apps']: b.apps, [p + 'installs']: b.installs, [p + 'raw']: Math.round(b.raw),
+    [p + 'interp']: r4(b.interp), [p + 'w']: b.apps ? ws[ws.length >> 1] : 0, [p + 'young']: b.young,
+    [p + 'ubt']: b.ubt, [p + 'flags']: b.flags, [p + 'official']: b.official };
+};
 const parse = (s, def = null) => { try { return s == null ? def : JSON.parse(s); } catch { return def; } };
 
 function geoQ(d, geo, date, metric, level) {
@@ -207,23 +215,28 @@ export function collect(d) {
       // каждом гео своя. Если вход лёгкий хоть где-то, показываются цифры именно того гео —
       // иначе в строке стояла бы метка «лёгкий вход» рядом с числами другого гео.
       const niche = { n_geo: g.geo, n_freedom: r4(r.freedom_pct), n_purity: r4(r.organic_purity),
-        n_free_keys: r.free_keys_count, n_young: r.young_organic_count, n_door: r.door,
-        n_tto: r4(r.time_to_organic), n_quad: r.quadrant };
-      const row = { app_id: r.app_id, title: r.title, dev: r.developer, concept: r.concept, niche_id: r.niche_id, geo: g.geo, installs: r.installs,
+        n_free_keys: r.free_keys_count, n_quad: r.quadrant };
+      const row = { app_id: r.app_id, title: r.title, dev: r.developer, concept: r.concept, geo: g.geo, installs: r.installs,
         official: official ? 1 : 0, w, interp: r4(official ? r.installs_delta_30d : r.delta_preview),
         raw: official ? Math.round((r.installs_delta_30d * w) / 30) : r.delta_preview_raw,
         age: r4(r.age_months), young: r.young, level: r.organic_level, passed: r.passed_funnel ? 1 : 0, ubt: r.ubt_signal === 1 ? 1 : 0, flags };
       if (r.niche_id) {
         const key = g.geo + '|' + r.niche_id;
         let ag = nicheGrowthByKey.get(key);
-        if (!ag) { ag = { geo: g.geo, niche_id: r.niche_id, apps: 0, installs: 0, raw: 0, interp: 0, ws: [], young: 0, ubt: 0, passed: 0, flags: 0, official: 0, easy }; nicheGrowthByKey.set(key, ag); }
-        ag.apps++; ag.installs += r.installs || 0; ag.raw += row.raw || 0; ag.interp += row.interp || 0;
-        ag.ws.push(w);
-        if (r.young) ag.young++;
-        if (row.ubt) ag.ubt++;
-        if (row.passed) ag.passed++;
-        if (row.flags) ag.flags++;
-        if (official) ag.official++;
+        if (!ag) { ag = { geo: g.geo, niche_id: r.niche_id, easy, a: bucket(), p: bucket() }; nicheGrowthByKey.set(key, ag); }
+        // Две суммы: по всей органике и только по прошедшим воронку. Без второй верх отчёта
+        // занимают ниши, куда затесался гигант: один такой прибавляет сотни миллионов
+        // установок в каждом гео, и ниша выглядит растущей, хотя повторить это нечего.
+        const add = (b) => {
+          b.apps++; b.installs += r.installs || 0; b.raw += row.raw || 0; b.interp += row.interp || 0;
+          b.ws.push(w);
+          if (r.young) b.young++;
+          if (row.ubt) b.ubt++;
+          if (row.flags) b.flags++;
+          if (official) b.official++;
+        };
+        add(ag.a);
+        if (row.passed) add(ag.p);
       }
       const cur = growthByApp.get(r.app_id);
       if (!cur) { growthByApp.set(r.app_id, { ...row, ...niche, easy, geos: [g.geo] }); continue; }
@@ -447,12 +460,9 @@ export function collect(d) {
     },
     geos, apps: appRows, niches: nicheRows, keys: keyRows, worldApps, worldNiches, timeline, funnel,
     growth: [...growthByApp.values()].map((r) => ({ ...r, geos: r.geos.sort().join(','), geos_count: r.geos.length })),
-    nicheGrowth: [...nicheGrowthByKey.values()].map((a) => {
-      const ws = a.ws.slice().sort((x, y) => x - y);
-      return { geo: a.geo, niche_id: a.niche_id, apps: a.apps, installs: a.installs, raw: Math.round(a.raw),
-        interp: r4(a.interp), w: ws[ws.length >> 1], young: a.young, ubt: a.ubt, passed: a.passed,
-        flags: a.flags, official: a.official, easy: a.easy };
-    }),
+    nicheGrowth: [...nicheGrowthByKey.values()].map((n) => ({
+      geo: n.geo, niche_id: n.niche_id, easy: n.easy, ...flat(n.a, ''), ...flat(n.p, 'p_'),
+    })),
     quotes: extra.quotes, appEvents: extra.appEvents, ref: extra.ref,
     collection: collectCollection(d, lastDate),
   };

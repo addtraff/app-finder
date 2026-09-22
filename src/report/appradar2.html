@@ -1623,6 +1623,7 @@
   GLOSS['g.inst'] = { t: 'Установки', what: 'Границы по установкам приложения.', how: 'Установки у Play общие для всех стран, поэтому границы не зависят от выбранного гео. Play показывает их ступенями (10 тыс., 50 тыс., 100 тыс.), поэтому берётся ступень, на которой приложение стоит сейчас.', why: 'Снизу — отсечь мелочь, которая растёт на процентах от нуля. Сверху — убрать гигантов: их рост не повторить, и он забивает верх списка.' };
   GLOSS['g.door'] = { t: 'Дверь ниши', what: 'Сколько установок у самого слабого приложения в топ-10 ниши.', how: 'Медиана по ключам ядра от минимальных установок в топ-10.', why: 'Это и есть цена входа: чтобы встать в топ-10, нужно дотянуться до двери, а не до лидера. Верхняя граница убирает ниши, куда без бюджета не войти.' };
   GLOSS['g.ngrowth'] = { t: 'Рост ниши', what: 'Суммарный прирост установок органик-приложений ниши.', how: 'Своей истории у ниши нет: ядро пересобирается каждый день, и стена установок топ-10 скачет от смены состава, а не от роста. Поэтому ниша считается снизу вверх — складывается интерполированный прирост её приложений, у которых нет признаков закупки. Окно — медиана по этим приложениям.', why: 'Растущая ниша важнее одного растущего приложения: спрос поднимается у всех, и место в топе ещё не занято.' };
+  GLOSS['g.nfunnel'] = { t: 'Воронка в отчёте по нишам', what: 'Какие приложения ниши попадают в сумму роста.', how: '«Только прошедшие» складывает прирост приложений, прошедших воронку методики: там уже отсечены гиганты (установок больше p75 гео), фрод и закупка. «Вся органика» складывает всех без признаков закупки.', why: 'Один гигант внутри ниши прибавляет сотни миллионов установок в каждом гео и выносит нишу наверх, хотя повторить этот рост нечем.' };
   GLOSS['g.report'] = { t: 'Что в отчёте', what: 'Приложения без найденной закупки трафика, по приросту установок.', how: 'Органика — ступень «признаков закупки нет» или «органика подтверждена». Прирост — интерполяция собранной дельты.', why: 'Кто прямо сейчас растёт без рекламы — главный кандидат в образцы.' };
   function reportTabs() {
     return '<div class="ctabs">' + REPORTS.map(function (r) {
@@ -1720,20 +1721,23 @@
 
   function renderGrowthNiches(R) {
     var f = state.gf, k = R[3], H = HOR[k];
+    // «Только прошедшие воронку» берут вторую сумму: без неё верх занимают ниши, куда попал
+    // гигант — один такой прибавляет сотни миллионов установок в каждом гео.
+    var P = f.passed === '1' ? 'p_' : '';
     var joined = (D.nicheGrowth || []).map(function (a) {
       var n = nicheByKey[a.geo + '|' + a.niche_id];
-      if (!n) return null;
+      if (!n || !a[P + 'apps']) return null;
       return { geo: a.geo, niche_id: a.niche_id, concept: n.concept, head: n.head, quadrant: n.quadrant,
         freedom: n.freedom, purity: n.purity, free_keys: n.free_keys, door: n.door, tto: n.tto, closed: n.closed,
-        young_organic: n.young, apps: a.apps, installs: a.installs, raw: a.raw, interp: a.interp, w: a.w,
-        young: a.young, ubt: a.ubt, passed: a.passed, flags: a.flags, official: a.official, easy: a.easy };
+        young_organic: n.young, apps: a[P + 'apps'], installs: a[P + 'installs'], raw: a[P + 'raw'],
+        interp: a[P + 'interp'], w: a[P + 'w'], young: a[P + 'young'], ubt: a[P + 'ubt'],
+        flags: a[P + 'flags'], official: a[P + 'official'], easy: a.easy };
     }).filter(Boolean);
     var all = joined.filter(function (r) {
       if (state.geo !== WW && r.geo !== state.geo) return false;
       if (f.inst && !(r.door >= f.inst)) return false;
       if (f.instMax && !(r.door != null && r.door <= f.instMax)) return false;
       if (f.easy && !r.easy) return false;
-      if (f.passed === '1' && !r.passed) return false;
       return matchesQ([r.concept, r.head, r.niche_id]);
     });
     var shortWin = all.filter(function (r) { return !(r.w >= f.win); }).length;
@@ -1768,7 +1772,7 @@
       ]) +
       '<div class="card" style="overflow:hidden"><div class="toolbar first">' +
         winField(f, true) + instFields(f, true) +
-        selectField('g-', 'gf', 'passed', 'Воронка', f.passed, [['1', 'есть прошедшие воронку'], ['0', 'любые']]) +
+        selectField('g-', 'gf', 'passed', 'Воронка', f.passed, [['1', 'только прошедшие'], ['0', 'вся органика']], 'g.nfunnel') +
         easyCheck(f) +
         '<div class="toolbar-right">' + selectField('g-', 'gf', 'sort', 'Сортировка', f.sort, [['interp', 'Прирост'], ['rel', 'Рост, %'], ['apps', 'Приложений'], ['door', 'Дверь ниже'], ['young', 'Молодых органиков']]) + '</div>' +
       '</div>' + tableHtml(cols, slice, { minWidth: 1280 }) + pager(rows.length, state.page, PAGE) + '</div>' +
