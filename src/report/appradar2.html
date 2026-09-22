@@ -350,6 +350,14 @@
 (function () {
   __UNPACK_JS__
   var D = unpackRows(JSON.parse(document.getElementById('radar-data').textContent));
+  // Списки ниш приходят кортежами — имена полей в JSON весили больше самих чисел, а страница
+  // артефакта ограничена 16 МБ. Разворачиваем один раз при загрузке, дальше код работает с
+  // обычными объектами.
+  (D.niches || []).forEach(function (n) {
+    n.top10 = (n.top10 || []).map(function (x) { return { pos: x[0], app_id: x[1], title: x[2], installs: x[3], age: x[4], level: x[5], young: x[6], passed: x[7] }; });
+    n.components = (n.components || []).map(function (c) { return { name: c[0], raw: c[1], n: c[2], w: c[3], contrib: c[4] }; });
+    n.young_apps = (n.young_apps || []).map(function (y) { return { app_id: y[0], title: y[1], age: y[2], installs: y[3], level: y[4] }; });
+  });
   var M = D.meta, REF = M.reference_geo, WW = 'WW', PAGE = 25, APP_PAGE = 100;
 
   // ---------------- справочники ----------------
