@@ -63,6 +63,9 @@
   .nav-item[aria-current="page"] { background: #3d5afe; color: #fff; }
   .nav-count { margin-left: auto; background: var(--side-2); color: var(--side-text); border-radius: 20px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
   .nav-item[aria-current="page"] .nav-count { background: rgba(255,255,255,.2); color: #fff; }
+  .nav-item.sub { padding: 8px 12px 8px 22px; font-size: 13px; line-height: 1.3; white-space: normal; gap: 9px; }
+  .nav-dot { width: 6px; height: 6px; border-radius: 50%; flex: 0 0 6px; background: var(--side-muted); }
+  .nav-item.sub[aria-current="page"] .nav-dot { background: #fff; }
   .side-note { margin: 0 20px 16px; color: var(--side-muted); font-size: 12px; line-height: 1.5; }
   .side-note b { color: var(--side-text); }
   .side-foot { margin-top: auto; padding: 16px 18px 20px; border-top: 1px solid rgba(255,255,255,.07); display: flex; align-items: center; gap: 10px; }
@@ -713,10 +716,16 @@
       { id: 'reports', title: 'Отчёты', svg: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h7M9 9h3"/>', count: REPORTS.length },
       { id: 'collection', title: 'Сбор и планы', svg: '<rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>' }
     ];
+    // У «Отчётов» — подпункты: каждый отчёт отдельной строкой меню, первым — топ роста.
     $('nav').innerHTML = items.map(function (c) {
-      return '<button class="nav-item" data-act="view" data-view="' + c.id + '"' + (state.view === c.id ? ' aria-current="page"' : '') + '>' +
+      var current = state.view === c.id && c.id !== 'reports';
+      var html = '<button class="nav-item" data-act="view" data-view="' + c.id + '"' + (current ? ' aria-current="page"' : '') + '>' +
         '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + c.svg + '</svg>' +
         '<span>' + esc(c.title) + '</span>' + (c.count != null ? '<span class="nav-count">' + int(c.count) + '</span>' : '') + '</button>';
+      if (c.id === 'reports') html += REPORTS.map(function (r) {
+        return '<button class="nav-item sub" data-act="report" data-report="' + r[0] + '"' + (state.view === 'reports' && state.rTab === r[0] ? ' aria-current="page"' : '') + '><span class="nav-dot"></span><span>' + esc(r[1]) + '</span></button>';
+      }).join('');
+      return html;
     }).join('');
     $('foot-sub').textContent = 'собрано ' + M.generated_at + ' · база ' + M.db_size_mb + ' МБ';
   }
@@ -1670,6 +1679,7 @@
     if (act === 'close') { if (t.classList.contains('overlay') && e.target.closest('[data-stop]')) return; closeDrawer(); return; }
     if (act === 'view') { state.view = t.getAttribute('data-view'); state.page = 1; closeDrawer(); render(); window.scrollTo(0, 0); return; }
     if (act === 'geo') { state.geo = t.getAttribute('data-geo'); state.page = 1; state.af.cat = 'all'; state.nf.cat = 'all'; menu.hidden = true; render(); return; }
+    if (act === 'report') { state.view = 'reports'; state.rTab = t.getAttribute('data-report'); state.page = 1; closeDrawer(); render(); window.scrollTo(0, 0); return; }
     if (act === 'rtab') { state.rTab = t.getAttribute('data-tab'); state.page = 1; render(); window.scrollTo(0, 0); return; }
     if (act === 'ctab') { state.cTab = t.getAttribute('data-tab'); state.page = 1; hideTip(); render(); window.scrollTo(0, 0); return; }
     if (act === 'page') { state.page = Number(t.getAttribute('data-page')); render(); var head = document.querySelector('.card .toolbar'); if (head) head.scrollIntoView({ block: 'start' }); return; }
