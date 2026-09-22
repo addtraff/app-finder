@@ -198,21 +198,27 @@ export function collect(d) {
       const easy = r.young_organic_count >= 1 && r.free_keys_count >= 1 && r.freedom_pct != null && r.freedom_pct >= 50
         && r.organic_purity != null && thresholds.purityP50 != null && r.organic_purity >= thresholds.purityP50
         && !r.closed_flag && r.quadrant !== 'pass' ? 1 : 0;
+      // Цифры ниши идут отдельным блоком: строка приложения в отчёте одна на все гео, а ниша в
+      // каждом гео своя. Если вход лёгкий хоть где-то, показываются цифры именно того гео —
+      // иначе в строке стояла бы метка «лёгкий вход» рядом с числами другого гео.
+      const niche = { n_geo: g.geo, n_freedom: r4(r.freedom_pct), n_purity: r4(r.organic_purity),
+        n_free_keys: r.free_keys_count, n_young: r.young_organic_count, n_door: r.door,
+        n_tto: r4(r.time_to_organic), n_quad: r.quadrant };
       const row = { app_id: r.app_id, title: r.title, dev: r.developer, concept: r.concept, geo: g.geo, installs: r.installs,
-        easy, n_freedom: r4(r.freedom_pct), n_purity: r4(r.organic_purity), n_free_keys: r.free_keys_count,
-        n_young: r.young_organic_count, n_door: r.door, n_tto: r4(r.time_to_organic), n_quad: r.quadrant,
         official: official ? 1 : 0, w, interp: r4(official ? r.installs_delta_30d : r.delta_preview),
         raw: official ? Math.round((r.installs_delta_30d * w) / 30) : r.delta_preview_raw,
         age: r4(r.age_months), young: r.young, level: r.organic_level, passed: r.passed_funnel ? 1 : 0, ubt: r.ubt_signal === 1 ? 1 : 0, flags };
       const cur = growthByApp.get(r.app_id);
-      if (!cur) { growthByApp.set(r.app_id, { ...row, geos: [g.geo] }); continue; }
+      if (!cur) { growthByApp.set(r.app_id, { ...row, ...niche, easy, geos: [g.geo] }); continue; }
       cur.geos.push(g.geo);
       cur.passed = cur.passed || row.passed; cur.ubt = cur.ubt || row.ubt; cur.flags = Math.max(cur.flags, row.flags);
-      cur.easy = cur.easy || row.easy;
-      // Лучшая строка: официальная дельта, затем окно длиннее.
+      // Лучшая строка роста: официальная дельта, затем окно длиннее. Цифры роста и цифры ниши
+      // выбираются независимо: рост — по длине окна, ниша — по лёгкости входа.
       if (row.official > cur.official || (row.official === cur.official && row.w > cur.w)) {
-        Object.assign(cur, { ...row, geos: cur.geos, passed: cur.passed, ubt: cur.ubt, flags: cur.flags, easy: cur.easy });
+        Object.assign(cur, row);
       }
+      if (easy && !cur.easy) { cur.easy = 1; Object.assign(cur, niche); }
+      else if (!cur.easy && r.freedom_pct != null && cur.n_freedom == null) Object.assign(cur, niche);
     }
 
     const apps = all(d,
