@@ -34,8 +34,8 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
   }
 
   const brand = new Set(d.prepare(`SELECT keyword FROM disc_keywords WHERE geo=? AND is_brand=1`).all(geo).map((r) => r.keyword));
-  const sugScore = new Map(d.prepare(`SELECT keyword, suggest_score, suggest_depth, intent_type, concept FROM disc_keywords WHERE geo=?`).all(geo)
-    .map((r) => [r.keyword, r]));
+  const sugScore = new Map(d.prepare(`SELECT keyword, suggest_score, suggest_depth, intent_type, concept, source FROM disc_keywords WHERE geo=?`).all(geo)
+    .map((r) => [r.keyword, { ...r }]));
 
   const byKw = new Map();
   for (const row of serp) {
@@ -73,6 +73,37 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
     top5.set(kw, clean.slice(0, 5).map((r) => r.app_id));
     top20.set(kw, clean.slice(0, 20).map((r) => r.app_id));
   }
+
+  // 2б. Концепт подсказки проверяется выдачей. Подсказки собираются по началу семени, и на
+  // короткое начало Play подсказывает всё подряд: «control de gastos» → «control remoto
+  // universal», «dokumente scannen» → «dokkan battle». Такая подсказка наследовала концепт
+  // семени, уходила в нишу концепта, и к «учёту расходов» привязывались пульты для ТВ
+  // (22.09: 2 595 из 5 325 подсказок, 2 291 из них в активных ядрах). Концепт остаётся, только
+  // если в топ-20 подсказки есть не меньше concept_min_shared_top20 приложений из топ-20
+  // семян того же концепта в этом гео. Иначе ключ без концепта: в ниши он попадает лишь по
+  // своей выдаче. Семена не проверяются; без выдачи семени судить не о чем — концепт остаётся.
+  const seedApps = new Map();
+  for (const [kw, s] of sugScore) {
+    if (s.source !== 'seed' || !s.concept || !top20.has(kw)) continue;
+    if (!seedApps.has(s.concept)) seedApps.set(s.concept, new Set());
+    for (const a of top20.get(kw)) seedApps.get(s.concept).add(a);
+  }
+  const minShared = cl.concept_min_shared_top20 ?? 2;
+  const conceptCheck = { kept: 0, dropped: 0 };
+  const upConcept = d.prepare(`UPDATE disc_keywords SET concept_ok=? WHERE geo=? AND keyword=?`);
+  d.transaction(() => {
+    for (const kw of keywords) {
+      const s = sugScore.get(kw);
+      if (!s || !s.concept || s.source === 'seed') continue;
+      const pool = seedApps.get(s.concept);
+      if (!pool || !pool.size) continue;
+      const shared = (top20.get(kw) || []).filter((a) => pool.has(a)).length;
+      const ok = shared >= minShared ? 1 : 0;
+      upConcept.run(ok, geo, kw);
+      if (ok) conceptCheck.kept++;
+      else { conceptCheck.dropped++; s.concept = null; }
+    }
+  })();
 
   // 3. Union-find: >= 4 общих в топ-10 и Jaccard >= 0,25.
   const uf = new UnionFind();
@@ -366,7 +397,7 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
   }
 
   const leftoverNote = cl.leftover_to_concept
-    ? `; остаток: в кластеры своего концепта ${leftover.to_cluster}, ниш концептов ${leftover.concept_niches}, по выдаче ${leftover.by_serp}, вне ниш ${leftover.dropped}`
+    ? `; концепт подсказок: подтверждён ${conceptCheck.kept}, снят ${conceptCheck.dropped}; остаток: в кластеры своего концепта ${leftover.to_cluster}, ниш концептов ${leftover.concept_niches}, по выдаче ${leftover.by_serp}, вне ниш ${leftover.dropped}`
     : '';
   finishRun(runId, 'niche-doors', geo, {
     notes: `${nicheCount} ниш из ${keywords.length} ключей, вездесущих отброшено ${ubiquitous.size} (лимит ${ubiqLimit}), из door исключено ${implausible.size} строк с оценок > установок${leftoverNote}`,

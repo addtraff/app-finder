@@ -41,7 +41,9 @@
     "similar_edge_bonus": 3,
     "_leftover_note": "Ключи вне кластеров по выдаче не выбрасываются: с концептом — в кластер своего концепта или в нишу концепта; без концепта — в кластер, с которым делят не меньше leftover_min_shared_top10 приложений топ-10.",
     "leftover_to_concept": true,
-    "leftover_min_shared_top10": 2
+    "leftover_min_shared_top10": 2,
+    "_concept_note": "Подсказка сохраняет концепт семени, только если в её топ-20 не меньше concept_min_shared_top20 приложений из топ-20 семян того же концепта в гео (22.09: подсказки по началу семени уводили в чужие темы — «control de gastos» → «control remoto universal»).",
+    "concept_min_shared_top20": 2
   },
   "monetization_proof": {
     "ok": 1,

@@ -421,6 +421,8 @@ const MIGRATIONS = [
   ['metrics_app_v2', 'delta_preview_raw', 'INTEGER'],
   ['metrics_app_v2', 'delta_preview_w', 'INTEGER'],
   ['metrics_app_v2', 'delta_preview_from', 'TEXT'],
+  // Концепт подсказки подтверждён выдачей (niche-doors): 1 — да, 0 — чужая тема, NULL — не проверялся
+  ['disc_keywords', 'concept_ok', 'INTEGER'],
 ];
 
 function migrate(d) {
