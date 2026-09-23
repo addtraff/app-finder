@@ -2,7 +2,7 @@
   "_note": "Лимиты одного прогона. Значения discovery рассчитаны на глубокий проход по каталогу из 72 ниш: один гео занимает ~50-60 минут, все 30 — около суток непрерывной работы. Для быстрой проверки одного гео опускайте max_keywords_per_geo и max_apps_cards_per_geo либо запускайте stage с --limit.",
   "discovery": {
     "suggest_depth": 1,
-    "max_keywords_per_geo": 260,
+    "max_keywords_per_geo": 100000,
     "serp_top_n": 50,
     "max_apps_cards_per_geo": 700,
     "similar_depth": 2,

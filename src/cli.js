@@ -235,6 +235,7 @@ async function main() {
         await STAGES[name].run({
           geo, date, runId, cycle: args.cycle || 'discovery',
           scope: args.scope, limit: args.limit ? Number(args.limit) : null,
+          withNgrams: args.ngrams !== 'no' && args.ngrams !== false,
           force: !!args.force, useBrowser: args.browser !== 'no',
           headless: args.headless === true || args.headless === 'yes',
           sequential: args.sequential === true || args.sequential === 'yes',
