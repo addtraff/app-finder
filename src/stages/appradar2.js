@@ -176,6 +176,7 @@ export function collect(d) {
       updP90: r4(qv(null, g.geo, 'days_since_update', date, 'p90', { nicheFirst: false })),
       asoP25: r4(geoQ(d, g.geo, date, 'aso_share', 'p25')),
       purityP50: r4(geoQ(d, g.geo, date, 'organic_purity', 'p50')),
+      purityP75: r4(geoQ(d, g.geo, date, 'organic_purity', 'p75')),
       fdsP75: r4(geoQ(d, g.geo, date, 'free_demand_share', 'p75')),
       freeKeysP75: r4(geoQ(d, g.geo, date, 'free_keys_count', 'p75')),
       doorKeyP25: r4(geoQ(d, g.geo, date, 'door_key', 'p25')),
@@ -211,6 +212,12 @@ export function collect(d) {
       const easy = r.young_organic_count >= 1 && r.free_keys_count >= 1 && r.freedom_pct != null && r.freedom_pct >= 50
         && r.organic_purity != null && thresholds.purityP50 != null && r.organic_purity >= thresholds.purityP50
         && !r.closed_flag && r.quadrant !== 'pass' ? 1 : 0;
+      // «Топ-5» — та же проверка, но строже: пятое место дороже десятого, поэтому нужна
+      // повторяемость входа (молодых органиков от двух, а не один случай), запас свободных
+      // ключей, чистота не ниже p75 гео и квадрант «Цель», а не просто «не Мимо».
+      const easy5 = easy && r.young_organic_count >= 2 && r.free_keys_count >= 2
+        && r.freedom_pct >= 65 && thresholds.purityP75 != null && r.organic_purity >= thresholds.purityP75
+        && r.quadrant === 'target' ? 1 : 0;
       // Цифры ниши идут отдельным блоком: строка приложения в отчёте одна на все гео, а ниша в
       // каждом гео своя. Если вход лёгкий хоть где-то, показываются цифры именно того гео —
       // иначе в строке стояла бы метка «лёгкий вход» рядом с числами другого гео.
@@ -223,7 +230,7 @@ export function collect(d) {
       if (r.niche_id) {
         const key = g.geo + '|' + r.niche_id;
         let ag = nicheGrowthByKey.get(key);
-        if (!ag) { ag = { geo: g.geo, niche_id: r.niche_id, easy, a: bucket(), p: bucket() }; nicheGrowthByKey.set(key, ag); }
+        if (!ag) { ag = { geo: g.geo, niche_id: r.niche_id, easy, easy5, a: bucket(), p: bucket() }; nicheGrowthByKey.set(key, ag); }
         // Две суммы: по всей органике и только по прошедшим воронку. Без второй верх отчёта
         // занимают ниши, куда затесался гигант: один такой прибавляет сотни миллионов
         // установок в каждом гео, и ниша выглядит растущей, хотя повторить это нечего.
@@ -239,7 +246,7 @@ export function collect(d) {
         if (row.passed) add(ag.p);
       }
       const cur = growthByApp.get(r.app_id);
-      if (!cur) { growthByApp.set(r.app_id, { ...row, ...niche, easy, geos: [g.geo] }); continue; }
+      if (!cur) { growthByApp.set(r.app_id, { ...row, ...niche, easy, easy5, geos: [g.geo] }); continue; }
       cur.geos.push(g.geo);
       cur.passed = cur.passed || row.passed; cur.ubt = cur.ubt || row.ubt; cur.flags = Math.max(cur.flags, row.flags);
       // Лучшая строка роста: официальная дельта, затем окно длиннее. Цифры роста и цифры ниши
@@ -247,7 +254,9 @@ export function collect(d) {
       if (row.official > cur.official || (row.official === cur.official && row.w > cur.w)) {
         Object.assign(cur, row);
       }
-      if (easy && !cur.easy) { cur.easy = 1; Object.assign(cur, niche); }
+      // Цифры ниши идут из самого сильного гео: сперва то, где вход в топ-5, затем в топ-10.
+      if (easy5 && !cur.easy5) { cur.easy5 = 1; cur.easy = 1; Object.assign(cur, niche); }
+      else if (easy && !cur.easy) { cur.easy = 1; Object.assign(cur, niche); }
       else if (!cur.easy && r.freedom_pct != null && cur.n_freedom == null) Object.assign(cur, niche);
     }
 
@@ -463,7 +472,7 @@ export function collect(d) {
     geos, apps: appRows, niches: nicheRows, keys: keyRows, worldApps, worldNiches, timeline, funnel,
     growth: [...growthByApp.values()].map((r) => ({ ...r, geos: r.geos.sort().join(','), geos_count: r.geos.length })),
     nicheGrowth: [...nicheGrowthByKey.values()].map((n) => ({
-      geo: n.geo, niche_id: n.niche_id, easy: n.easy, ...flat(n.a, ''), ...flat(n.p, 'p_'),
+      geo: n.geo, niche_id: n.niche_id, easy: n.easy, easy5: n.easy5, ...flat(n.a, ''), ...flat(n.p, 'p_'),
     })),
     quotes: extra.quotes, appEvents: extra.appEvents, ref: extra.ref,
     collection: collectCollection(d, lastDate),
