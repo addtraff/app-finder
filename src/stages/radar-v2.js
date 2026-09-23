@@ -767,7 +767,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     histQuad.get(r.niche_id).push(r.quadrant);
   }
   for (const r of nicheRows) {
-    const seen = (histQuad.get(r.niche_id) || []).concat([r.quadrant]);
+    const seen = (histQuad.get(r.n.niche_id) || []).concat([r.quadrant]);
     const cnt = new Map();
     for (const q of seen) cnt.set(q, (cnt.get(q) || 0) + 1);
     const best = [...cnt].sort((a, b) => b[1] - a[1] || (a[0] === r.quadrant ? -1 : 1))[0];
