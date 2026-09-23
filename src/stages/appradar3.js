@@ -156,7 +156,10 @@ export async function run({ geo, date }) {
     //             якорем: вокруг него ищутся слабые конкуренты под конкретные сценарии.
     // Воронку при этом не трогаем: AppRadar 2 продолжает считать по-старому, чтобы его
     // цифры не поехали. Здесь отсеянные показываются отдельно, с причиной как признаком.
-    const REJECTED_KINDS = ['broken', 'factory', 'too_big'];
+    // Причина «фабрика клонов» в вердиктах называется regional_clone; «заброшенное» (dead) —
+    // это приложение с заметными установками, которое давно не обновляли: самый прямой
+    // признак слабого соперника, какой есть.
+    const REJECTED_KINDS = ['broken', 'regional_clone', 'too_big', 'dead'];
     for (const c of all(d,
       `SELECT v.app_id, v.niche_id, v.installs, v.age_months age, v.organic_level lvl,
               v.organic_score oscore, v.evidence_coverage ocov,
@@ -221,7 +224,16 @@ export async function run({ geo, date }) {
     },
     geos, rows, niches,
     // Отсеянные воронкой по трём причинам, которые на деле являются признаками.
-    rejected: rejected.sort((a, b) => (b.k50 - b.k50p || 0) - (a.k50 - a.k50p || 0)).slice(0, 1500),
+    // Отсечка по каждой причине отдельно: при общей крупные («якоря спроса») вытесняли
+    // из списка недовольный спрос и заброшенных, а именно они и интересны.
+    rejected: (() => {
+      const byKind = new Map();
+      for (const r of rejected.sort((a, b) => ((b.k50 - b.k50p) || 0) - ((a.k50 - a.k50p) || 0))) {
+        const list = byKind.get(r.reason) || [];
+        if (list.length < 400) { list.push(r); byKind.set(r.reason, list); }
+      }
+      return [...byKind.values()].flat();
+    })(),
   };
 
   const tpl = fs.readFileSync(path.join(ROOT, 'src', 'report', 'appradar3.html'), 'utf8');
