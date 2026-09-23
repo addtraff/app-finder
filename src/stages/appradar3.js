@@ -242,6 +242,6 @@ export async function run({ geo, date }) {
   const out = path.join(ROOT, 'out', 'appradar3.html');
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, html);
-  log(`  AppRadar 3: out/appradar3.html (${(Buffer.byteLength(html) / 1048576).toFixed(1)} МБ), гео ${geos.filter((g) => g.date).length}, кандидатов ${rows.length}, ниш ${niches.length}, отсеянных с сигналом ${Math.min(rejected.length, 1500)}`);
+  log(`  AppRadar 3: out/appradar3.html (${(Buffer.byteLength(html) / 1048576).toFixed(1)} МБ), гео ${geos.filter((g) => g.date).length}, кандидатов ${rows.length}, ниш ${niches.length}, отсеянных с сигналом ${data.rejected.length}`);
   return { rows: rows.length, niches: niches.length };
 }
