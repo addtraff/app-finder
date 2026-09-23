@@ -419,8 +419,44 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
       if (ap && ap.attribution_sdk === 0) level = fresh ? 'confirmed' : 'stale';
       else if (tr && tr.found === 0) level = fresh ? 'no_signs' : 'stale';
     }
+    // ---------- шкала улик органики ----------
+    // Бинарное «признаков закупки нет» слишком сильное утверждение: оно одинаково звучит и
+    // когда проверены обе рекламные библиотеки и трекер, и когда проверен один домен. Поэтому
+    // рядом со ступенью считается вес улик 0…1 и отдельно — покрытие: какая доля проверок
+    // вообще выполнена. Это НЕ вероятность: пока нет backtest, называть это вероятностью
+    // было бы оформлением догадки. Это взвешенная сумма того, что мы действительно знаем.
+    //
+    // Свежесть: улика старше срока годности считается наполовину, вдвое старше — не считается.
+    const freshness = (checked) => {
+      if (!checked) return 0;
+      const age = Math.max(0, daysBetween(checked, D));
+      const ttl = V.evidence_ttl_days;
+      return age <= ttl ? 1 : age >= ttl * 2 ? 0 : 1 - (age - ttl) / ttl;
+    };
+    const slots = [
+      { w: 0.25, found: byDomain ? byDomain.found : null, at: byDomain?.checked },
+      { w: 0.25, found: byName ? byName.found : null, at: byName?.checked },
+      { w: 0.20, found: mF, at: mm?.checked },
+      { w: 0.20, found: tr ? (tr.found === 1 ? 1 : tr.found === 0 ? 0 : null) : null, at: tr?.checked_at },
+      { w: 0.10, found: ap ? (ap.attribution_sdk === 1 ? 1 : 0) : null, at: ap?.checked_at },
+    ];
+    // Непроверенный слот считается нейтральным (0,5), а не исключается. Если делить только на
+    // проверенные, у всех непойманных выходит ровно 1,0: деление вычёркивает как раз то, что
+    // мы хотим показать — проверили мы одну библиотеку или все четыре.
+    const totalW = slots.reduce((a, s) => a + s.w, 0);
+    let wChecked = 0, sum = 0;
+    for (const s of slots) {
+      const w = s.found == null ? 0 : s.w * freshness(s.at);
+      wChecked += w;
+      sum += w * (s.found === 0 ? 1 : 0) + (s.w - w) * 0.5;   // непроверенная доля — нейтраль
+    }
+    // Найденная закупка решает: одна прямая улика перевешивает любое число пустых проверок.
+    const organicScore = level === 'found' ? 0.05 : round(sum / totalW, 3);
+    const evidenceCoverage = round(wChecked / totalW, 3);
+
     const out = {
       level, evidenceDate, evidenceAge, adsFound, checkScope,
+      organicScore, evidenceCoverage,
       // Реклама проверена: закупка найдена или обе библиотеки пусты со свежей уликой.
       // Скан трекера для этого не нужен — он отличает «признаков нет» от «не проверено».
       adsKnown: level === 'found' || (adsFound === 'none' && evidenceAge <= V.evidence_ttl_days),
@@ -958,7 +994,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
       ads_google_creatives: o.googleCreatives, ads_google_first_seen: o.googleFirst, ads_google_last_seen: o.googleLast,
       ads_google_active: o.googleActive, ads_meta: o.meta, ads_meta_checked: o.metaChecked, ads_ever_found: o.ever,
       attribution_sdk: o.attribution, tracking_names: o.trackingNames, apk_parsed: o.apkParsed,
-      ads_check_scope: o.checkScope,
+      ads_check_scope: o.checkScope, organic_score: o.organicScore, evidence_coverage: o.evidenceCoverage,
       installs: m.installs ?? null, installs_delta_30d: round(dl.delta), delta_window_days: dl.w, delta_partial: dl.partial,
       ...(() => { const p = deltaPreview(m.app_id); return { delta_preview: round(p.delta), delta_preview_raw: p.raw, delta_preview_w: p.w, delta_preview_from: p.from, delta_flat: p.flat, installs_as_of: p.asOf, installs_stale_days: p.stale }; })(),
       ...(() => { const v = ratingsVelocity(m.app_id); return { ratings_delta_30d: round(v.rDelta), ratings_delta_raw: v.rRaw, ratings_delta_w: v.rW, installs_per_rating_now: v.ipr, installs_est_ratings: round(v.est) }; })(),

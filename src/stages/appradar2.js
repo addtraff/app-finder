@@ -190,7 +190,7 @@ export function collect(d) {
 
     for (const r of all(d,
       `SELECT v.app_id, v.niche_id, v.passed_funnel, v.organic_level, v.installs, v.installs_delta_30d, v.delta_window_days,
-              v.delta_preview, v.delta_preview_raw, v.delta_preview_w, v.age_months, v.young, v.ubt_signal, v.ads_check_scope,
+              v.delta_preview, v.delta_preview_raw, v.delta_preview_w, v.age_months, v.young, v.ubt_signal, v.ads_check_scope, v.organic_score, v.evidence_coverage,
               v.delta_flat, v.installs_est_ratings, v.ratings_delta_30d, v.ratings_delta_w,
               m.fraud_ok, m.burst_flag, m.installs_per_rating, m.template_review_pct, a.title, a.developer,
               n.concept, n.freedom_pct, n.organic_purity, n.door, n.free_keys_count, n.closed_flag,
@@ -234,6 +234,7 @@ export function collect(d) {
         rrate: r4(r.ratings_delta_30d),
         raw: official ? Math.round((r.installs_delta_30d * w) / 30) : r.delta_preview_raw,
         age: r4(r.age_months), young: r.young, level: r.organic_level, scope: r.ads_check_scope,
+        oscore: r4(r.organic_score), ocov: r4(r.evidence_coverage),
         passed: r.passed_funnel ? 1 : 0, ubt: r.ubt_signal === 1 ? 1 : 0, flags };
       if (r.niche_id) {
         const key = g.geo + '|' + r.niche_id;
