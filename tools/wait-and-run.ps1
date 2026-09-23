@@ -7,12 +7,16 @@
 # сбора и ниши США остались на старых ключах. Поэтому проверяется не PID, а наличие любого
 # node с src/cli.js в командной строке.
 #
-#   powershell -File tools/wait-and-run.ps1 -Log logs/tail.log -Commands "stage score --geo US","stage radar-v2 --geo US,GB"
+# Команды передаются одной строкой через «;;» — при запуске через -File PowerShell не умеет
+# принимать массив: второй элемент уезжает в следующий позиционный параметр.
+#
+#   powershell -File tools/wait-and-run.ps1 -Log logs/tail.log -Commands "stage score --geo US;;stage radar-v2 --geo US,GB"
 param(
   [string]$Log = 'logs/wait-and-run.log',
-  [string[]]$Commands = @(),
+  [string]$Commands = '',
   [int]$PollSeconds = 60
 )
+$list = @($Commands.Split(';;', [StringSplitOptions]::RemoveEmptyEntries) | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 
 function Pipeline-Busy {
   $procs = Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue
@@ -22,9 +26,9 @@ function Pipeline-Busy {
 
 Write-Output ("ожидание конвейера, старт " + (Get-Date -Format 'HH:mm'))
 while (Pipeline-Busy) { Start-Sleep -Seconds $PollSeconds }
-Write-Output ("конвейер свободен " + (Get-Date -Format 'HH:mm') + ", выполняю " + $Commands.Count + " команд")
+Write-Output ("конвейер свободен " + (Get-Date -Format 'HH:mm') + ", выполняю " + $list.Count + " команд")
 
-foreach ($c in $Commands) {
+foreach ($c in $list) {
   Write-Output ("-> node src/cli.js " + $c + "  (" + (Get-Date -Format 'HH:mm') + ")")
   $args = $c.Split(' ')
   & node src/cli.js @args *>> $Log
