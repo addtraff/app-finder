@@ -421,6 +421,15 @@ const MIGRATIONS = [
   ['metrics_app_v2', 'delta_preview_raw', 'INTEGER'],
   ['metrics_app_v2', 'delta_preview_w', 'INTEGER'],
   ['metrics_app_v2', 'delta_preview_from', 'TEXT'],
+  // Счётчик установок не сдвинулся за окно: рост меньше одной ступени Play, а не ноль.
+  ['metrics_app_v2', 'delta_flat', 'INTEGER'],
+  // Скорость по числу оценок: они меняются втрое чаще счётчика установок и дают разрешение
+  // там, где он молчит. installs_est_ratings — перевод в установки через «установок на оценку».
+  ['metrics_app_v2', 'ratings_delta_30d', 'REAL'],
+  ['metrics_app_v2', 'ratings_delta_raw', 'INTEGER'],
+  ['metrics_app_v2', 'ratings_delta_w', 'INTEGER'],
+  ['metrics_app_v2', 'installs_per_rating_now', 'REAL'],
+  ['metrics_app_v2', 'installs_est_ratings', 'REAL'],
   // Полнота проверки рекламы: 'domain+name' | 'domain' | 'name' | NULL. «Признаков закупки
   // нет» по одному домену — слабее, чем по домену и имени: у кампаний на установку
   // приложения посадочного домена нет вообще, рекламодатель опознаётся по имени.

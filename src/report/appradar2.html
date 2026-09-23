@@ -587,7 +587,7 @@
     nf: { cat: 'all', quad: 'all', freedom: 'all', purity: 'all', channel: 'all', young: false, cand: false, full: false, sort: 'rank', rec: false },
     hidePaid: !!load('appradar2-hide-paid', false), showDisq: false,
     favs: load('appradar2-favs', []), nfavs: load('appradar2-nfavs', []), cTab: 'collect',
-    rTab: 'g30', gf: { win: 7, inst: 10000, instMax: 0, passed: '1', channel: 'organic', age: 'all', sort: 'interp', easy: 0, easy5: 0, scope: 'all' }
+    rTab: 'g30', gf: { win: 7, inst: 10000, instMax: 0, passed: '1', channel: 'organic', age: 'all', sort: 'interp', easy: 0, easy5: 0, scope: 'all', meas: 'all' }
   };
   var themeSaved = load('appradar-theme', null);
   if (themeSaved === 'light' || themeSaved === 'dark') document.documentElement.setAttribute('data-theme', themeSaved);
@@ -1629,6 +1629,8 @@
   GLOSS['g.flags'] = { t: 'Сигналы антифрода', what: 'Признаки, что рост может быть накручен.', how: 'Считаются: установок на оценку вне p01–p99 гео, шаблонных отзывов больше p95 гео, всплеск отзывов, не пройден антифрод методики.', why: 'Рост с сигналами копировать как образец рискованно.' };
   GLOSS['g.easy'] = { t: 'Легко зайти в топ-10 на органике', what: 'Ниша устроена так, что в её топ можно войти без закупки.', how: 'Одновременно: в нише уже есть молодые органики (кто-то вошёл туда без рекламы), есть хотя бы один свободный ключ, свобода ниши ≥ 50, чистота выдачи не ниже медианы гео, ниша не закрыта монополистом и не в квадранте «Мимо». Свойство ниши, а не приложения: если хоть в одном гео ниша такая, приложение помечается, и в колонке «Свобода ниши» показываются цифры этого гео.', why: 'Из растущих образцов оставить те, чей топ реально отбить органикой, а не бюджетом.' };
   GLOSS['g.easy5'] = { t: 'Легко зайти в топ-5 на органике', what: 'Более строгая версия проверки: не просто попасть в десятку, а встать в пятёрку.', how: 'Все условия для топ-10, и вдобавок: молодых органиков в нише не меньше двух (вход повторяем, а не единичный случай), свободных ключей не меньше двух, свобода ниши от 65, чистота выдачи не ниже p75 гео, квадрант «Цель». Пятое место дороже десятого, поэтому пороги подняты во всём.', why: 'Топ-10 даёт долю трафика, топ-5 — основную его часть: по CTR-кривой места 1–5 забирают вчетверо больше, чем 6–10.' };
+  GLOSS['g.ratings'] = { t: 'Скорость по оценкам', what: 'Косвенная оценка роста там, где счётчик установок молчит.', how: 'Прирост числа оценок за окно приводится к 30 дням и переводится в установки через «установок на оценку» у самого приложения. Оценки меняются день ко дню у 59,5 % приложений против 20,9 % у счётчика установок, поэтому дают разрешение там, где установки стоят на месте.', why: 'Счётчик Play — ступенька (10 тыс., 50 тыс., 100 тыс.). Если за окно он не сдвинулся, это не нулевой рост, а рост меньше одной ступени. Раньше такие приложения показывались как «рост 0» и оседали внизу списка — теперь у них видна косвенная скорость, подписанная как оценка.' };
+  GLOSS['g.flat'] = { t: 'Счётчик не двигался', what: 'За всё окно наблюдения Play ни разу не обновил число установок.', how: 'Настоящий рост меньше одной ступени счётчика, точное значение неизвестно. В колонке роста вместо него показана оценка по числу оценок.', why: 'Показывать такое как ноль — значит уверенно ошибаться: день ко дню счётчик стоит на месте у 79 % приложений.' };
   GLOSS['g.scope'] = { t: 'Полнота проверки закупки', what: 'Где именно искали рекламу этого разработчика.', how: '«Домен и имя» — искали и по сайту разработчика, и по его названию в Google Ads Transparency. «Только домен» — искали лишь по сайту: у кампаний на установку приложения посадочного домена нет вообще, рекламодатель там опознаётся по имени, поэтому такой поиск их не видит. «Только имя» — у разработчика нет своего сайта.', why: '«Признаков закупки нет» по одному домену — слабое утверждение: значительная часть закупки остаётся невидимой. Фильтр позволяет оставить только тех, кого проверили обоими способами.' };
   GLOSS['g.inst'] = { t: 'Установки', what: 'Границы по установкам приложения.', how: 'Установки у Play общие для всех стран, поэтому границы не зависят от выбранного гео. Play показывает их ступенями (10 тыс., 50 тыс., 100 тыс.), поэтому берётся ступень, на которой приложение стоит сейчас.', why: 'Снизу — отсечь мелочь, которая растёт на процентах от нуля. Сверху — убрать гигантов: их рост не повторить, и он забивает верх списка.' };
   GLOSS['g.door'] = { t: 'Дверь ниши', what: 'Сколько установок у самого слабого приложения в топ-10 ниши.', how: 'Медиана по ключам ядра от минимальных установок в топ-10.', why: 'Это и есть цена входа: чтобы встать в топ-10, нужно дотянуться до двери, а не до лидера. Верхняя граница убирает ниши, куда без бюджета не войти.' };
@@ -1640,9 +1642,12 @@
       return '<button class="pill" data-act="rtab" data-tab="' + r[0] + '" aria-pressed="' + (state.rTab === r[0]) + '">' + esc(r[4]) + '</button>';
     }).join('') + '</div>';
   }
+  // Измеренный рост, а если счётчик за окно не двигался — косвенная оценка по числу оценок.
+  function gv(r) { return r.interp != null ? r.interp : (r.rest || 0); }
   var GROWTH_SORT = {
-    interp: function (a, b) { return (b.interp || 0) - (a.interp || 0); },
-    rel: function (a, b) { return (b.installs ? b.interp / b.installs : 0) - (a.installs ? a.interp / a.installs : 0); },
+    interp: function (a, b) { return gv(b) - gv(a); },
+    rest: function (a, b) { return (b.rest || 0) - (a.rest || 0); },
+    rel: function (a, b) { return (b.installs ? gv(b) / b.installs : 0) - (a.installs ? gv(a) / a.installs : 0); },
     installs: function (a, b) { return (b.installs || 0) - (a.installs || 0); },
     young: function (a, b) { return (a.age == null ? 999 : a.age) - (b.age == null ? 999 : b.age); }
   };
@@ -1688,13 +1693,14 @@
       if (f.easy && !r.easy) return false;
       if (f.easy5 && !r.easy5) return false;
       if (f.scope === 'full' && r.scope !== 'domain+name') return false;
+      if (f.meas === '1' && r.interp == null) return false;
       return matchesQ([r.title, r.app_id, r.concept, r.dev]);
     });
     var shortWin = all.filter(function (r) { return !(r.w >= f.win); }).length;
     var rows = all.filter(function (r) { return r.w >= f.win; }).sort(GROWTH_SORT[f.sort] || GROWTH_SORT.interp);
     var pages = Math.max(1, Math.ceil(rows.length / APP_PAGE)); if (state.page > pages) state.page = pages;
     var slice = rows.slice((state.page - 1) * APP_PAGE, state.page * APP_PAGE);
-    var rels = rows.filter(function (r) { return r.installs > 0; }).map(function (r) { return r.interp * k / r.installs; });
+    var rels = rows.filter(function (r) { return r.installs > 0; }).map(function (r) { return gv(r) * k / r.installs; });
     var cols = [
       { t: '#', v: function (r, i) { return '<div style="display:flex;align-items:center;gap:7px">' + starBtn('a', r.app_id) + '<span class="num muted strong" style="font-size:12.5px">' + ((state.page - 1) * APP_PAGE + i + 1) + '</span></div>'; } },
       { t: 'Приложение', v: function (r) {
@@ -1709,9 +1715,16 @@
       { t: 'Свобода ниши', tip: 'g.easy', r: true, v: function (r) { return isNum(r.n_freedom) ? '<div class="num strong">' + fix(r.n_freedom, 0) + '</div><div class="muted small">чистота ' + (isNum(r.n_purity) ? pct(r.n_purity) : '—') + ' · свободных ключей ' + int(r.n_free_keys || 0) + '</div>' + (r.n_geo && r.n_geo !== r.geo ? '<div class="muted small">по нише в ' + esc(r.n_geo) + '</div>' : '') : dash('ниша не определена'); } },
       { t: 'Гео', v: function (r) { return geoPlus(r.geo, r.geos_count, r.geos); } },
       { t: 'Установки', tip: 'g.inst', r: true, v: function (r) { return '<span class="num strong">' + short(r.installs) + '</span>'; } },
-      { t: 'Прирост за окно', tip: 'g.window', r: true, v: function (r) { return '<div class="num">' + (r.raw > 0 ? '+' : '') + short(r.raw) + '</div><div class="muted small">' + r.w + ' дн.' + (r.official ? ' · офиц.' : '') + '</div>'; } },
-      { t: H.col, tip: 'g.interp', r: true, v: function (r) { return '<span class="num strong" style="color:' + (r.interp > 0 ? 'var(--green)' : 'var(--muted)') + '">' + (r.interp > 0 ? '+' : '') + short(r.interp * k) + '</span>'; } },
-      { t: H.rel, tip: 'g.rel', r: true, v: function (r) { var v = r.installs > 0 ? r.interp * k / r.installs : null; return v == null ? dash() : '<span class="num">' + pct(v, v < 0.1 ? 1 : 0) + '</span>'; } },
+      { t: 'Прирост за окно', tip: 'g.window', r: true, v: function (r) {
+        if (r.flat) return '<div class="small" style="color:var(--orange)" data-tip="g.flat">счётчик не двигался</div><div class="muted small">' + r.w + ' дн.</div>';
+        return '<div class="num">' + (r.raw > 0 ? '+' : '') + short(r.raw) + '</div><div class="muted small">' + r.w + ' дн.' + (r.official ? ' · офиц.' : '') + '</div>';
+      } },
+      { t: H.col, tip: 'g.interp', r: true, v: function (r) {
+        if (r.interp != null) return '<span class="num strong" style="color:' + (r.interp > 0 ? 'var(--green)' : 'var(--muted)') + '">' + (r.interp > 0 ? '+' : '') + short(r.interp * k) + '</span>';
+        if (r.rest) return '<div class="num" style="color:var(--muted)">~' + short(r.rest * k) + '</div><div class="muted small" data-tip="g.ratings">по оценкам</div>';
+        return dash('рост не измерен');
+      } },
+      { t: H.rel, tip: 'g.rel', r: true, v: function (r) { var e = gv(r); var v = r.installs > 0 && e ? e * k / r.installs : null; return v == null ? dash() : '<span class="num' + (r.interp == null ? ' muted' : '') + '">' + (r.interp == null ? '~' : '') + pct(v, v < 0.1 ? 1 : 0) + '</span>'; } },
       { t: 'Возраст', r: true, v: function (r) { return isNum(r.age) ? '<div class="num">' + fix(r.age, 0) + ' мес</div>' + (r.young ? '<span class="badge b-green" style="margin-top:3px">&lt; ' + M.young_months + ' мес</span>' : '') : dash('дата релиза не разобрана'); } },
       { t: 'Органика', tip: 'g.scope', v: function (r) {
         var s = r.scope === 'domain+name' ? '<div class="muted small" style="margin-top:3px">домен и имя</div>'
@@ -1727,7 +1740,8 @@
       reportTabs() +
       kpiCards([
         { label: 'Приложений в отчёте', tip: 'g.report', value: int(rows.length), delta: shortWin ? 'ещё ' + int(shortWin) + ' с окном короче' : '', hint: state.geo === WW ? 'по всем гео, одна строка на приложение' : 'присутствуют в ' + geoName(state.geo) },
-        { label: 'Медиана роста', tip: 'g.rel', value: pct(median(rels), 1), hint: 'за ' + H.word + ', интерполяция / установки' },
+        { label: 'Медиана роста', tip: 'g.rel', value: pct(median(rels), 1), hint: 'за ' + H.word + ', прирост / установки' },
+        { label: 'Счётчик молчит', tip: 'g.flat', value: int(rows.filter(function (r) { return r.interp == null; }).length), hint: 'рост меньше ступени, оценка по отзывам' },
         { label: 'Молодых', value: int(rows.filter(function (r) { return r.young; }).length), hint: 'моложе ' + M.young_months + ' мес' },
         { label: 'С официальной дельтой', tip: 'g.window', value: int(rows.filter(function (r) { return r.official; }).length), hint: 'окно ≥ ' + M.min_window + ' дн. в одном гео' },
         { label: 'Лёгкий вход', tip: 'g.easy', value: int(rows.filter(function (r) { return r.easy; }).length), delta: int(rows.filter(function (r) { return r.easy5; }).length) + ' в топ-5', hint: 'ниша открыта, есть свободные ключи' }
@@ -1738,8 +1752,9 @@
         selectField('g-', 'gf', 'passed', 'Воронка', f.passed, [['1', 'только прошедшие'], ['0', 'все, кроме закупки']]) +
         selectField('g-', 'gf', 'age', 'Возраст', f.age, [['all', 'любой'], ['12', '< 12 мес'], ['24', '< 24 мес']]) +
         selectField('g-', 'gf', 'scope', 'Проверка', f.scope, [['all', 'любая'], ['full', 'домен и имя']], 'g.scope') +
+        selectField('g-', 'gf', 'meas', 'Рост', f.meas, [['all', 'измеренный и оценка'], ['1', 'только измеренный']], 'g.flat') +
         easyCheck(f) +
-        '<div class="toolbar-right">' + selectField('g-', 'gf', 'sort', 'Сортировка', f.sort, [['interp', 'Прирост'], ['rel', 'Рост, %'], ['installs', 'Установки'], ['young', 'Сначала молодые']]) + '</div>' +
+        '<div class="toolbar-right">' + selectField('g-', 'gf', 'sort', 'Сортировка', f.sort, [['interp', 'Прирост'], ['rest', 'Скорость по оценкам'], ['rel', 'Рост, %'], ['installs', 'Установки'], ['young', 'Сначала молодые']]) + '</div>' +
       '</div>' + tableHtml(cols, slice, { minWidth: 1280 }) + pager(rows.length, state.page, APP_PAGE) + '</div>' +
     '</section>';
   }

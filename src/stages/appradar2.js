@@ -191,6 +191,7 @@ export function collect(d) {
     for (const r of all(d,
       `SELECT v.app_id, v.niche_id, v.passed_funnel, v.organic_level, v.installs, v.installs_delta_30d, v.delta_window_days,
               v.delta_preview, v.delta_preview_raw, v.delta_preview_w, v.age_months, v.young, v.ubt_signal, v.ads_check_scope,
+              v.delta_flat, v.installs_est_ratings, v.ratings_delta_30d, v.ratings_delta_w,
               m.fraud_ok, m.burst_flag, m.installs_per_rating, m.template_review_pct, a.title, a.developer,
               n.concept, n.freedom_pct, n.organic_purity, n.door, n.free_keys_count, n.quadrant, n.closed_flag,
               n.young_organic_count, n.time_to_organic
@@ -199,10 +200,13 @@ export function collect(d) {
          JOIN apps a ON a.app_id=v.app_id
          LEFT JOIN metrics_niche_v2 n ON n.niche_id=v.niche_id AND n.geo=v.geo AND n.snapshot_date=v.snapshot_date
         WHERE v.geo=? AND v.snapshot_date=? AND v.organic_level <> 'found'
-          AND (v.installs_delta_30d IS NOT NULL OR v.delta_preview IS NOT NULL)`, g.geo, date)) {
+          AND (v.installs_delta_30d IS NOT NULL OR v.delta_preview IS NOT NULL OR v.installs_est_ratings IS NOT NULL)`, g.geo, date)) {
       const official = r.installs_delta_30d != null;
       const w = official ? r.delta_window_days : r.delta_preview_w;
       if (!w) continue;
+      // Счётчик установок стоял на месте: рост меньше ступени Play, измерением это не назвать.
+      // Для таких строк остаётся косвенная скорость по числу оценок — она подписана отдельно.
+      const measured = official || r.delta_preview != null;
       const flags = (r.fraud_ok === 0 ? 1 : 0) + (r.burst_flag === 1 ? 1 : 0)
         + (r.installs_per_rating != null && ((thresholds.iprP01 != null && r.installs_per_rating < thresholds.iprP01) || (thresholds.iprP99 != null && r.installs_per_rating > thresholds.iprP99)) ? 1 : 0)
         + (r.template_review_pct != null && thresholds.tmplP95 != null && r.template_review_pct > thresholds.tmplP95 ? 1 : 0);
@@ -224,7 +228,9 @@ export function collect(d) {
       const niche = { n_geo: g.geo, n_freedom: r4(r.freedom_pct), n_purity: r4(r.organic_purity),
         n_free_keys: r.free_keys_count, n_quad: r.quadrant };
       const row = { app_id: r.app_id, title: r.title, dev: r.developer, concept: r.concept, geo: g.geo, installs: r.installs,
-        official: official ? 1 : 0, w, interp: r4(official ? r.installs_delta_30d : r.delta_preview),
+        official: official ? 1 : 0, w, interp: measured ? r4(official ? r.installs_delta_30d : r.delta_preview) : null,
+        flat: r.delta_flat === 1 ? 1 : 0, rest: r4(r.installs_est_ratings), rw: r.ratings_delta_w,
+        rrate: r4(r.ratings_delta_30d),
         raw: official ? Math.round((r.installs_delta_30d * w) / 30) : r.delta_preview_raw,
         age: r4(r.age_months), young: r.young, level: r.organic_level, scope: r.ads_check_scope,
         passed: r.passed_funnel ? 1 : 0, ubt: r.ubt_signal === 1 ? 1 : 0, flags };
@@ -236,7 +242,7 @@ export function collect(d) {
         // занимают ниши, куда затесался гигант: один такой прибавляет сотни миллионов
         // установок в каждом гео, и ниша выглядит растущей, хотя повторить это нечего.
         const add = (b) => {
-          b.apps++; b.installs += r.installs || 0; b.raw += row.raw || 0; b.interp += row.interp || 0;
+          b.apps++; b.installs += r.installs || 0; b.raw += row.raw || 0; b.interp += (row.interp != null ? row.interp : (row.rest || 0));
           b.ws.push(w);
           if (r.young) b.young++;
           if (row.ubt) b.ubt++;
@@ -250,11 +256,11 @@ export function collect(d) {
       if (!cur) { growthByApp.set(r.app_id, { ...row, ...niche, easy, easy5, geos: [g.geo] }); continue; }
       cur.geos.push(g.geo);
       cur.passed = cur.passed || row.passed; cur.ubt = cur.ubt || row.ubt; cur.flags = Math.max(cur.flags, row.flags);
-      // Лучшая строка роста: официальная дельта, затем окно длиннее. Цифры роста и цифры ниши
-      // выбираются независимо: рост — по длине окна, ниша — по лёгкости входа.
-      if (row.official > cur.official || (row.official === cur.official && row.w > cur.w)) {
-        Object.assign(cur, row);
-      }
+      // Лучшая строка роста: сперва измеренная (счётчик за окно сдвинулся), затем
+      // официальная дельта методики, затем окно длиннее. Цифры роста и цифры ниши
+      // выбираются независимо: рост — по качеству замера, ниша — по лёгкости входа.
+      const rank = (x) => (x.interp != null ? 4 : 0) + (x.official ? 2 : 0);
+      if (rank(row) > rank(cur) || (rank(row) === rank(cur) && row.w > cur.w)) Object.assign(cur, row);
       // Цифры ниши идут из самого сильного гео: сперва то, где вход в топ-5, затем в топ-10.
       if (easy5 && !cur.easy5) { cur.easy5 = 1; cur.easy = 1; Object.assign(cur, niche); }
       else if (easy && !cur.easy) { cur.easy = 1; Object.assign(cur, niche); }

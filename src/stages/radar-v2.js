@@ -277,14 +277,40 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     if (!previewHist.has(r.app_id)) previewHist.set(r.app_id, []);
     previewHist.get(r.app_id).push(r);
   }
+  const EMPTY_DELTA = { delta: null, raw: null, w: null, from: null, flat: null };
   const deltaPreview = (id) => {
     const s = previewHist.get(id);
-    if (!s || s.length < 2) return { delta: null, raw: null, w: null, from: null };
+    if (!s || s.length < 2) return EMPTY_DELTA;
     const past = s[0], now = s[s.length - 1];
     const w = daysBetween(past.snapshot_date, now.snapshot_date);
-    if (w < (V.preview_min_window_days ?? 1)) return { delta: null, raw: null, w: null, from: null };
+    if (w < (V.preview_min_window_days ?? 1)) return EMPTY_DELTA;
     const raw = now.installs - past.installs;
-    return { delta: (raw * V.full_window_days) / w, raw, w, from: past.snapshot_date };
+    // Счётчик установок у Play — ступенька (10 тыс., 50 тыс., 100 тыс.). Если за окно он не
+    // сдвинулся, это не «рост нулевой», а «рост меньше одной ступени»: настоящее значение
+    // неизвестно и лежит ниже потолка. Выдавать такое за ноль — значит уверенно ошибаться:
+    // день ко дню счётчик стоит на месте у 79 % приложений. Поэтому здесь NULL и пометка,
+    // а скорость для таких берётся по числу оценок — оно меняется втрое чаще.
+    if (raw === 0) return { delta: null, raw: 0, w, from: past.snapshot_date, flat: 1 };
+    return { delta: (raw * V.full_window_days) / w, raw, w, from: past.snapshot_date, flat: 0 };
+  };
+
+  // Скорость по числу оценок. Оценки — косвенная мера: они меняются каждый день (59,5 % пар
+  // против 20,9 % у установок), поэтому дают разрешение там, где счётчик установок молчит.
+  // Перевод в установки — через «установок на оценку» у самого приложения, так что это
+  // оценка, а не измерение, и в отчёте она подписана отдельно.
+  const EMPTY_RV = { rDelta: null, rRaw: null, rW: null, ipr: null, est: null };
+  const ratingsVelocity = (id) => {
+    const s = previewHist.get(id);
+    if (!s || s.length < 2) return EMPTY_RV;
+    const withR = s.filter((r) => r.ratings != null);
+    if (withR.length < 2) return EMPTY_RV;
+    const past = withR[0], now = withR[withR.length - 1];
+    const rW = daysBetween(past.snapshot_date, now.snapshot_date);
+    if (!rW) return EMPTY_RV;
+    const rRaw = now.ratings - past.ratings;
+    const rDelta = (rRaw * V.full_window_days) / rW;
+    const ipr = now.ratings > 0 ? now.installs / now.ratings : null;
+    return { rDelta, rRaw, rW, ipr: ipr != null ? round(ipr) : null, est: ipr != null ? rDelta * ipr : null };
   };
 
   tick('metrics+history');
@@ -844,7 +870,8 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
       attribution_sdk: o.attribution, tracking_names: o.trackingNames, apk_parsed: o.apkParsed,
       ads_check_scope: o.checkScope,
       installs: m.installs ?? null, installs_delta_30d: round(dl.delta), delta_window_days: dl.w, delta_partial: dl.partial,
-      ...(() => { const p = deltaPreview(m.app_id); return { delta_preview: round(p.delta), delta_preview_raw: p.raw, delta_preview_w: p.w, delta_preview_from: p.from }; })(),
+      ...(() => { const p = deltaPreview(m.app_id); return { delta_preview: round(p.delta), delta_preview_raw: p.raw, delta_preview_w: p.w, delta_preview_from: p.from, delta_flat: p.flat }; })(),
+      ...(() => { const v = ratingsVelocity(m.app_id); return { ratings_delta_30d: round(v.rDelta), ratings_delta_raw: v.rRaw, ratings_delta_w: v.rW, installs_per_rating_now: v.ipr, installs_est_ratings: round(v.est) }; })(),
       search_weight: round(weight.get(m.app_id) ?? null), explained: round(aso?.explained ?? null), aso_share: round(aso?.share ?? null),
       traffic_source: traffic, exogenous_spike_rate: round(spike),
       keywords_json: JSON.stringify((kwContrib.get(m.app_id) || []).sort((a, b) => b.contrib - a.contrib).slice(0, 15)),
