@@ -283,6 +283,44 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
   }
   const installsForDoor = (id) => (implausible.has(id) ? null : cardOf(id)?.max_installs ?? null);
 
+  // ---------- door-flow: цена входа в потоке, а не в запасе ----------
+  // Нынешняя дверь — это установки слабейшего в топ-10 за всё время жизни. Но приложение
+  // пятилетней давности с 500 тыс. установок и трёхмесячное со 100 тыс. — совершенно разные
+  // соперники: у первого может быть 100 установок в день, у второго 3 000. Запас говорит,
+  // сколько накоплено, поток — сколько приходится отбивать сейчас.
+  //
+  // Поток считается по числу оценок: счётчик установок Play обновляет пачками раз в 3–6 дней,
+  // а оценки меняются каждый день. Прирост оценок за окно переводится в установки через
+  // «установок на оценку» у самого приложения. Это оценка, а не измерение.
+  const flowOf = (() => {
+    const hist = new Map();
+    for (const r of d.prepare(
+      `SELECT app_id, snapshot_date, MAX(max_installs) inst, MAX(ratings_count) rc FROM raw_app_page
+        WHERE geo=? AND ratings_count IS NOT NULL AND max_installs IS NOT NULL
+        GROUP BY app_id, snapshot_date ORDER BY app_id, snapshot_date`
+    ).all(geo)) {
+      if (!hist.has(r.app_id)) hist.set(r.app_id, []);
+      hist.get(r.app_id).push(r);
+    }
+    const cache = new Map();
+    return (id) => {
+      if (cache.has(id)) return cache.get(id);
+      const s = hist.get(id);
+      let out = null;
+      if (s && s.length >= 2) {
+        const a = s[0], b = s[s.length - 1];
+        const days = Math.round((Date.parse(b.snapshot_date) - Date.parse(a.snapshot_date)) / 864e5);
+        const dRatings = b.rc - a.rc;
+        if (days > 0 && dRatings >= 0 && b.rc > 0) {
+          const ipr = b.inst / b.rc;
+          out = Math.round((dRatings * ipr) / days);   // установок в день
+        }
+      }
+      cache.set(id, out);
+      return out;
+    };
+  })();
+
   const p25_score = qv(null, geo, 'score', date, 'p25', { nicheFirst: false });
   const p75_upd = qv(null, geo, 'days_since_update', date, 'p75', { nicheFirst: false });
 
@@ -302,8 +340,8 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
       wall_installs, wall_ratings, demand_installs, weak_share, new_share_18m, leader_share,
       exact_in_title, jaccard_top5_median, relevance_gap_pct, generic_demand_share, suggest_score_sum,
       top10_turnover_30d, index_gap_leader, top_apps, concept,
-      top10_turnover_7d, top10_turnover_14d, partial_window)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+      top10_turnover_7d, top10_turnover_14d, partial_window, door_flow)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
   const upAppNiche = d.prepare(`UPDATE apps SET niche_id=? WHERE app_id=?`);
 
   const coreVersion = `${date}:${md5(keywords.sort().join('|')).slice(0, 8)}`;
@@ -348,11 +386,15 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
     usedIds.add(nicheId);
 
     // --- door: медиана по ключам ядра от минимальных установок в топ-10 ---
-    const perKwMin = [];
+    const perKwMin = [], perKwFlow = [];
     for (const kw of core) {
       const vals = top10raw.get(kw).map(installsForDoor).filter((v) => v != null);
       if (vals.length >= 3) perKwMin.push(Math.min(...vals));
+      // Тот же расчёт, но в потоке: сколько установок в день у самого слабого из топ-10.
+      const flows = top10raw.get(kw).map(flowOf).filter((v) => v != null);
+      if (flows.length >= 3) perKwFlow.push(Math.min(...flows));
     }
+    const doorFlow = perKwFlow.length ? Math.round(median(perKwFlow)) : null;
     const door = perKwMin.length ? Math.round(median(perKwMin)) : null;
 
     const headTop10 = top10.get(head) || [];
@@ -447,7 +489,7 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
       insMetric.run(nicheId, geo, date, head, head, core.length, allApps.size, door, bestDoor,
         wall, wallRatings, demandInstalls, weakShare, newShare, leaderShare, exactInTitle, jac5,
         relevanceGap, genericShare, sugSum, turnover, indexGapLeader, topAppsJson, concept,
-        turnover7, turnover14, partialWindow);
+        turnover7, turnover14, partialWindow, doorFlow);
       // Приложение относится к нише, где у него лучшая позиция.
       for (const id of allApps) {
         const cur = d.prepare(`SELECT niche_id FROM apps WHERE app_id=?`).get(id);

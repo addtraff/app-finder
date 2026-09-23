@@ -354,7 +354,7 @@ export function collect(d) {
       const b = baseById.get(n.niche_id) || {};
       nicheRows.push({
         geo: g.geo, niche_id: n.niche_id, concept: n.concept, head: n.head_keyword, keywords_count: n.keywords_count,
-        door: n.door, door_head: n.door_head, door_tail: n.door_tail, door_velocity: r4(n.door_velocity), wall: n.wall_installs,
+        door: n.door, door_flow: n.door_flow, door_head: n.door_head, door_tail: n.door_tail, door_velocity: r4(n.door_velocity), wall: n.wall_installs,
         free_keys: n.free_keys_count, fds: r4(n.free_demand_share), demand_per_app: r4(n.demand_per_app),
         aso_saturation: r4(n.aso_saturation), relevance_gap: r4(n.relevance_gap_pct),
         entry_rate: n.entry_rate_90d, last_entry_days: n.last_entry_days, history_days: n.history_days,

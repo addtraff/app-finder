@@ -1055,7 +1055,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
   const insKw = d.prepare(`INSERT OR REPLACE INTO metrics_keyword_geo
     (geo, snapshot_date, niche_id, keyword, is_head, suggest_score, serp_date, top10_cards, door_key, door_app_id, is_free, paid_in_top10, paid_ctr_share, ads_checked_share)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
-  const nicheCols = ['niche_id', 'geo', 'snapshot_date', 'niche_date', 'concept', 'head_keyword', 'keywords_count', 'door', 'wall_installs',
+  const nicheCols = ['niche_id', 'geo', 'snapshot_date', 'niche_date', 'concept', 'head_keyword', 'keywords_count', 'door', 'door_flow', 'wall_installs',
     'free_keys_count', 'free_demand_share', 'door_head', 'door_tail', 'door_velocity', 'demand_per_app', 'aso_saturation', 'relevance_gap_pct',
     'entry_rate_90d', 'last_entry_days', 'history_days', 'time_to_door_median', 'turnover_up_new', 'turnover_window_days', 'hhi_top10', 'clone_density',
     'freedom_components', 'freedom_raw', 'freedom_pct', 'closed_flag', 'organic_capacity', 'organic_capacity_lo', 'organic_capacity_hi',
@@ -1084,7 +1084,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
       const partial = (r.historyDays < V.entry_window_days && r.entryRate != null) || (r.turnoverWindow != null && r.turnoverWindow < V.full_window_days) ? 1 : 0;
       insNiche.run({
         niche_id: r.n.niche_id, geo, snapshot_date: D, niche_date: nicheDate, concept: r.n.concept ?? null, head_keyword: r.head,
-        keywords_count: r.core.length, door: r.n.door ?? null, wall_installs: r.n.wall_installs ?? null,
+        keywords_count: r.core.length, door: r.n.door ?? null, door_flow: r.n.door_flow ?? null, wall_installs: r.n.wall_installs ?? null,
         free_keys_count: r.freeKeysCount, free_demand_share: round(r.freeDemandShare), door_head: r.doorHead == null ? null : Math.round(r.doorHead),
         door_tail: r.doorTail == null ? null : Math.round(r.doorTail), door_velocity: round(r.doorVelocity), demand_per_app: round(r.demandPerApp),
         aso_saturation: round(r.asoSaturation), relevance_gap_pct: round(r.n.relevance_gap_pct),
