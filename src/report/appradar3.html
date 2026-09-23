@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AppRadar 3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f3f4f8; --card: #ffffff; --text: #23262f; --muted: #6f768a;
+    --border: #e7e9f1; --hover: #f7f8fc; --head: #fafbfe; --input: #ffffff;
+    --side: #171927; --side-2: #232639; --side-text: #cfd3e1; --side-muted: #8b90a6;
+    --accent: #3d5afe; --accent-soft: #eaeeff; --green: #148a5b; --green-soft: #e4f7ee;
+    --orange: #b86a06; --orange-soft: #fdf1e0; --red: #d23a3e; --red-soft: #fdeaea;
+    --purple: #6a4be8; --purple-soft: #efeafe; --neutral: #9aa1b3;
+    --shadow: 0 1px 2px rgba(25,28,40,.06), 0 8px 24px rgba(25,28,40,.05);
+    --overlay: rgba(16,18,32,.46);
+    --f-ui: Manrope, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --f-num: "JetBrains Mono", ui-monospace, Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #101220; --card: #191c2b; --text: #e8eaf2; --muted: #969db2;
+      --border: #262a3b; --hover: #1f2334; --head: #1c2030; --input: #14172a;
+      --accent: #6d84ff; --accent-soft: #1e2547; --green: #2ecc8f; --green-soft: #14322a;
+      --orange: #f0a13a; --orange-soft: #33270f; --red: #f0666a; --red-soft: #351a1c;
+      --purple: #a58fff; --purple-soft: #2a2350; --neutral: #5c6378;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.28);
+      --overlay: rgba(0,0,0,.6);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #101220; --card: #191c2b; --text: #e8eaf2; --muted: #969db2;
+    --border: #262a3b; --hover: #1f2334; --head: #1c2030; --input: #14172a;
+    --accent: #6d84ff; --accent-soft: #1e2547; --green: #2ecc8f; --green-soft: #14322a;
+    --orange: #f0a13a; --orange-soft: #33270f; --red: #f0666a; --red-soft: #351a1c;
+    --purple: #a58fff; --purple-soft: #2a2350; --neutral: #5c6378;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.28);
+    --overlay: rgba(0,0,0,.6);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--f-ui); font-size: 14px; line-height: 1.45; }
+  button { font: inherit; color: inherit; }
+  .num { font-family: var(--f-num); font-variant-numeric: tabular-nums; }
+  .muted { color: var(--muted); } .small { font-size: 11.5px; } .strong { font-weight: 700; }
+  .app { display: flex; min-height: 100vh; }
+  .side { width: 236px; flex: 0 0 236px; background: var(--side); display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 20px 20px 18px; }
+  .brand-mark { width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg,#3d5afe,#7a5cf0); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 12px; }
+  .brand-name { color: #fff; font-weight: 800; font-size: 17px; letter-spacing: -.3px; }
+  .side-label { padding: 0 20px 6px; color: var(--side-muted); font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+  .side-nav { display: flex; flex-direction: column; gap: 2px; padding: 4px 10px 16px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 9px; cursor: pointer; color: var(--side-text); background: transparent; border: 0; text-align: left; font-weight: 600; font-size: 14px; width: 100%; }
+  .nav-item:hover { background: var(--side-2); }
+  .nav-item[aria-current="page"] { background: var(--accent); color: #fff; }
+  .nav-count { margin-left: auto; background: var(--side-2); border-radius: 20px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
+  .nav-item[aria-current="page"] .nav-count { background: rgba(255,255,255,.2); }
+  .side-note { margin: auto 20px 18px; color: var(--side-muted); font-size: 11.5px; line-height: 1.5; }
+  .side-note b { color: var(--side-text); }
+  main { flex: 1; min-width: 0; }
+  .topbar { position: sticky; top: 0; z-index: 20; background: var(--card); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .search { display: flex; align-items: center; gap: 8px; background: var(--hover); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; flex: 1 1 280px; max-width: 440px; }
+  .search input { border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; width: 100%; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; padding: 7px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); font-weight: 700; font-size: 13px; }
+  select { padding: 7px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--input); color: var(--text); font: inherit; font-size: 13px; font-weight: 600; }
+  .page { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+  .eyebrow { color: var(--accent); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+  h1 { margin: 4px 0 6px; font-size: 24px; font-weight: 800; letter-spacing: -.5px; text-wrap: balance; }
+  .lead { margin: 0; color: var(--muted); font-size: 13.5px; max-width: 80ch; text-wrap: pretty; }
+  .warn { border: 1px solid var(--orange); background: var(--orange-soft); color: var(--orange); border-radius: 12px; padding: 14px 16px; font-size: 13px; }
+  .warn b { display: block; margin-bottom: 4px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap: 12px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+  .kpi { padding: 14px 16px; }
+  .kpi-label { color: var(--muted); font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+  .kpi-value { font-size: 23px; font-weight: 800; font-family: var(--f-num); letter-spacing: -1px; margin-top: 8px; }
+  .kpi-hint { color: var(--muted); font-size: 11.5px; margin-top: 3px; }
+  .toolbar { display: flex; align-items: center; gap: 10px; padding: 13px 16px; border-bottom: 1px solid var(--border); background: var(--head); flex-wrap: wrap; }
+  .field { display: inline-flex; align-items: center; gap: 6px; }
+  .field label { color: var(--muted); font-size: 11.5px; font-weight: 700; }
+  .tbl { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; padding: 11px 10px; font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; background: var(--head); }
+  td { padding: 10px; font-size: 13px; vertical-align: top; border-top: 1px solid var(--border); }
+  th:first-child, td:first-child { padding-left: 16px; } th:last-child, td:last-child { padding-right: 16px; }
+  tbody tr:hover { background: var(--hover); }
+  .r { text-align: right; }
+  .badge { padding: 3px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 800; white-space: nowrap; display: inline-block; }
+  .b-green { background: var(--green-soft); color: var(--green); }
+  .b-orange { background: var(--orange-soft); color: var(--orange); }
+  .b-red { background: var(--red-soft); color: var(--red); }
+  .b-accent { background: var(--accent-soft); color: var(--accent); }
+  .b-muted { background: var(--hover); color: var(--muted); border: 1px solid var(--border); }
+  .b-purple { background: var(--purple-soft); color: var(--purple); }
+  .name { font-weight: 700; font-size: 13.5px; cursor: pointer; background: none; border: 0; padding: 0; text-align: left; color: inherit; }
+  .name:hover { color: var(--accent); }
+  .pkg { color: var(--muted); font-size: 11px; font-family: var(--f-num); max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pager { display: flex; gap: 8px; padding: 13px 16px; border-top: 1px solid var(--border); align-items: center; flex-wrap: wrap; }
+  .pg { min-width: 32px; height: 30px; padding: 0 9px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); cursor: pointer; font-size: 12.5px; font-weight: 700; }
+  .pg[aria-current="page"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .overlay { position: fixed; inset: 0; background: var(--overlay); z-index: 60; display: flex; justify-content: flex-end; }
+  .drawer { width: min(720px,100%); height: 100%; background: var(--bg); overflow-y: auto; }
+  .drawer-head { position: sticky; top: 0; background: var(--card); border-bottom: 1px solid var(--border); padding: 16px 20px; display: flex; gap: 12px; align-items: center; z-index: 2; }
+  .drawer-body { padding: 18px 20px 40px; display: flex; flex-direction: column; gap: 12px; }
+  .block { padding: 16px 18px; }
+  .block h3 { margin: 0 0 2px; font-size: 14px; font-weight: 800; }
+  .block .sub { color: var(--muted); font-size: 12px; margin-bottom: 10px; text-wrap: pretty; }
+  .pairs { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: 10px 16px; }
+  .pair dt { color: var(--muted); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+  .pair dd { margin: 3px 0 0; font-family: var(--f-num); font-weight: 700; font-size: 14px; }
+  .pair .note { font-family: var(--f-ui); font-weight: 500; font-size: 11.5px; color: var(--muted); }
+  .risk-list { margin: 8px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--text); }
+  .risk-list li { margin: 3px 0; }
+  .btn { padding: 7px 12px; border-radius: 9px; border: 1px solid var(--border); background: var(--card); font-weight: 700; font-size: 13px; cursor: pointer; }
+  .empty { padding: 40px 24px; text-align: center; color: var(--muted); }
+  .manual li { margin: 7px 0; }
+  .manual h3 { margin: 18px 0 6px; font-size: 15px; }
+  @media (max-width: 900px) {
+    .app { flex-direction: column; }
+    .side { width: 100%; flex: none; height: auto; position: static; }
+    .side-nav { flex-direction: row; overflow-x: auto; } .nav-item { width: auto; white-space: nowrap; }
+    .side-label, .side-note { display: none; }
+    .page { padding: 16px; } .topbar { position: static; padding: 12px 16px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head><body>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><div class="brand-mark">A3</div><div class="brand-name">AppRadar 3</div></div>
+    <div class="side-label">Разделы</div>
+    <nav class="side-nav" id="nav"></nav>
+    <p class="side-note">Отчёт отвечает на вопрос <b>«стоит ли это повторять»</b> и намеренно не сводит всё в один индекс: рынок, органика, импульс и риск показываются рядом, каждый со своим основанием.</p>
+  </aside>
+  <main>
+    <header class="topbar">
+      <label class="search">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--muted)"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        <input id="q" type="search" placeholder="Приложение, разработчик или тема…" aria-label="Поиск">
+      </label>
+      <div class="chip" id="date-chip"></div>
+      <div class="field"><label for="geo">Гео</label><select id="geo"></select></div>
+      <button class="btn" id="theme">Тема</button>
+    </header>
+    <div id="view"></div>
+  </main>
+</div>
+<div id="drawer-root"></div>
+<script id="radar-data" type="application/json">__RADAR_DATA__</script>
+<script>
+__UNPACK_JS__
+(function () {
+  'use strict';
+  var D = unpackRows(JSON.parse(document.getElementById('radar-data').textContent));
+  var M = D.meta, WW = 'WW';
+  var PAGE = 50;
+  var state = { view: 'cand', geo: WW, page: 1, q: '', risk: 'all', osc: 'all', mom: 'all', sort: 'risk' };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
+  var isNum = function (v) { return typeof v === 'number' && isFinite(v); };
+  var fix = function (v, n) { return isNum(v) ? v.toFixed(n == null ? 1 : n) : '—'; };
+  var int = function (v) { return isNum(v) ? Math.round(v).toLocaleString('ru-RU') : '—'; };
+  var pct = function (v, n) { return isNum(v) ? (v * 100).toFixed(n == null ? 0 : n) + ' %' : '—'; };
+  var short = function (v) {
+    if (!isNum(v)) return '—';
+    var a = Math.abs(v);
+    if (a >= 1e9) return (v / 1e9).toFixed(1) + ' млрд';
+    if (a >= 1e6) return (v / 1e6).toFixed(a >= 1e7 ? 0 : 1) + ' млн';
+    if (a >= 1e3) return (v / 1e3).toFixed(a >= 1e4 ? 0 : 1) + ' тыс.';
+    return String(Math.round(v));
+  };
+  var dash = function (why) { return '<span class="muted" title="' + esc(why || 'нет данных') + '">—</span>'; };
+
+  var QUAD = { target: ['Цель', 'b-green'], bought: ['Трафик выкуплен', 'b-orange'], mature: ['Зрелая ниша', 'b-accent'], pass: ['Мимо', 'b-muted'], undetermined: ['Не определено', 'b-muted'] };
+  function quadBadge(q) { var x = QUAD[q] || QUAD.undetermined; return '<span class="badge ' + x[1] + '">' + x[0] + '</span>'; }
+  function riskBadge(n) {
+    var cls = n <= 1 ? 'b-green' : n <= 3 ? 'b-orange' : 'b-red';
+    var txt = n <= 1 ? 'низкий' : n <= 3 ? 'средний' : 'высокий';
+    return '<span class="badge ' + cls + '">' + txt + ' · ' + n + '</span>';
+  }
+  // Импульс: прирост охвата по ключам, посчитанный на общей базе ключей обеих дат.
+  function momentum(r) { return (r.k50 == null || r.k50p == null) ? null : r.k50 - r.k50p; }
+  function growth(r) { return r.interp != null ? r.interp : (r.est || null); }
+
+  var SECTIONS = [
+    { id: 'cand', title: 'Кандидаты', count: function () { return D.rows.length; } },
+    { id: 'niches', title: 'Ниши', count: function () { return D.niches.length; } },
+    { id: 'how', title: 'Как читать', count: function () { return null; } }
+  ];
+  function renderNav() {
+    $('nav').innerHTML = SECTIONS.map(function (s) {
+      var c = s.count();
+      return '<button class="nav-item" data-view="' + s.id + '"' + (state.view === s.id ? ' aria-current="page"' : '') + '>' +
+        esc(s.title) + (c == null ? '' : '<span class="nav-count">' + int(c) + '</span>') + '</button>';
+    }).join('');
+  }
+  function renderHead() {
+    $('date-chip').textContent = 'срез ' + M.date + ' · история ' + M.history.days + ' дн.';
+    var geos = [WW].concat(D.geos.filter(function (g) { return g.date; }).map(function (g) { return g.geo; }));
+    $('geo').innerHTML = geos.map(function (g) { return '<option value="' + g + '"' + (state.geo === g ? ' selected' : '') + '>' + (g === WW ? 'все страны' : g) + '</option>'; }).join('');
+  }
+  function matches(r) {
+    if (!state.q) return true;
+    var s = state.q.toLowerCase();
+    return [r.title, r.app_id, r.dev, r.concept, r.head].some(function (v) { return v && String(v).toLowerCase().indexOf(s) >= 0; });
+  }
+
+  // ---------------- кандидаты ----------------
+  function candRows() {
+    var rows = D.rows.filter(function (r) {
+      if (state.geo !== WW && r.geo !== state.geo) return false;
+      if (state.risk !== 'all' && !(r.risk_n <= Number(state.risk))) return false;
+      if (state.osc !== 'all' && !(isNum(r.oscore) && r.oscore >= Number(state.osc))) return false;
+      if (state.mom === '1' && !(momentum(r) > 0)) return false;
+      return matches(r);
+    });
+    var by = {
+      risk: function (a, b) { return a.risk_n - b.risk_n || (momentum(b) || 0) - (momentum(a) || 0); },
+      mom: function (a, b) { return (momentum(b) || 0) - (momentum(a) || 0); },
+      evid: function (a, b) { return (b.oscore || 0) - (a.oscore || 0); },
+      growth: function (a, b) { return (growth(b) || 0) - (growth(a) || 0); },
+      door: function (a, b) { return (a.door_flow == null ? Infinity : a.door_flow) - (b.door_flow == null ? Infinity : b.door_flow); }
+    };
+    return rows.sort(by[state.sort] || by.risk);
+  }
+  function renderCand() {
+    var rows = candRows();
+    var pages = Math.max(1, Math.ceil(rows.length / PAGE));
+    if (state.page > pages) state.page = pages;
+    var slice = rows.slice((state.page - 1) * PAGE, state.page * PAGE);
+    var clean = rows.filter(function (r) { return r.risk_n <= 1; }).length;
+    var strong = rows.filter(function (r) { return r.oscore >= 0.9; }).length;
+    var grow = rows.filter(function (r) { return momentum(r) > 0; }).length;
+
+    var body = slice.map(function (r, i) {
+      var m = momentum(r);
+      var g = growth(r);
+      return '<tr>' +
+        '<td class="num muted">' + ((state.page - 1) * PAGE + i + 1) + '</td>' +
+        '<td><button class="name" data-app="' + esc(r.app_id) + '" data-geo="' + esc(r.geo) + '">' + esc(r.title || r.app_id) + '</button>' +
+          '<div class="pkg">' + esc(r.dev || r.app_id) + '</div></td>' +
+        '<td>' + (r.concept ? '<div class="strong">' + esc(r.concept) + '</div>' : dash('вне каталога')) +
+          '<div style="margin-top:3px">' + quadBadge(r.quad) + '</div></td>' +
+        '<td class="num">' + esc(r.geo) + '</td>' +
+        '<td class="r"><div class="num strong">' + short(r.door) + '</div>' +
+          (isNum(r.door_flow) ? '<div class="muted small">поток ' + short(r.door_flow) + '/дн.</div>' : '') + '</td>' +
+        '<td class="r">' + (m == null ? dash('нет сравнения по ключам') :
+          '<div class="num strong" style="color:' + (m > 0 ? 'var(--green)' : m < 0 ? 'var(--muted)' : 'var(--muted)') + '">' + (m > 0 ? '+' : '') + m + '</div>' +
+          '<div class="muted small">топ-50: ' + r.k50p + ' → ' + r.k50 + '</div>') + '</td>' +
+        '<td class="r">' + (g == null ? dash('рост не измерен') :
+          '<div class="num' + (r.interp == null ? ' muted' : ' strong') + '">' + (r.interp == null ? '~' : '+') + short(g) + '</div>' +
+          '<div class="muted small">' + (r.interp == null ? 'по оценкам' : r.w + ' дн.') + '</div>') + '</td>' +
+        '<td class="r"><div class="num strong">' + fix(r.oscore, 2) + '</div><div class="muted small">покрытие ' + pct(r.ocov) + '</div></td>' +
+        '<td>' + riskBadge(r.risk_n) + '</td>' +
+      '</tr>';
+    }).join('');
+
+    $('view').innerHTML = '<section class="page">' +
+      '<div><div class="eyebrow">AppRadar 3</div><h1>Кандидаты на повторение</h1>' +
+      '<p class="lead">Приложения, прошедшие воронку и не пойманные на закупке. Столбцы независимы намеренно: цена входа, импульс по ключам, рост и вес улик отвечают на разные вопросы, и сводить их в один балл было бы подгонкой. Сортировка по умолчанию — от наименьшего риска самообмана.</p></div>' +
+      '<div class="warn"><b>Это не прогноз.</b> Истории пока ' + M.history.days + ' дней (' + M.history.from + ' → ' + M.history.to + '), приложений с тридцатидневной меткой ноль. Поэтому здесь нет ни вероятностей, ни прогноза установок: всё показанное — измеренное или явно помеченное как оценка. Месячные метки созреют ' + M.labels30 + ', трёхмесячные ' + M.labels90 + '.</div>' +
+      '<div class="kpis">' +
+        kpi('Кандидатов', int(rows.length), state.geo === WW ? 'по всем странам' : state.geo) +
+        kpi('Риск низкий', int(clean), 'не больше одного фактора') +
+        kpi('Вес улик ≥ 0,9', int(strong), 'проверено по-настоящему') +
+        kpi('Охват ключей растёт', int(grow), 'за последнюю неделю') +
+      '</div>' +
+      '<div class="card" style="overflow:hidden">' +
+        '<div class="toolbar">' +
+          sel('risk', 'Риск', state.risk, [['all', 'любой'], ['1', 'низкий'], ['3', 'до среднего']]) +
+          sel('osc', 'Вес улик', state.osc, [['all', 'любой'], ['0.75', 'от 0,75'], ['0.9', 'от 0,90']]) +
+          sel('mom', 'Импульс', state.mom, [['all', 'любой'], ['1', 'только растущие по ключам']]) +
+          '<div style="margin-left:auto">' + sel('sort', 'Сортировка', state.sort, [['risk', 'Меньше риска'], ['mom', 'Импульс ключей'], ['growth', 'Рост'], ['evid', 'Вес улик'], ['door', 'Дешевле вход']]) + '</div>' +
+        '</div>' +
+        (slice.length ? '<div class="tbl"><table><thead><tr>' +
+          ['#', 'Приложение', 'Тема', 'Гео', 'Дверь', 'Импульс ключей', 'Рост в месяц', 'Вес улик', 'Риск']
+            .map(function (h, i) { return '<th' + (i >= 4 && i <= 7 ? ' class="r"' : '') + '>' + h + '</th>'; }).join('') +
+          '</tr></thead><tbody>' + body + '</tbody></table></div>' + pager(rows.length, pages)
+          : '<div class="empty">Ничего не нашлось — ослабьте фильтры</div>') +
+      '</div>' +
+    '</section>';
+  }
+  function kpi(label, value, hint) {
+    return '<div class="card kpi"><div class="kpi-label">' + esc(label) + '</div><div class="kpi-value">' + value + '</div><div class="kpi-hint">' + esc(hint) + '</div></div>';
+  }
+  function sel(key, label, cur, opts) {
+    return '<div class="field"><label>' + esc(label) + '</label><select data-key="' + key + '">' +
+      opts.map(function (o) { return '<option value="' + o[0] + '"' + (String(cur) === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></div>';
+  }
+  function pager(total, pages) {
+    if (pages < 2) return '<div class="pager muted small">всего ' + int(total) + '</div>';
+    var list = [];
+    for (var p = 1; p <= pages; p++) {
+      if (p <= 2 || p > pages - 2 || Math.abs(p - state.page) <= 1) list.push(p);
+      else if (list[list.length - 1] !== '…') list.push('…');
+    }
+    return '<div class="pager"><span class="muted small">всего ' + int(total) + '</span><div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">' +
+      list.map(function (p) { return p === '…' ? '<span class="muted">…</span>' : '<button class="pg" data-page="' + p + '"' + (p === state.page ? ' aria-current="page"' : '') + '>' + p + '</button>'; }).join('') + '</div></div>';
+  }
+
+  // ---------------- ниши ----------------
+  function renderNiches() {
+    var rows = D.niches.filter(function (n) {
+      if (state.geo !== WW && n.geo !== state.geo) return false;
+      return matches(n);
+    }).sort(function (a, b) { return (b.freedom || 0) - (a.freedom || 0); });
+    var pages = Math.max(1, Math.ceil(rows.length / PAGE));
+    if (state.page > pages) state.page = pages;
+    var slice = rows.slice((state.page - 1) * PAGE, state.page * PAGE);
+    var body = slice.map(function (n, i) {
+      var edge = isNum(n.fmargin) && Math.abs(n.fmargin) < 5;
+      return '<tr>' +
+        '<td class="num muted">' + ((state.page - 1) * PAGE + i + 1) + '</td>' +
+        '<td><div class="strong">' + esc(n.concept || n.head) + '</div><div class="pkg">' + esc(n.head) + '</div>' +
+          '<div style="margin-top:3px">' + quadBadge(n.quad) +
+          (n.qseen > 1 ? ' <span class="muted small">' + n.qdays + ' из ' + n.qseen + ' дней</span>' : '') + '</div></td>' +
+        '<td class="num">' + esc(n.geo) + '</td>' +
+        '<td class="r"><div class="num strong">' + short(n.door) + '</div>' +
+          (isNum(n.door_flow) ? '<div class="muted small">поток ' + short(n.door_flow) + '/дн.</div>' : '') + '</td>' +
+        '<td class="r"><div class="num strong">' + fix(n.freedom, 0) + '</div>' +
+          (isNum(n.fmargin) ? '<div class="small" style="color:' + (edge ? 'var(--orange)' : 'var(--muted)') + '">до границы ' + (n.fmargin > 0 ? '+' : '') + fix(n.fmargin, 0) + (edge ? ' — на краю' : '') + '</div>' : '') + '</td>' +
+        '<td class="r"><div class="num">' + pct(n.purity) + '</div><div class="muted small">ключей ' + int(n.free_keys || 0) + '</div></td>' +
+        '<td class="r">' + (n.devs == null ? dash() : '<div class="num strong">' + int(n.devs) + '</div><div class="muted small">' + int(n.devs_young || 0) + ' молодых</div>') + '</td>' +
+        '<td class="r">' + (isNum(n.inc_rating) ? '<div class="num">' + fix(n.inc_rating, 2) + '</div>' +
+          (isNum(n.inc_pain_broken) ? '<div class="muted small">поломки ' + pct(n.inc_pain_broken) + '</div>' : '') : dash('нет крупных в нише')) + '</td>' +
+      '</tr>';
+    }).join('');
+    $('view').innerHTML = '<section class="page">' +
+      '<div><div class="eyebrow">AppRadar 3</div><h1>Ниши: цена входа и повторяемость</h1>' +
+      '<p class="lead">Дверь показана и запасом, и потоком: запас — сколько установок накопил слабейший из топ-10 за всё время, поток — сколько он получает сейчас. Повторяемость — сколько <b>независимых</b> разработчиков уже сделали похожее: несколько команд в одной теме означают, что концепция повторяема, а не что это фабрика клонов.</p></div>' +
+      '<div class="card" style="overflow:hidden">' +
+        (slice.length ? '<div class="tbl"><table><thead><tr>' +
+          ['#', 'Тема', 'Гео', 'Дверь', 'Свобода', 'Чистота', 'Разработчиков', 'Рейтинг крупных']
+            .map(function (h, i) { return '<th' + (i >= 3 ? ' class="r"' : '') + '>' + h + '</th>'; }).join('') +
+          '</tr></thead><tbody>' + body + '</tbody></table></div>' + pager(rows.length, pages) : '<div class="empty">Ничего не нашлось</div>') +
+      '</div></section>';
+  }
+
+  // ---------------- как читать ----------------
+  function renderHow() {
+    $('view').innerHTML = '<section class="page">' +
+      '<div><div class="eyebrow">AppRadar 3</div><h1>Как читать этот отчёт</h1>' +
+      '<p class="lead">Коротко: здесь нет ни одного числа, которое выдавало бы догадку за измерение. Где данных не хватает, стоит прочерк или пометка «по оценкам».</p></div>' +
+      '<div class="card block manual">' +
+        '<h3>Почему нет вероятностей и прогноза</h3>' +
+        '<p class="sub">Чтобы сказать «с вероятностью 71 % приложение вырастет за 90 дней», нужно проверить модель на прошлом: взять срез трёхмесячной давности, выдать прогноз и сравнить с тем, что случилось. У нас истории ' + M.history.days + ' дней (' + M.history.from + ' → ' + M.history.to + '), и приложений с тридцатидневной меткой ноль. Месячные метки созреют ' + M.labels30 + ', трёхмесячные ' + M.labels90 + '. До тех пор любая вероятность была бы оформлением догадки.</p>' +
+        '<h3>Дверь: запас и поток</h3>' +
+        '<p class="sub">Запас — установки слабейшего из топ-10 за всё время жизни. Поток — сколько он получает в день сейчас, оценено по приросту оценок. Пятилетнее приложение с 500 тыс. установок и трёхмесячное со 100 тыс. — разные соперники: у первого может быть 100 установок в день, у второго 3 000.</p>' +
+        '<h3>Импульс ключей</h3>' +
+        '<p class="sub">Насколько выросло число запросов, по которым приложение стоит в топ-50, за неделю. Считается только по ключам, которые снимались и тогда, и сейчас: наш список ключей растёт, и сравнение полных множеств показало бы рост охвата там, где вырос наш собственный список. Это опережающий признак — охват меняется раньше, чем счётчик установок.</p>' +
+        '<h3>Рост в месяц</h3>' +
+        '<p class="sub">Счётчик установок Play — число точное, но обновляется пачками раз в 3–6 дней. Поэтому окно роста заканчивается на последнем обновлении, а не на сегодняшнем дне. Если обновлений не было вовсе и окно короче недели, роста нет не «нулевого», а неизвестного — тогда показывается оценка по приросту отзывов со знаком «~».</p>' +
+        '<h3>Вес улик и покрытие</h3>' +
+        '<p class="sub">Вес улик 0…1 складывается из четырёх проверок: реклама Google по домену разработчика и по его имени, Meta Ad Library, SDK атрибуции в тексте. Непроверенное считается нейтральным, а не исключается. Покрытие показывает, какая доля проверок реально выполнена. Найденная закупка решает: одна прямая улика перевешивает любое число пустых проверок.</p>' +
+        '<h3>Риск самообмана</h3>' +
+        '<p class="sub">Перечень причин не верить строке: короткое окно, устаревший счётчик, неполная проверка рекламы, молодость, мало отзывов или ключей, сигналы антифрода. Это перечень, а не балл — важно, чего именно не хватает.</p>' +
+        '<h3>Повторяемость</h3>' +
+        '<p class="sub">Сколько независимых разработчиков уже сделали похожее приложение. Несколько разных команд в одной теме — доказательство, что концепция повторяема. Фабрика клонов — это когда много приложений у одного разработчика; здесь считаются разные.</p>' +
+      '</div></section>';
+  }
+
+  // ---------------- карточка ----------------
+  function openCard(appId, geo) {
+    var r = D.rows.filter(function (x) { return x.app_id === appId && x.geo === geo; })[0];
+    if (!r) return;
+    var m = momentum(r), g = growth(r);
+    var pair = function (label, value, note) {
+      return '<div class="pair"><dt>' + esc(label) + '</dt><dd>' + value + (note ? '<div class="note">' + esc(note) + '</div>' : '') + '</dd></div>';
+    };
+    $('drawer-root').innerHTML = '<div class="overlay" data-close="1"><div class="drawer" role="dialog" aria-label="Разбор кандидата">' +
+      '<div class="drawer-head"><div style="min-width:0"><div class="strong" style="font-size:16px">' + esc(r.title || r.app_id) + '</div>' +
+        '<div class="pkg" style="max-width:none">' + esc(r.app_id) + ' · ' + esc(r.dev || '') + '</div></div>' +
+        '<button class="btn" data-close="1" style="margin-left:auto">Закрыть</button></div>' +
+      '<div class="drawer-body">' +
+        '<div class="card block"><h3>Рынок</h3><div class="sub">Цена входа и устройство ниши ' + (r.concept ? '«' + esc(r.concept) + '»' : 'вне каталога') + '</div><div class="pairs">' +
+          pair('Дверь, запас', short(r.door), 'установок у слабейшего в топ-10') +
+          pair('Дверь, поток', isNum(r.door_flow) ? short(r.door_flow) + '/дн.' : '—', 'оценка по приросту оценок') +
+          pair('Свобода', fix(r.freedom, 0), isNum(r.fmargin) ? 'до границы ' + (r.fmargin > 0 ? '+' : '') + fix(r.fmargin, 0) : '') +
+          pair('Чистота', pct(r.purity), 'спроса достаётся органике') +
+          pair('Свободных ключей', int(r.free_keys), '') +
+          pair('Срок выхода', isNum(r.tto) ? fix(r.tto, 1) + ' мес' : '—', 'до двери') +
+        '</div></div>' +
+        '<div class="card block"><h3>Органика</h3><div class="sub">Чем проверяли и насколько полно</div><div class="pairs">' +
+          pair('Вес улик', fix(r.oscore, 2), 'не вероятность — вес проверок') +
+          pair('Покрытие', pct(r.ocov), 'доля выполненных проверок') +
+          pair('Проверка', r.scope === 'domain+name' ? 'домен и имя' : r.scope === 'domain' ? 'только домен' : r.scope === 'name' ? 'только имя' : 'не проводилась', '') +
+          pair('УБТ', r.ubt ? 'есть признаки' : 'нет', 'соцсети и видео в отзывах') +
+        '</div></div>' +
+        '<div class="card block"><h3>Импульс</h3><div class="sub">Что изменилось за последнюю неделю</div><div class="pairs">' +
+          pair('Охват топ-50', m == null ? '—' : r.k50p + ' → ' + r.k50, m == null ? 'нет сравнения' : (m > 0 ? '+' : '') + m + ' за ' + r.kwd + ' дн.') +
+          pair('Охват топ-10', r.k10 == null ? '—' : r.k10p + ' → ' + r.k10, '') +
+          pair('Рост в месяц', g == null ? '—' : (r.interp == null ? '~' : '+') + short(g), r.interp == null ? 'оценка по отзывам' : 'измерено за ' + r.w + ' дн.') +
+          pair('Возраст числа', isNum(r.stale) ? r.stale + ' дн.' : '—', 'с последнего обновления счётчика') +
+          pair('Установок', short(r.installs), '') +
+          pair('Возраст', isNum(r.age) ? fix(r.age, 0) + ' мес' : '—', r.young ? 'молодое' : '') +
+        '</div></div>' +
+        '<div class="card block"><h3>Риск самообмана</h3><div class="sub">Чего не хватает, чтобы верить этой строке</div>' +
+          riskBadge(r.risk_n) +
+          (r.risk.length ? '<ul class="risk-list">' + r.risk.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>'
+            : '<p class="sub" style="margin-top:8px">Ни один фактор не сработал — редкий случай.</p>') +
+        '</div>' +
+        '<div class="card block"><h3>Повторяемость и соперник</h3><div class="sub">Делал ли это кто-то ещё и насколько он силён</div><div class="pairs">' +
+          pair('Независимых разработчиков', int(r.devs), 'в этой теме') +
+          pair('Из них молодых', int(r.devs_young), 'моложе года') +
+          pair('С 100 тыс.+', int(r.devs_big), 'дошли до заметного размера') +
+          pair('Рейтинг крупных', isNum(r.inc_rating) ? fix(r.inc_rating, 2) : '—', 'у приложений от 100 тыс. установок') +
+          pair('Жалобы на поломки', pct(r.inc_pain_broken), 'у них же') +
+          pair('Просят функции', pct(r.inc_pain_missing), 'у них же') +
+        '</div></div>' +
+        '<div class="card block"><h3>Стоимость и риск входа</h3><div class="sub">Грубо: чем опаснее разрешения и категория, тем дороже модерация</div><div class="pairs">' +
+          pair('Опасные разрешения', r.perm == null ? '—' : int(r.perm), '') +
+          pair('Риск категории', r.polrisk ? 'повышенный' : 'обычный', '') +
+          pair('Проверок пройдено', int(r.checks_ok), 'из семи') +
+          pair('Провалено', int(r.checks_bad), '') +
+        '</div></div>' +
+      '</div></div></div>';
+  }
+
+  // ---------------- события ----------------
+  function render() {
+    renderNav(); renderHead();
+    if (state.view === 'niches') renderNiches();
+    else if (state.view === 'how') renderHow();
+    else renderCand();
+  }
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-view]');
+    if (t) { state.view = t.getAttribute('data-view'); state.page = 1; render(); window.scrollTo(0, 0); return; }
+    if (e.target.closest('[data-close]')) { $('drawer-root').innerHTML = ''; return; }
+    var a = e.target.closest('[data-app]');
+    if (a) { openCard(a.getAttribute('data-app'), a.getAttribute('data-geo')); return; }
+    var p = e.target.closest('[data-page]');
+    if (p) { state.page = Number(p.getAttribute('data-page')); render(); window.scrollTo(0, 0); return; }
+    if (e.target.id === 'theme') {
+      var dark = document.documentElement.getAttribute('data-theme') === 'dark'
+        || (!document.documentElement.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+      try { localStorage.setItem('appradar3-theme', dark ? 'light' : 'dark'); } catch (err) { /* приватное окно */ }
+    }
+  });
+  document.addEventListener('change', function (e) {
+    if (e.target.id === 'geo') { state.geo = e.target.value; state.page = 1; render(); return; }
+    var k = e.target.getAttribute('data-key');
+    if (k) { state[k] = e.target.value; state.page = 1; render(); }
+  });
+  document.addEventListener('input', function (e) {
+    if (e.target.id === 'q') { state.q = e.target.value.trim(); state.page = 1; render(); $('q').focus(); }
+  });
+  try { var th = localStorage.getItem('appradar3-theme'); if (th) document.documentElement.setAttribute('data-theme', th); } catch (err) { /* приватное окно */ }
+  render();
+})();
+</script>
+</body></html>

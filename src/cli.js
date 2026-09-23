@@ -31,6 +31,7 @@ import * as methodologyReport from './stages/methodology-report.js';
 import * as appradar from './stages/appradar.js';
 import * as radarV2 from './stages/radar-v2.js';
 import * as appradar2 from './stages/appradar2.js';
+import * as appradar3 from './stages/appradar3.js';
 import * as analyzeUbt from './stages/analyze-ubt.js';
 
 const STAGES = {
@@ -57,6 +58,7 @@ const STAGES = {
   'appradar': appradar,                 // третий отчёт: те же данные в оформлении AppRadar
   'radar-v2': radarV2,                  // методика v2.0: свобода, ёмкость, чистота, семь проверок
   'appradar2': appradar2,               // отчёт AppRadar 2 по методике v2.0 (все гео сразу)
+  'appradar3': appradar3,               // отчёт AppRadar 3: «стоит ли повторять» (docs/tz-appradar-3.md)
   'analyze-ubt': analyzeUbt,            // признаки УБТ в отзывах: соцсети, видео, блогеры
 };
 
