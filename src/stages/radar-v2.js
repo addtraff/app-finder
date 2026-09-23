@@ -748,6 +748,32 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     else if (r.freedomPct >= 75) r.quadrant = r.purity >= purityP50 ? 'target' : 'bought';
     else r.quadrant = r.purity >= purityP50 ? 'mature' : 'pass';
     r.tailClean = r.quadrant === 'bought' && r.freeDemandShare != null && fdsP75 != null && r.freeDemandShare >= fdsP75 ? 1 : 0;
+    // Запас до границы. Ниша со свободой 75,2 и ниша со свободой 92 попадают в один квадрант,
+    // а это совсем разные ставки: первая слетит от любого шевеления выдачи. Из 151 ниши
+    // с меткой «Цель» на 16.09 через неделю её сохранили 72 — почти половина держалась на краю.
+    r.freedomMargin = r.freedomPct != null ? round(r.freedomPct - 75) : null;
+    r.purityMargin = r.purity != null && purityP50 != null ? round(r.purity - purityP50) : null;
+  }
+
+  // Сглаживание метки по неделе: квадрант, который держался в большинстве последних снимков.
+  // Показывается вместе с числом дней — читатель видит не только метку, но и её устойчивость.
+  const SMOOTH_DAYS = 7;
+  const histQuad = new Map();
+  for (const r of d.prepare(
+    `SELECT niche_id, snapshot_date, quadrant FROM metrics_niche_v2
+      WHERE geo=? AND snapshot_date<? AND snapshot_date>=? AND quadrant IS NOT NULL`
+  ).all(geo, D, shift(D, -SMOOTH_DAYS))) {
+    if (!histQuad.has(r.niche_id)) histQuad.set(r.niche_id, []);
+    histQuad.get(r.niche_id).push(r.quadrant);
+  }
+  for (const r of nicheRows) {
+    const seen = (histQuad.get(r.niche_id) || []).concat([r.quadrant]);
+    const cnt = new Map();
+    for (const q of seen) cnt.set(q, (cnt.get(q) || 0) + 1);
+    const best = [...cnt].sort((a, b) => b[1] - a[1] || (a[0] === r.quadrant ? -1 : 1))[0];
+    r.quadrantSmooth = best ? best[0] : r.quadrant;
+    r.quadrantDays = best ? best[1] : 1;
+    r.quadrantSeen = seen.length;
   }
   const rankPct = percentileOf(nicheRows.map((r) => r.rank));
 
@@ -933,7 +959,8 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     'money_ratio', 'money_capacity', 'organic_purity', 'purity_coverage', 'top10_ads_share',
     'young_organic_count', 'young_organic_installs', 'young_organic_apps', 'time_to_organic', 'time_to_organic_kind',
     'candidates_count', 'candidates_organic_count', 'candidates_paid_count', 'monetized_share', 'leaders_pain', 'head_top10',
-    'niche_rank', 'rank_basis', 'rank_pct', 'quadrant', 'tail_clean', 'incomplete', 'partial_window',
+    'niche_rank', 'rank_basis', 'rank_pct', 'quadrant', 'quadrant_smooth', 'quadrant_days', 'quadrant_seen',
+    'freedom_margin', 'purity_margin', 'tail_clean', 'incomplete', 'partial_window',
     'ubt_share', 'ubt_apps', 'ubt_flag', 'rec_score', 'rec_pct', 'rec_parts'];
   const insNiche = d.prepare(`INSERT OR REPLACE INTO metrics_niche_v2 (${nicheCols.join(',')}) VALUES (${nicheCols.map((c) => '@' + c).join(',')})`);
   const appCols = Object.keys(appOut[0] || { app_id: 1 });
@@ -971,7 +998,8 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
         monetized_share: round(r.monetizedShare), leaders_pain: r.leadersPain ? JSON.stringify(r.leadersPain) : null,
         head_top10: JSON.stringify(r.headTop10),
         niche_rank: round(r.rank), rank_basis: r.rank == null ? null : basis, rank_pct: round(r.rank == null ? null : rankPct(r.rank), 3),
-        quadrant: r.quadrant, tail_clean: r.tailClean, incomplete: JSON.stringify(r.incomplete), partial_window: partial,
+        quadrant: r.quadrant, quadrant_smooth: r.quadrantSmooth, quadrant_days: r.quadrantDays, quadrant_seen: r.quadrantSeen,
+        freedom_margin: r.freedomMargin, purity_margin: r.purityMargin, tail_clean: r.tailClean, incomplete: JSON.stringify(r.incomplete), partial_window: partial,
         ubt_share: round(r.ubtNicheShare), ubt_apps: r.ubtLabeledCount, ubt_flag: r.ubtFlag,
         rec_score: round(r.rec), rec_pct: r.rec == null ? null : round(recNichePct(r.rec), 3),
         rec_parts: r.recParts ? JSON.stringify(r.recParts) : null,

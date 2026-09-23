@@ -421,6 +421,14 @@ const MIGRATIONS = [
   ['metrics_app_v2', 'delta_preview_raw', 'INTEGER'],
   ['metrics_app_v2', 'delta_preview_w', 'INTEGER'],
   ['metrics_app_v2', 'delta_preview_from', 'TEXT'],
+  // Сглаженная метка квадранта: та, что держалась в большинстве последних 7 снимков, и
+  // сколько дней из скольких она держалась. Плюс запас до границы: ниша со свободой 75,2
+  // и ниша со свободой 92 попадают в один квадрант, но это разные ставки.
+  ['metrics_niche_v2', 'quadrant_smooth', 'TEXT'],
+  ['metrics_niche_v2', 'quadrant_days', 'INTEGER'],
+  ['metrics_niche_v2', 'quadrant_seen', 'INTEGER'],
+  ['metrics_niche_v2', 'freedom_margin', 'REAL'],
+  ['metrics_niche_v2', 'purity_margin', 'REAL'],
   // Счётчик установок не сдвинулся за окно: рост меньше одной ступени Play, а не ноль.
   ['metrics_app_v2', 'delta_flat', 'INTEGER'],
   // Скорость по числу оценок: они меняются втрое чаще счётчика установок и дают разрешение

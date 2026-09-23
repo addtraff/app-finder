@@ -503,6 +503,8 @@
     'nc.ubt': { t: 'УБТ', what: 'Доля приложений топ-20 и кандидатов с признаком УБТ; бейдж — УБТ-ниша.', how: 'УБТ-ниша — доля не ниже p75 ниш гео и больше нуля, при ' + M.ubt_niche_min_apps + '+ приложениях с разметкой. ' + UBT_HOW, why: 'В УБТ-нишах работают ролики в соцсетях.' },
     'nc.rec': { t: 'Рекомендация', what: 'Процентиль рекомендуемого скора ниши среди ниш гео.', how: 'Свободные ключи 40 %, остальная свобода 15 %, чистота 20 %, молодые органики 10 %, монетизация 10 %, ёмкость 5 %.' },
     'nk.count': { t: 'Ниш в выборке', what: 'Строк под текущими фильтрами.' },
+    'n.stab': { t: 'Устойчивость метки', what: 'Сколько дней из последних семи ниша держала этот квадрант.', how: 'Показывается тот квадрант, который держался в большинстве последних снимков, а не сегодняшний: дневной меняется у 12,8 % ниш. Если сегодняшний отличается, он подписан рядом.', why: 'Метка, продержавшаяся два дня из семи, — не основание вкладываться. Из 151 ниши с меткой «Цель» неделю назад её сохранили 72.' },
+    'n.margin': { t: 'Запас до границы', what: 'Насколько свобода ниши выше или ниже порога в 75.', how: 'Свобода минус 75. Запас меньше пяти помечается как «на краю».', why: 'Ниша со свободой 75,2 и ниша со свободой 92 попадают в один квадрант, но это разные ставки: первая слетит от любого шевеления выдачи.' },
     'nk.target': { t: 'Квадрант «Цель»', what: QUAD_OPTS[0][1] + '.' },
     'nk.young': { t: 'С молодыми органиками', what: 'Ниши, где в топ-20 есть приложение моложе ' + M.young_months + ' мес без закупки.' },
     'nk.ubt': { t: 'УБТ-ниш', what: 'Ниши, где заметная доля приложений узнаётся из соцсетей и видео.' },
@@ -645,6 +647,19 @@
     if (!a.traffic) return dash(GEO[a.geo] && GEO[a.geo].k_status ? 'нет курса гео: ' + GEO[a.geo].k_status : 'нет прироста за окно');
     var t = TRAFFIC[a.traffic];
     return '<span class="badge ' + t[1] + '" data-tip="b.' + a.traffic + '" data-tip-val="aso_share ' + fix(a.aso_share, 2) + '">' + t[0] + '</span>';
+  }
+  // Устойчивость метки и запас до границы. Из 151 ниши с меткой «Цель» на 16.09 через
+  // неделю её сохранили 72: половина держалась на самом краю порога.
+  function stab(n) {
+    var out = '';
+    if (n.quad_seen > 1) out += '<div class="muted small" style="margin-top:2px" data-tip="n.stab">' + n.quad_days + ' из ' + n.quad_seen + ' дней'
+      + (n.quad_today && n.quad_today !== n.quadrant ? ' · сегодня ' + esc((QUAD[n.quad_today] || QUAD.undetermined)[0].toLowerCase()) : '') + '</div>';
+    if (isNum(n.freedom_margin)) {
+      var edge = Math.abs(n.freedom_margin) < 5;
+      out += '<div class="small" style="margin-top:2px;color:' + (edge ? 'var(--orange)' : 'var(--muted)') + '" data-tip="n.margin">'
+        + 'до границы ' + (n.freedom_margin > 0 ? '+' : '') + fix(n.freedom_margin, 0) + (edge ? ' — на краю' : '') + '</div>';
+    }
+    return out;
   }
   function quadBadge(q, extra) {
     var x = QUAD[q] || QUAD.undetermined;
@@ -1011,7 +1026,7 @@
       { t: 'Квадрант', tip: 'nc.quad', v: function (n) {
         var extra = (n.closed ? ' <span class="badge b-red" data-tip="b.closed">ниша закрыта</span>' : '') + (n.tail_clean ? ' <span class="badge b-green" data-tip="b.tail_clean">хвост чист</span>' : '') +
           (n.incomplete.length ? '<div class="muted small" data-tip="b.incomplete" data-tip-val="' + esc(n.incomplete.map(function (k) { return MISSING[k] || k; }).join('\n')) + '" style="margin-top:3px">неполные: ' + esc(n.incomplete.map(function (k) { return MISSING_SHORT[k] || k; }).join(', ')) + '</div>' : '');
-        return quadBadge(n.quadrant, extra);
+        return quadBadge(n.quadrant, extra) + stab(n);
       } }
     ];
     if (state.geo === WW) cols.push({ t: 'Гео', tip: 'nc.geo', v: function (n) {

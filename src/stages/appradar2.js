@@ -193,7 +193,8 @@ export function collect(d) {
               v.delta_preview, v.delta_preview_raw, v.delta_preview_w, v.age_months, v.young, v.ubt_signal, v.ads_check_scope,
               v.delta_flat, v.installs_est_ratings, v.ratings_delta_30d, v.ratings_delta_w,
               m.fraud_ok, m.burst_flag, m.installs_per_rating, m.template_review_pct, a.title, a.developer,
-              n.concept, n.freedom_pct, n.organic_purity, n.door, n.free_keys_count, n.quadrant, n.closed_flag,
+              n.concept, n.freedom_pct, n.organic_purity, n.door, n.free_keys_count, n.closed_flag,
+              COALESCE(n.quadrant_smooth, n.quadrant) AS quadrant,
               n.young_organic_count, n.time_to_organic
          FROM metrics_app_v2 v
          JOIN metrics_app_geo m ON m.app_id=v.app_id AND m.geo=v.geo AND m.snapshot_date=v.snapshot_date
@@ -368,7 +369,9 @@ export function collect(d) {
         cand: n.candidates_count, cand_organic: n.candidates_organic_count, cand_paid: n.candidates_paid_count,
         monetized: r4(n.monetized_share), pain: parse(n.leaders_pain), leaders,
         top10: top.map((x) => [x.pos, x.app_id, x.title, x.installs, x.age, x.level, x.young, x.passed]),
-        rank: r4(n.niche_rank), rank_basis: n.rank_basis, rank_pct: r4(n.rank_pct), quadrant: n.quadrant, tail_clean: n.tail_clean,
+        rank: r4(n.niche_rank), rank_basis: n.rank_basis, rank_pct: r4(n.rank_pct),
+        quadrant: n.quadrant_smooth || n.quadrant, quad_today: n.quadrant, quad_days: n.quadrant_days, quad_seen: n.quadrant_seen,
+        freedom_margin: r4(n.freedom_margin), purity_margin: r4(n.purity_margin), tail_clean: n.tail_clean,
         incomplete: parse(n.incomplete, []), partial: n.partial_window,
         leader_share: r4(b.leader_share ?? null), new_share_18m: r4(b.new_share_18m ?? null), weak_share: r4(b.weak_share ?? null),
         index_gap_leader: r4(b.index_gap_leader ?? null),
