@@ -32,7 +32,7 @@ function riskFactors(r) {
   if (!(r.w >= 14)) f.push('окно наблюдения короче двух недель');
   if (r.stale != null && r.stale >= 7) f.push('счётчик установок не обновлялся ' + r.stale + ' дн.');
   if (r.scope !== 'domain+name') f.push(r.scope ? 'реклама проверена только ' + (r.scope === 'domain' ? 'по домену' : 'по имени') : 'реклама не проверена');
-  if (r.ocov != null && r.ocov < 0.6) f.push('покрытие улик ниже 60 %');
+  if (r.ocov != null && r.ocov < 0.6) f.push('проверено меньше 60 % источников закупки');
   if (r.age != null && r.age < 3) f.push('приложению меньше трёх месяцев');
   if (r.reviews != null && r.reviews < 20) f.push('меньше 20 отзывов');
   if ((r.kw50 ?? 0) < 3) f.push('меньше трёх ключей в топ-50');
@@ -123,7 +123,11 @@ export async function run({ geo, date }) {
         free_keys: c.free_keys, tto: r4(c.tto), quad: c.quad, qdays: c.qdays, qseen: c.qseen,
         fmargin: r4(c.fmargin), nyoung: c.nyoung, closed: c.closed,
         // органика
-        lvl: c.lvl, oscore: r4(c.oscore), ocov: r4(c.ocov), scope: c.scope, ubt: c.ubt === 1 ? 1 : 0,
+        // Проверки ищут закупку, поэтому и число называется признаками закупки: 0 — ни одна
+        // проверка ничего не нашла, 1 — закупка найдена прямо. Непроверенное даёт 0,5:
+        // это не «чисто», это «неизвестно».
+        lvl: c.lvl, pscore: r4(c.oscore == null ? null : 1 - c.oscore), ocov: r4(c.ocov),
+        scope: c.scope, ubt: c.ubt === 1 ? 1 : 0,
         // импульс
         k10: c.k10, k50: c.k50, k10p: c.k10p, k50p: c.k50p, kwd: c.kwd,
         interp: r4(interp), est: r4(c.est), flat: c.flat === 1 ? 1 : 0, w, official: official ? 1 : 0, stale: c.stale,
@@ -143,7 +147,7 @@ export async function run({ geo, date }) {
     // Порядок: сперва то, что меньше всего похоже на самообман, затем по импульсу ключей.
     geoRows.sort((a, b) => a.risk_n - b.risk_n
       || ((b.k50 - b.k50p) || 0) - ((a.k50 - a.k50p) || 0)
-      || (b.oscore || 0) - (a.oscore || 0));
+      || (a.pscore == null ? 1 : a.pscore) - (b.pscore == null ? 1 : b.pscore));
     rows.push(...geoRows.slice(0, ROWS_PER_GEO));
 
     // Отсеянные воронкой, но говорящие. Разбор от 23.09 прав: три причины отсева выбрасывают
@@ -187,7 +191,7 @@ export async function run({ geo, date }) {
         pain_broken: r4(c.pain_broken), pain_missing: r4(c.pain_missing), pain_ads: r4(c.pain_ads),
         door: c.door, door_flow: c.door_flow, freedom: r4(c.freedom), purity: r4(c.purity),
         k50: c.k50, k50p: c.k50p, est: r4(c.est), prev: r4(c.prev),
-        lvl: c.lvl, oscore: r4(c.oscore), ocov: r4(c.ocov),
+        lvl: c.lvl, pscore: r4(c.oscore == null ? null : 1 - c.oscore), ocov: r4(c.ocov),
         devs: rr ? rr.devs : null, devs_young: rr ? rr.young : null, devs_big: rr ? rr.big : null,
       });
     }
