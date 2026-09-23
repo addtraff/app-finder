@@ -468,6 +468,25 @@ export function collect(d) {
     });
   }
 
+  // Ниши без темы. Ворлдвайд группирует по теме, и ниша, которой тему не присвоили, не
+  // попадала туда вовсе: в США таких девять из 81, по всем гео — 145. Между тем это
+  // полноценные ниши со своими дверью, свободой и чистотой, просто собранные из ключей,
+  // которые не подтвердили ни одну тему каталога («find my phone», «handwriting practice»).
+  // Склеить их между странами не по чему — темы нет, — поэтому каждая идёт своей строкой
+  // с пометкой, что она из одного гео.
+  for (const n of nicheRows) {
+    if (n.concept) continue;
+    worldNiches.push({
+      concept: null, geo: n.geo, niche_id: n.niche_id, geos_count: 1, no_concept: 1,
+      target_geos: n.quadrant === 'target' ? 1 : 0,
+      cheapest_geo: n.door != null ? n.geo : null, cheapest_door: n.door ?? null,
+      young_unique: (n.young_apps || []).length, us_niche_id: n.geo === ref ? n.niche_id : null,
+      rec_geo: n.rec_pct != null ? n.geo : null, rec_niche_id: n.rec_pct != null ? n.niche_id : null,
+      rec_geos: n.rec_pct != null && n.rec_pct >= 90 ? 1 : 0,
+      ubt_geos: n.ubt === 1 ? 1 : 0,
+    });
+  }
+
   const timeline = all(d, `SELECT snapshot_date AS date, geo, COUNT(DISTINCT app_id) AS cards FROM raw_app_page GROUP BY snapshot_date, geo ORDER BY snapshot_date`);
   const extra = collectExtra(d, appRows, leaderIds);
   const lastDate = geos.map((g) => g.date).filter(Boolean).sort().pop() || null;
