@@ -22,23 +22,50 @@ import { sleep, log, warn } from '../lib/util.js';
 import fs from 'node:fs';
 import path from 'node:path';
 
+// Имена трёх трекеров — обычные английские слова: «Adjust the line size», «Branch office»,
+// «singular value». На голом слове держалось 2 226 находок из 2 795, и 1 984 из них пришли
+// из privacy policy, где «you may adjust your settings» стоит в каждом втором шаблоне.
+// Поэтому для них засчитывается только техническая улика — имя пакета или домен трекера —
+// либо голое имя рядом со словом из контекстного списка. У однозначных имён (AppsFlyer,
+// Kochava, Tenjin) голого имени достаточно: в прозе они ничего другого не значат.
+const SDK_RULES = {
+  AppsFlyer: { strong: ['com.appsflyer', 'appsflyer.com', 'onelink.me'], bareOk: true },
+  Kochava: { strong: ['com.kochava', 'kochava.com', 'kochava.net'], bareOk: true },
+  Tenjin: { strong: ['com.tenjin', 'tenjin.io', 'tenjin.com'], bareOk: true },
+  Adjust: { strong: ['com.adjust', 'adjust.com', 'adjust.io', 'adj.st'], bareOk: false },
+  Branch: { strong: ['io.branch', 'branch.io', 'bnc.lt', 'app.link'], bareOk: false },
+  Singular: { strong: ['com.singular', 'singular.net', 'sng.link'], bareOk: false },
+};
+// Слова, рядом с которыми голое имя перестаёт быть случайным.
+const CONTEXT = /(sdk|attribution|attribute|mmp|analytics|tracking|tracker|third[\s-]?party|measurement|deep\s?link|install\s?referrer|advertising\s?partner|атрибуц|трекинг|трекер|аналитик|партн)/i;
+const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 function buildMatchers() {
   const attribution = JSON.parse(fs.readFileSync(path.join(ROOT, 'config', 'apk-prefixes.json'), 'utf8')).attribution;
-  // Ищем и человеческое имя ("AppsFlyer"), и техническое (com.appsflyer) — оба всплывают в прозе.
-  const names = [];
-  for (const [prefix, human] of Object.entries(attribution)) {
-    names.push({ human, re: new RegExp('\\b' + human.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i') });
-    const bare = prefix.split('.').pop();
-    if (bare && bare.length > 3) names.push({ human, re: new RegExp('\\b' + bare + '\\b', 'i') });
+  const out = [];
+  for (const human of new Set(Object.values(attribution))) {
+    const rule = SDK_RULES[human] || { strong: [], bareOk: true };
+    for (const s of rule.strong) out.push({ human, kind: 'strong', re: new RegExp(reEsc(s), 'i') });
+    out.push({ human, kind: rule.bareOk ? 'name' : 'weak', re: new RegExp('\\b' + reEsc(human) + '\\b', 'i') });
   }
-  return names;
+  return out;
 }
 
+// Возвращает [{ human, kind, snippet }]. Фрагмент нужен, чтобы находку можно было
+// перепроверить, не ходя за текстом в интернет заново — раньше это было невозможно.
 function scanText(text, matchers) {
   if (!text) return [];
-  const found = new Set();
-  for (const m of matchers) if (m.re.test(text)) found.add(m.human);
-  return [...found];
+  const hits = new Map();
+  for (const m of matchers) {
+    const found = m.re.exec(text);
+    if (!found) continue;
+    const at = found.index;
+    const snippet = text.slice(Math.max(0, at - 70), at + found[0].length + 70).replace(/\s+/g, ' ').trim();
+    if (m.kind === 'weak' && !CONTEXT.test(snippet)) continue;   // голое слово без контекста — не улика
+    const prev = hits.get(m.human);
+    if (!prev || (prev.kind !== 'strong' && m.kind === 'strong')) hits.set(m.human, { human: m.human, kind: m.kind, snippet });
+  }
+  return [...hits.values()];
 }
 
 export async function run({ geo, date, runId, cycle = 'discovery', limit = null, force = false }) {
@@ -87,9 +114,10 @@ export async function run({ geo, date, runId, cycle = 'discovery', limit = null,
     const card = cardStmt.get(appId, geo) || cardStmt.get(appId, 'US') || cardAnyGeo.get(appId);
     if (!card) continue;
 
-    const descFound = scanText(`${card.summary || ''} ${card.description || ''}`, matchers);
-    const matchedIn = descFound.length ? ['description'] : [];
-    let allFound = new Set(descFound);
+    const descHits = scanText(`${card.summary || ''} ${card.description || ''}`, matchers);
+    const matchedIn = descHits.length ? ['description'] : [];
+    const allFound = new Set(descHits.map((h) => h.human));
+    const evidence = descHits.map((h) => ({ where: 'description', sdk: h.human, kind: h.kind, snippet: h.snippet }));
 
     let privacyOk = null, privacyStatus = null;
     if (card.privacy_policy) {
@@ -100,7 +128,10 @@ export async function run({ geo, date, runId, cycle = 'discovery', limit = null,
         if (r && r.ok && r.text) {
           privacyFetched++;
           const pf = scanText(r.text, matchers);
-          if (pf.length) { matchedIn.push('privacy_policy'); pf.forEach((n) => allFound.add(n)); }
+          if (pf.length) {
+            matchedIn.push('privacy_policy');
+            pf.forEach((h) => { allFound.add(h.human); evidence.push({ where: 'privacy_policy', sdk: h.human, kind: h.kind, snippet: h.snippet }); });
+          }
         }
       } catch (e) {
         errors++;
@@ -123,8 +154,11 @@ export async function run({ geo, date, runId, cycle = 'discovery', limit = null,
     }
 
     const foundList = [...allFound];
+    // Фрагменты кладутся в note: находка должна быть перепроверяемой без повторного
+    // похода за текстом — именно этого не хватало, когда метка держалась на слове.
     ins.run(appId, date, foundList.length ? 1 : 0, foundList.join(', ') || null, matchedIn.join(',') || null,
-      card.privacy_policy || null, privacyOk, privacyStatus, adIdShared, purposes, null);
+      card.privacy_policy || null, privacyOk, privacyStatus, adIdShared, purposes,
+      evidence.length ? JSON.stringify(evidence).slice(0, 4000) : null);
 
     if (foundList.length) {
       // Прямая улика: имя трекера не появляется в описании/политике просто так.
