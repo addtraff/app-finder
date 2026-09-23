@@ -190,7 +190,7 @@ export function collect(d) {
 
     for (const r of all(d,
       `SELECT v.app_id, v.niche_id, v.passed_funnel, v.organic_level, v.installs, v.installs_delta_30d, v.delta_window_days,
-              v.delta_preview, v.delta_preview_raw, v.delta_preview_w, v.age_months, v.young, v.ubt_signal,
+              v.delta_preview, v.delta_preview_raw, v.delta_preview_w, v.age_months, v.young, v.ubt_signal, v.ads_check_scope,
               m.fraud_ok, m.burst_flag, m.installs_per_rating, m.template_review_pct, a.title, a.developer,
               n.concept, n.freedom_pct, n.organic_purity, n.door, n.free_keys_count, n.quadrant, n.closed_flag,
               n.young_organic_count, n.time_to_organic
@@ -226,7 +226,8 @@ export function collect(d) {
       const row = { app_id: r.app_id, title: r.title, dev: r.developer, concept: r.concept, geo: g.geo, installs: r.installs,
         official: official ? 1 : 0, w, interp: r4(official ? r.installs_delta_30d : r.delta_preview),
         raw: official ? Math.round((r.installs_delta_30d * w) / 30) : r.delta_preview_raw,
-        age: r4(r.age_months), young: r.young, level: r.organic_level, passed: r.passed_funnel ? 1 : 0, ubt: r.ubt_signal === 1 ? 1 : 0, flags };
+        age: r4(r.age_months), young: r.young, level: r.organic_level, scope: r.ads_check_scope,
+        passed: r.passed_funnel ? 1 : 0, ubt: r.ubt_signal === 1 ? 1 : 0, flags };
       if (r.niche_id) {
         const key = g.geo + '|' + r.niche_id;
         let ag = nicheGrowthByKey.get(key);
@@ -309,7 +310,7 @@ export function collect(d) {
         delta30: r4(a.installs_delta_30d), delta_w: a.delta_window_days, delta_partial: a.delta_partial,
         dp: r4(a.delta_preview), dp_raw: a.delta_preview_raw, dp_w: a.delta_preview_w, dp_from: a.delta_preview_from,
         row_date: a.snapshot_date,
-        level: a.organic_level, evidence_date: a.evidence_date, evidence_age: a.evidence_age_days, ads_found: a.ads_found,
+        level: a.organic_level, ads_scope: a.ads_check_scope, evidence_date: a.evidence_date, evidence_age: a.evidence_age_days, ads_found: a.ads_found,
         g_checked: a.ads_google_checked, g_host: a.ads_google_host, g_creatives: a.ads_google_creatives,
         g_first: a.ads_google_first_seen, g_last: a.ads_google_last_seen, g_active: a.ads_google_active,
         m_checked: a.ads_meta_checked, tracking: a.tracking_names, apk: a.apk_parsed, attribution_sdk: a.attribution_sdk,

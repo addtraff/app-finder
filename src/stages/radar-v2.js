@@ -294,16 +294,25 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
   const organicOf = (id) => {
     if (orgCache.has(id)) return orgCache.get(id);
     const c = cardOf(id);
-    let gg = null;
+    let gg = null, byDomain = null, byName = null;
     if (c) {
       for (const h of [hostOf(c.developer_website), hostOf(c.privacy_policy)]) {
-        if (h && ads.google.has(h)) { gg = { host: h, ...ads.google.get(h) }; break; }
+        if (h && ads.google.has(h)) { byDomain = { host: h, ...ads.google.get(h) }; break; }
       }
-      // Своего домена нет (бесплатный хостинг) — проверка Google по имени разработчика
-      // (check-ads --scope dev-name), ключ «dev:<developer_id>».
-      const byName = !gg && c.developer_id ? ads.google.get('dev:' + c.developer_id) : null;
-      if (byName) gg = { host: 'по имени разработчика', ...byName };
+      // Проверка по имени разработчика (check-ads --scope dev-name), ключ «dev:<id>».
+      // Раньше она бралась только при отсутствии своего домена — и тогда находка по имени
+      // молча терялась у всех, у кого сайт есть. Между тем у кампаний на установку
+      // приложения посадочного домена нет вообще: рекламодатель опознаётся по имени, и
+      // поиск по домену для них всегда возвращает пусто. Поэтому берётся любая находка:
+      // «нашли» перевешивает «не нашли», в какой бы из двух очередей это ни случилось.
+      const nameRow = c.developer_id ? ads.google.get('dev:' + c.developer_id) : null;
+      if (nameRow) byName = { host: 'по имени разработчика', ...nameRow };
+      gg = (byDomain && byDomain.found === 1) ? byDomain
+        : (byName && byName.found === 1) ? byName
+        : (byDomain || byName);
     }
+    // Полнота проверки: по домену, по имени или по обоим.
+    const checkScope = byDomain && byName ? 'domain+name' : byDomain ? 'domain' : byName ? 'name' : null;
     const mm = ads.meta.get(id) || null;
     const tr = ads.tracking.get(id) || null;
     const ap = ads.apk.get(id) || null;
@@ -321,7 +330,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
       else if (tr && tr.found === 0) level = fresh ? 'no_signs' : 'stale';
     }
     const out = {
-      level, evidenceDate, evidenceAge, adsFound,
+      level, evidenceDate, evidenceAge, adsFound, checkScope,
       // Реклама проверена: закупка найдена или обе библиотеки пусты со свежей уликой.
       // Скан трекера для этого не нужен — он отличает «признаков нет» от «не проверено».
       adsKnown: level === 'found' || (adsFound === 'none' && evidenceAge <= V.evidence_ttl_days),
@@ -833,6 +842,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
       ads_google_creatives: o.googleCreatives, ads_google_first_seen: o.googleFirst, ads_google_last_seen: o.googleLast,
       ads_google_active: o.googleActive, ads_meta: o.meta, ads_meta_checked: o.metaChecked, ads_ever_found: o.ever,
       attribution_sdk: o.attribution, tracking_names: o.trackingNames, apk_parsed: o.apkParsed,
+      ads_check_scope: o.checkScope,
       installs: m.installs ?? null, installs_delta_30d: round(dl.delta), delta_window_days: dl.w, delta_partial: dl.partial,
       ...(() => { const p = deltaPreview(m.app_id); return { delta_preview: round(p.delta), delta_preview_raw: p.raw, delta_preview_w: p.w, delta_preview_from: p.from }; })(),
       search_weight: round(weight.get(m.app_id) ?? null), explained: round(aso?.explained ?? null), aso_share: round(aso?.share ?? null),

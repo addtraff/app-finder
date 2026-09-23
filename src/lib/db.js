@@ -421,6 +421,10 @@ const MIGRATIONS = [
   ['metrics_app_v2', 'delta_preview_raw', 'INTEGER'],
   ['metrics_app_v2', 'delta_preview_w', 'INTEGER'],
   ['metrics_app_v2', 'delta_preview_from', 'TEXT'],
+  // Полнота проверки рекламы: 'domain+name' | 'domain' | 'name' | NULL. «Признаков закупки
+  // нет» по одному домену — слабее, чем по домену и имени: у кампаний на установку
+  // приложения посадочного домена нет вообще, рекламодатель опознаётся по имени.
+  ['metrics_app_v2', 'ads_check_scope', 'TEXT'],
   // Концепт подсказки подтверждён выдачей (niche-doors): 1 — да, 0 — чужая тема, NULL — не проверялся
   ['disc_keywords', 'concept_ok', 'INTEGER'],
 ];
