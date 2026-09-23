@@ -78,10 +78,10 @@ export async function run({ geo, date }) {
               AVG(m.pain_broken) broken, AVG(m.pain_missing) missing, COUNT(*) n
          FROM metrics_app_v2 v
          JOIN metrics_app_geo m ON m.app_id=v.app_id AND m.geo=v.geo AND m.snapshot_date=v.snapshot_date
-         LEFT JOIN (SELECT app_id, geo, MAX(snapshot_date) md, score FROM raw_app_page GROUP BY app_id, geo) p
-           ON p.app_id=v.app_id AND p.geo=v.geo
+         LEFT JOIN (SELECT app_id, MAX(snapshot_date) md, score FROM raw_app_page WHERE geo=? GROUP BY app_id) p
+           ON p.app_id=v.app_id
         WHERE v.geo=? AND v.snapshot_date=? AND v.niche_id IS NOT NULL AND v.installs >= 100000
-        GROUP BY v.niche_id`, g.geo, dt)) {
+        GROUP BY v.niche_id`, g.geo, g.geo, dt)) {
       weak.set(r.niche_id, r);
     }
 
@@ -164,6 +164,8 @@ export async function run({ geo, date }) {
     // это приложение с заметными установками, которое давно не обновляли: самый прямой
     // признак слабого соперника, какой есть.
     const REJECTED_KINDS = ['broken', 'regional_clone', 'too_big', 'dead'];
+    const sdt = one(d, `SELECT MAX(snapshot_date) m FROM screen_result WHERE geo=?`, g.geo)?.m;
+    if (sdt) {
     for (const c of all(d,
       `SELECT v.app_id, v.niche_id, v.installs, v.age_months age, v.organic_level lvl,
               v.organic_score oscore, v.evidence_coverage ocov,
@@ -174,15 +176,14 @@ export async function run({ geo, date }) {
               n.concept, n.head_keyword head, n.door, n.door_flow, n.freedom_pct freedom, n.organic_purity purity
          FROM metrics_app_v2 v
          JOIN apps a ON a.app_id=v.app_id
-         JOIN screen_result s ON s.app_id=v.app_id AND s.geo=v.geo
-           AND s.snapshot_date=(SELECT MAX(snapshot_date) FROM screen_result WHERE geo=v.geo)
+         JOIN screen_result s ON s.app_id=v.app_id AND s.geo=v.geo AND s.snapshot_date=?
          JOIN metrics_app_geo m ON m.app_id=v.app_id AND m.geo=v.geo AND m.snapshot_date=v.snapshot_date
-         LEFT JOIN (SELECT app_id, geo, MAX(snapshot_date) md, score FROM raw_app_page GROUP BY app_id, geo) p
-           ON p.app_id=v.app_id AND p.geo=v.geo
+         LEFT JOIN (SELECT app_id, MAX(snapshot_date) md, score FROM raw_app_page WHERE geo=? GROUP BY app_id) p
+           ON p.app_id=v.app_id
          LEFT JOIN metrics_niche_v2 n ON n.niche_id=v.niche_id AND n.geo=v.geo AND n.snapshot_date=v.snapshot_date
         WHERE v.geo=? AND v.snapshot_date=? AND v.passed_funnel=0
           AND s.reject_reason IN (${REJECTED_KINDS.map(() => '?').join(',')})`,
-      g.geo, dt, ...REJECTED_KINDS)) {
+      sdt, g.geo, g.geo, dt, ...REJECTED_KINDS)) {
       const rr = repl.get(c.niche_id) || null;
       rejected.push({
         geo: g.geo, app_id: c.app_id, title: c.title, dev: c.developer, reason: c.reason,
@@ -194,6 +195,7 @@ export async function run({ geo, date }) {
         lvl: c.lvl, pscore: r4(c.oscore == null ? null : 1 - c.oscore), ocov: r4(c.ocov),
         devs: rr ? rr.devs : null, devs_young: rr ? rr.young : null, devs_big: rr ? rr.big : null,
       });
+    }
     }
 
     for (const n of all(d,
