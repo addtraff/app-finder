@@ -188,6 +188,7 @@ __UNPACK_JS__
   var SECTIONS = [
     { id: 'cand', title: 'Кандидаты', count: function () { return D.rows.length; } },
     { id: 'niches', title: 'Ниши', count: function () { return D.niches.length; } },
+    { id: 'rejected', title: 'Отсеянные', count: function () { return (D.rejected || []).length; } },
     { id: 'how', title: 'Как читать', count: function () { return null; } }
   ];
   function renderNav() {
@@ -339,6 +340,61 @@ __UNPACK_JS__
       '</div></section>';
   }
 
+  // ---------------- отсеянные ----------------
+  // Три причины отсева выбрасывают ровно то, что означает «спрос доказан, соперник слабый».
+  var REASON = {
+    broken: ['Недовольный спрос', 'b-orange', 'Низкий рейтинг при заметном числе оценок. Люди ставят, пользуются и жалуются — значит спрос есть, а решение их не устраивает.'],
+    factory: ['Тема повторяема', 'b-accent', 'Похожих приложений много. Если их делают разные команды, концепция уже доказала повторяемость; фабрика — это когда двадцать штук у одного разработчика.'],
+    too_big: ['Якорь спроса', 'b-purple', 'Слишком крупное, чтобы копировать. Но оно показывает масштаб спроса: вокруг него имеет смысл искать слабых конкурентов под конкретные сценарии.']
+  };
+  function renderRejected() {
+    var rows = (D.rejected || []).filter(function (r) {
+      if (state.geo !== WW && r.geo !== state.geo) return false;
+      if (state.risk !== 'all' && state.risk !== r.reason) return false;
+      return matches(r);
+    });
+    var pages = Math.max(1, Math.ceil(rows.length / PAGE));
+    if (state.page > pages) state.page = pages;
+    var slice = rows.slice((state.page - 1) * PAGE, state.page * PAGE);
+    var body = slice.map(function (r, i) {
+      var m = (r.k50 == null || r.k50p == null) ? null : r.k50 - r.k50p;
+      var x = REASON[r.reason] || [r.reason, 'b-muted', ''];
+      return '<tr>' +
+        '<td class="num muted">' + ((state.page - 1) * PAGE + i + 1) + '</td>' +
+        '<td><div class="strong">' + esc(r.title || r.app_id) + '</div><div class="pkg">' + esc(r.dev || r.app_id) + '</div></td>' +
+        '<td><span class="badge ' + x[1] + '">' + x[0] + '</span></td>' +
+        '<td>' + (r.concept ? '<div class="strong">' + esc(r.concept) + '</div>' : dash('вне каталога')) +
+          (r.devs != null ? '<div class="muted small">' + int(r.devs) + ' разработчиков</div>' : '') + '</td>' +
+        '<td class="num">' + esc(r.geo) + '</td>' +
+        '<td class="r"><div class="num strong">' + short(r.installs) + '</div>' +
+          (isNum(r.rating) ? '<div class="muted small">рейтинг ' + fix(r.rating, 2) + '</div>' : '') + '</td>' +
+        '<td class="r">' + (isNum(r.pain_broken) ? '<div class="num">' + pct(r.pain_broken) + '</div><div class="muted small">просят функции ' + pct(r.pain_missing) + '</div>' : dash('нет разметки отзывов')) + '</td>' +
+        '<td class="r">' + (m == null ? dash() : '<span class="num' + (m > 0 ? ' strong' : ' muted') + '">' + (m > 0 ? '+' : '') + m + '</span>') + '</td>' +
+        '<td class="r"><div class="num strong">' + short(r.door) + '</div>' +
+          (isNum(r.door_flow) ? '<div class="muted small">поток ' + short(r.door_flow) + '/дн.</div>' : '') + '</td>' +
+      '</tr>';
+    }).join('');
+    var counts = {};
+    rows.forEach(function (r) { counts[r.reason] = (counts[r.reason] || 0) + 1; });
+    $('view').innerHTML = '<section class="page">' +
+      '<div><div class="eyebrow">AppRadar 3</div><h1>Отсеянные воронкой, но говорящие</h1>' +
+      '<p class="lead">Воронка выбрасывает эти приложения из списка кандидатов — и правильно делает, копировать их напрямую не нужно. Но сама причина отсева несёт сигнал: низкий рейтинг при живом спросе означает недовольных пользователей, много независимых команд в теме — что концепция повторяема, а инкумбент показывает масштаб спроса. Воронка при этом не изменена: AppRadar 2 считает по-прежнему, чтобы его цифры не поехали.</p></div>' +
+      '<div class="kpis">' +
+        kpi('Недовольный спрос', int(counts.broken || 0), 'низкий рейтинг, живой спрос') +
+        kpi('Тема повторяема', int(counts.factory || 0), 'похожих приложений много') +
+        kpi('Якоря спроса', int(counts.too_big || 0), 'крупные — не копировать, а мерить') +
+      '</div>' +
+      '<div class="card" style="overflow:hidden"><div class="toolbar">' +
+        sel('risk', 'Причина', state.risk, [['all', 'все'], ['broken', 'недовольный спрос'], ['factory', 'тема повторяема'], ['too_big', 'якорь спроса']]) +
+      '</div>' +
+        (slice.length ? '<div class="tbl"><table><thead><tr>' +
+          ['#', 'Приложение', 'Сигнал', 'Тема', 'Гео', 'Установки', 'Жалобы на поломки', 'Импульс ключей', 'Дверь']
+            .map(function (h, i) { return '<th' + (i >= 5 ? ' class="r"' : '') + '>' + h + '</th>'; }).join('') +
+          '</tr></thead><tbody>' + body + '</tbody></table></div>' + pager(rows.length, pages)
+          : '<div class="empty">Ничего не нашлось</div>') +
+      '</div></section>';
+  }
+
   // ---------------- как читать ----------------
   function renderHow() {
     $('view').innerHTML = '<section class="page">' +
@@ -357,6 +413,8 @@ __UNPACK_JS__
         '<p class="sub">Вес улик 0…1 складывается из четырёх проверок: реклама Google по домену разработчика и по его имени, Meta Ad Library, SDK атрибуции в тексте. Непроверенное считается нейтральным, а не исключается. Покрытие показывает, какая доля проверок реально выполнена. Найденная закупка решает: одна прямая улика перевешивает любое число пустых проверок.</p>' +
         '<h3>Риск самообмана</h3>' +
         '<p class="sub">Перечень причин не верить строке: короткое окно, устаревший счётчик, неполная проверка рекламы, молодость, мало отзывов или ключей, сигналы антифрода. Это перечень, а не балл — важно, чего именно не хватает.</p>' +
+        '<h3>Отсеянные воронкой</h3>' +
+        '<p class="sub">Три причины отсева — низкий рейтинг, много похожих приложений и слишком крупный размер — выбрасывают ровно то, что означает «спрос доказан, соперник слабый». Они вынесены в отдельный раздел как сигналы: копировать их напрямую не нужно, но читать стоит. Сама воронка не изменена, чтобы цифры AppRadar 2 остались сопоставимыми.</p>' +
         '<h3>Повторяемость</h3>' +
         '<p class="sub">Сколько независимых разработчиков уже сделали похожее приложение. Несколько разных команд в одной теме — доказательство, что концепция повторяема. Фабрика клонов — это когда много приложений у одного разработчика; здесь считаются разные.</p>' +
       '</div></section>';
@@ -423,6 +481,7 @@ __UNPACK_JS__
   function render() {
     renderNav(); renderHead();
     if (state.view === 'niches') renderNiches();
+    else if (state.view === 'rejected') renderRejected();
     else if (state.view === 'how') renderHow();
     else renderCand();
   }
