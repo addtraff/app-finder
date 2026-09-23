@@ -429,6 +429,15 @@ const MIGRATIONS = [
   ['metrics_niche_v2', 'quadrant_seen', 'INTEGER'],
   ['metrics_niche_v2', 'freedom_margin', 'REAL'],
   ['metrics_niche_v2', 'purity_margin', 'REAL'],
+  // Momentum ключей: охват топ-10 и топ-50 неделю назад, посчитанный по тем же ключам,
+  // что снимаются сейчас. Список наблюдаемых ключей растёт, и без общей базы сравнение
+  // показывало бы рост охвата там, где вырос наш собственный список.
+  ['metrics_app_v2', 'kw_top10_cmp', 'INTEGER'],
+  ['metrics_app_v2', 'kw_top50_cmp', 'INTEGER'],
+  ['metrics_app_v2', 'kw_top10_prev', 'INTEGER'],
+  ['metrics_app_v2', 'kw_top50_prev', 'INTEGER'],
+  ['metrics_app_v2', 'kw_momentum_days', 'INTEGER'],
+  ['metrics_app_v2', 'kw_momentum_base', 'INTEGER'],
   // Счётчик установок не сдвинулся за окно: рост меньше одной ступени Play, а не ноль.
   ['metrics_app_v2', 'delta_flat', 'INTEGER'],
   // Скорость по числу оценок: они меняются втрое чаще счётчика установок и дают разрешение

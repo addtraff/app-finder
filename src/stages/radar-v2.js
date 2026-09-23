@@ -313,6 +313,53 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     return { rDelta, rRaw, rW, ipr: ipr != null ? round(ipr) : null, est: ipr != null ? rDelta * ipr : null };
   };
 
+  // ---------- momentum ключей ----------
+  // Сколько запросов приложение держит в топ-10 и топ-50 сейчас и неделю назад. Это
+  // опережающий признак: расширение охвата по ключам видно раньше, чем сдвиг счётчика
+  // установок, а счётчик к тому же ступенчатый и день ко дню стоит у 79 % приложений.
+  //
+  // Ловушка, из-за которой считать «в лоб» нельзя: список наблюдаемых ключей растёт (в US
+  // за сутки 314 -> 1081). Сравнение полных множеств показало бы бурный рост у всех сразу —
+  // но вырос бы не охват приложения, а наш собственный список. Поэтому обе даты считаются
+  // только по ключам, которые снимались И тогда, и сейчас.
+  const kwMomentum = new Map();
+  let kwPrevDate = null, kwCommon = 0;
+  {
+    const prev = d.prepare(
+      `SELECT MAX(snapshot_date) m FROM raw_search WHERE geo=? AND snapshot_date<=?`
+    ).get(geo, shift(D, -7))?.m || null;
+    kwPrevDate = prev;
+    if (prev && prev !== D) {
+      const countsAt = (date) => {
+        const m = new Map();
+        for (const r of d.prepare(
+          `SELECT app_id,
+                  SUM(CASE WHEN position<=10 THEN 1 ELSE 0 END) k10,
+                  COUNT(*) k50
+             FROM raw_search
+            WHERE geo=? AND snapshot_date=? AND position<=50
+              AND keyword IN (SELECT keyword FROM raw_search WHERE geo=? AND snapshot_date=?)
+            GROUP BY app_id`
+        ).all(geo, date, geo, date === D ? prev : D)) m.set(r.app_id, r);
+        return m;
+      };
+      const nowM = countsAt(D), prevM = countsAt(prev);
+      kwCommon = d.prepare(
+        `SELECT COUNT(*) c FROM (SELECT DISTINCT keyword FROM raw_search WHERE geo=? AND snapshot_date=?
+          INTERSECT SELECT DISTINCT keyword FROM raw_search WHERE geo=? AND snapshot_date=?)`
+      ).get(geo, D, geo, prev).c;
+      const days = daysBetween(prev, D);
+      for (const id of new Set([...nowM.keys(), ...prevM.keys()])) {
+        const a = nowM.get(id), b = prevM.get(id);
+        kwMomentum.set(id, {
+          k10: a ? a.k10 : 0, k50: a ? a.k50 : 0,
+          k10p: b ? b.k10 : 0, k50p: b ? b.k50 : 0, days,
+        });
+      }
+    }
+  }
+  const kwMom = (id) => kwMomentum.get(id) || { k10: null, k50: null, k10p: null, k50p: null, days: null };
+
   tick('metrics+history');
   // ---------- органика: ступени и улика ----------
   const ads = loadAdsEvidence(d);
@@ -898,6 +945,9 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
       installs: m.installs ?? null, installs_delta_30d: round(dl.delta), delta_window_days: dl.w, delta_partial: dl.partial,
       ...(() => { const p = deltaPreview(m.app_id); return { delta_preview: round(p.delta), delta_preview_raw: p.raw, delta_preview_w: p.w, delta_preview_from: p.from, delta_flat: p.flat }; })(),
       ...(() => { const v = ratingsVelocity(m.app_id); return { ratings_delta_30d: round(v.rDelta), ratings_delta_raw: v.rRaw, ratings_delta_w: v.rW, installs_per_rating_now: v.ipr, installs_est_ratings: round(v.est) }; })(),
+      // Текущее значение хранится рядом с прошлым и на той же общей базе ключей: обычные
+      // счётчики kw_top10_count считаются по всем ключам, и сравнивать их с прошлым нельзя.
+      ...(() => { const q = kwMom(m.app_id); return { kw_top10_cmp: q.k10, kw_top50_cmp: q.k50, kw_top10_prev: q.k10p, kw_top50_prev: q.k50p, kw_momentum_days: q.days, kw_momentum_base: kwCommon || null }; })(),
       search_weight: round(weight.get(m.app_id) ?? null), explained: round(aso?.explained ?? null), aso_share: round(aso?.share ?? null),
       traffic_source: traffic, exogenous_spike_rate: round(spike),
       keywords_json: JSON.stringify((kwContrib.get(m.app_id) || []).sort((a, b) => b.contrib - a.contrib).slice(0, 15)),
