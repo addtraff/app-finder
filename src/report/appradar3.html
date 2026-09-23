@@ -157,7 +157,8 @@ __UNPACK_JS__
   var M = D.meta, WW = 'WW';
   var PAGE = 50;
   var state = { view: 'cand', geo: WW, page: 1, q: '', risk: 'all', paid: 'all', mom: 'all', sort: 'risk',
-    inst: 0, instMax: 0, age: 'all', flow: 0, freedom: 0, quad: 'all', concept: 'all', meas: 'all', ubt: 'all' };
+    inst: 0, instMax: 0, age: 'all', flow: 0, freedom: 0, quad: 'all', concept: 'all', meas: 'all', ubt: 'all',
+    nDoor: 0, nFlow: 0, nFreedom: 0, nPurity: 0, nKeys: 0, nQuad: 'all', nStab: 0, nDevs: 0, nYoung: 0, nRating: 0, nSort: 'freedom' };
 
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
@@ -328,11 +329,32 @@ __UNPACK_JS__
   }
 
   // ---------------- ниши ----------------
+  var NICHE_SORT = {
+    freedom: function (a, b) { return (b.freedom || 0) - (a.freedom || 0); },
+    door: function (a, b) { return (a.door == null ? Infinity : a.door) - (b.door == null ? Infinity : b.door); },
+    flow: function (a, b) { return (a.door_flow == null ? Infinity : a.door_flow) - (b.door_flow == null ? Infinity : b.door_flow); },
+    purity: function (a, b) { return (b.purity || 0) - (a.purity || 0); },
+    keys: function (a, b) { return (b.free_keys || 0) - (a.free_keys || 0); },
+    devs: function (a, b) { return (b.devs || 0) - (a.devs || 0); },
+    young: function (a, b) { return (b.nyoung || 0) - (a.nyoung || 0); },
+    weak: function (a, b) { return (a.inc_rating == null ? 9 : a.inc_rating) - (b.inc_rating == null ? 9 : b.inc_rating); },
+    stab: function (a, b) { return (b.qdays || 0) - (a.qdays || 0); }
+  };
   function renderNiches() {
     var rows = D.niches.filter(function (n) {
       if (state.geo !== WW && n.geo !== state.geo) return false;
+      if (state.nDoor && !(isNum(n.door) && n.door <= state.nDoor)) return false;
+      if (state.nFlow && !(isNum(n.door_flow) && n.door_flow <= state.nFlow)) return false;
+      if (state.nFreedom && !(isNum(n.freedom) && n.freedom >= state.nFreedom)) return false;
+      if (state.nPurity && !(isNum(n.purity) && n.purity >= state.nPurity / 100)) return false;
+      if (state.nKeys && !((n.free_keys || 0) >= state.nKeys)) return false;
+      if (state.nQuad !== 'all' && (n.quad || 'undetermined') !== state.nQuad) return false;
+      if (state.nStab && !((n.qdays || 0) >= state.nStab)) return false;
+      if (state.nDevs && !((n.devs || 0) >= state.nDevs)) return false;
+      if (state.nYoung && !((n.nyoung || 0) >= state.nYoung)) return false;
+      if (state.nRating && !(isNum(n.inc_rating) && n.inc_rating <= state.nRating / 100)) return false;
       return matches(n);
-    }).sort(function (a, b) { return (b.freedom || 0) - (a.freedom || 0); });
+    }).sort(NICHE_SORT[state.nSort] || NICHE_SORT.freedom);
     var pages = Math.max(1, Math.ceil(rows.length / PAGE));
     if (state.page > pages) state.page = pages;
     var slice = rows.slice((state.page - 1) * PAGE, state.page * PAGE);
@@ -357,7 +379,27 @@ __UNPACK_JS__
     $('view').innerHTML = '<section class="page">' +
       '<div><div class="eyebrow">AppRadar 3</div><h1>Ниши: цена входа и повторяемость</h1>' +
       '<p class="lead">Дверь показана и запасом, и потоком: запас — сколько установок накопил слабейший из топ-10 за всё время, поток — сколько он получает сейчас. Повторяемость — сколько <b>независимых</b> разработчиков уже сделали похожее: несколько команд в одной теме означают, что концепция повторяема, а не что это фабрика клонов.</p></div>' +
+      '<div class="kpis">' +
+        kpi('Ниш в выборке', int(rows.length), state.geo === WW ? 'по всем странам' : state.geo) +
+        kpi('Дешёвый вход', int(rows.filter(function (n) { return isNum(n.door_flow) && n.door_flow <= 500; }).length), 'поток десятого до 500 в день') +
+        kpi('Метка держится', int(rows.filter(function (n) { return n.qdays >= 6; }).length), 'шесть дней из семи и больше') +
+        kpi('Соперник слабый', int(rows.filter(function (n) { return isNum(n.inc_rating) && n.inc_rating < 4; }).length), 'рейтинг крупных ниже 4,0') +
+      '</div>' +
       '<div class="card" style="overflow:hidden">' +
+        '<div class="toolbar">' +
+          sel('nDoor', 'Дверь-запас до', state.nDoor, [[0, 'любая'], [10000, '10 тыс.'], [50000, '50 тыс.'], [200000, '200 тыс.'], [1000000, '1 млн']]) +
+          sel('nFlow', 'Дверь-поток до', state.nFlow, [[0, 'любая'], [100, '100/дн.'], [500, '500/дн.'], [2000, '2 тыс./дн.']]) +
+          sel('nFreedom', 'Свобода от', state.nFreedom, [[0, 'любая'], [50, '50'], [75, '75'], [85, '85']]) +
+          sel('nPurity', 'Чистота от', state.nPurity, [[0, 'любая'], [50, '50 %'], [70, '70 %'], [85, '85 %']]) +
+          sel('nKeys', 'Свободных ключей от', state.nKeys, [[0, 'любое'], [1, '1'], [3, '3'], [5, '5']]) +
+        '</div><div class="toolbar">' +
+          sel('nQuad', 'Квадрант', state.nQuad, [['all', 'любой'], ['target', 'Цель'], ['mature', 'Зрелая ниша'], ['bought', 'Трафик выкуплен'], ['pass', 'Мимо']]) +
+          sel('nStab', 'Метка держится', state.nStab, [[0, 'любая'], [5, '5 дней из 7'], [6, '6 из 7'], [7, 'все 7']]) +
+          sel('nDevs', 'Разработчиков от', state.nDevs, [[0, 'любое'], [3, '3'], [10, '10'], [25, '25']]) +
+          sel('nYoung', 'Молодых органиков от', state.nYoung, [[0, 'любое'], [1, '1'], [3, '3']]) +
+          sel('nRating', 'Рейтинг крупных до', state.nRating, [[0, 'любой'], [450, '4,50'], [420, '4,20'], [400, '4,00'], [350, '3,50']]) +
+          '<div style="margin-left:auto">' + sel('nSort', 'Сортировка', state.nSort, [['freedom', 'Свобода'], ['flow', 'Дешевле поток'], ['door', 'Дешевле запас'], ['purity', 'Чистота'], ['keys', 'Свободные ключи'], ['devs', 'Разработчиков'], ['young', 'Молодых органиков'], ['weak', 'Слабее соперник'], ['stab', 'Устойчивее метка']]) + '</div>' +
+        '</div>' +
         (slice.length ? '<div class="tbl"><table><thead><tr>' +
           ['#', 'Тема', 'Гео', 'Дверь', 'Свобода', 'Чистота', 'Разработчиков', 'Рейтинг крупных']
             .map(function (h, i) { return '<th' + (i >= 3 ? ' class="r"' : '') + '>' + h + '</th>'; }).join('') +
@@ -535,7 +577,7 @@ __UNPACK_JS__
     if (e.target.id === 'geo') { state.geo = e.target.value; state.page = 1; render(); return; }
     var k = e.target.getAttribute('data-key');
     if (k) {
-      var numeric = ['inst', 'instMax', 'flow', 'freedom'];
+      var numeric = ['inst', 'instMax', 'flow', 'freedom', 'nDoor', 'nFlow', 'nFreedom', 'nPurity', 'nKeys', 'nStab', 'nDevs', 'nYoung', 'nRating'];
       state[k] = numeric.indexOf(k) >= 0 ? Number(e.target.value) : e.target.value;
       state.page = 1; render();
     }
