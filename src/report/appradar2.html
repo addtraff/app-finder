@@ -503,6 +503,7 @@
     'nc.ubt': { t: 'УБТ', what: 'Доля приложений топ-20 и кандидатов с признаком УБТ; бейдж — УБТ-ниша.', how: 'УБТ-ниша — доля не ниже p75 ниш гео и больше нуля, при ' + M.ubt_niche_min_apps + '+ приложениях с разметкой. ' + UBT_HOW, why: 'В УБТ-нишах работают ролики в соцсетях.' },
     'nc.rec': { t: 'Рекомендация', what: 'Процентиль рекомендуемого скора ниши среди ниш гео.', how: 'Свободные ключи 40 %, остальная свобода 15 %, чистота 20 %, молодые органики 10 %, монетизация 10 %, ёмкость 5 %.' },
     'nk.count': { t: 'Ниш в выборке', what: 'Строк под текущими фильтрами.' },
+    'n.grain': { t: 'Темы или ниши', what: 'Что считать строкой в ворлдвайде.', how: '«Темы» — одна строка на тему: одна и та же ниша есть в разных странах, и они схлопываются в строку по стране с лучшим рангом. Их 72 — столько тем в каталоге семян. «Все ниши» — каждая ниша каждой страны отдельной строкой, их 2 241: у одной темы в разных странах разные дверь, свобода и чистота.', why: 'Темы удобны, чтобы выбрать направление; все ниши — чтобы найти конкретную страну, где вход дешевле всего.' },
     'n.stab': { t: 'Устойчивость метки', what: 'Сколько дней из последних семи ниша держала этот квадрант.', how: 'Показывается тот квадрант, который держался в большинстве последних снимков, а не сегодняшний: дневной меняется у 12,8 % ниш. Если сегодняшний отличается, он подписан рядом.', why: 'Метка, продержавшаяся два дня из семи, — не основание вкладываться. Из 151 ниши с меткой «Цель» неделю назад её сохранили 72.' },
     'n.margin': { t: 'Запас до границы', what: 'Насколько свобода ниши выше или ниже порога в 75.', how: 'Свобода минус 75. Запас меньше пяти помечается как «на краю».', why: 'Ниша со свободой 75,2 и ниша со свободой 92 попадают в один квадрант, но это разные ставки: первая слетит от любого шевеления выдачи.' },
     'nk.target': { t: 'Квадрант «Цель»', what: QUAD_OPTS[0][1] + '.' },
@@ -586,7 +587,7 @@
   var state = {
     view: 'apps', geo: WW, q: '', page: 1,
     af: { cat: 'all', level: 'all', channel: 'all', traffic: 'all', minPassed: 0, quad: 'all', age: 'all', monet: 'all', sort: 'checks', niche: null, rec: false },
-    nf: { cat: 'all', quad: 'all', freedom: 'all', purity: 'all', channel: 'all', young: false, cand: false, full: false, sort: 'rank', rec: false },
+    nf: { cat: 'all', quad: 'all', freedom: 'all', purity: 'all', channel: 'all', young: false, cand: false, full: false, sort: 'rank', rec: false, grain: 'themes' },
     hidePaid: !!load('appradar2-hide-paid', false), showDisq: false,
     favs: load('appradar2-favs', []), nfavs: load('appradar2-nfavs', []), cTab: 'collect',
     rTab: 'g30', gf: { win: 7, inst: 10000, instMax: 0, passed: '1', channel: 'organic', age: 'all', sort: 'interp', easy: 0, easy5: 0, scope: 'all', meas: 'all', osc: 'all' }
@@ -734,8 +735,8 @@
   function renderNav() {
     var items = [
       { id: 'apps', title: 'Топ приложений', svg: '<path d="M4 19V10M10 19V5M16 19v-7M22 19H2"/>', count: D.worldApps.length },
-      { id: 'niches', title: state.geo === WW ? 'Топ тем' : 'Топ ниш', svg: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.6"/>',
-        count: state.geo === WW ? D.worldNiches.length : D.niches.filter(function (n) { return n.geo === state.geo; }).length },
+      { id: 'niches', title: state.geo === WW && state.nf.grain !== 'niches' ? 'Топ тем' : 'Топ ниш', svg: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.6"/>',
+        count: state.geo === WW ? (state.nf.grain === 'niches' ? D.niches.length : D.worldNiches.length) : D.niches.filter(function (n) { return n.geo === state.geo; }).length },
       { id: 'fav', title: 'Избранное', svg: '<path d="M12 3l2.7 5.7 6.3.8-4.6 4.3 1.2 6.2L12 17l-5.6 3 1.2-6.2L3 9.5l6.3-.8z"/>', count: state.favs.length + state.nfavs.length },
       { id: 'reports', title: 'Отчёты', svg: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h7M9 9h3"/>', count: REPORTS.length },
       { id: 'collection', title: 'Сбор и планы', svg: '<rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>' }
@@ -930,6 +931,13 @@
   // ---------------- топ ниш ----------------
   function nicheRowsBase() {
     var rec = state.nf.rec;
+    if (state.geo === WW && state.nf.grain === 'niches') {
+      // Все ниши всех стран подряд: одна и та же тема встречается столько раз, в скольких
+      // странах она есть, и у каждой свои дверь, свобода и чистота.
+      return D.niches.map(function (n) {
+        return Object.assign({}, n, { _w: n.concept ? worldNicheByConcept[n.concept] : null, geos_count: 1, _allGeo: 1 });
+      });
+    }
     if (state.geo === WW) {
       return D.worldNiches.map(function (w) {
         var n = rec && w.rec_niche_id ? nicheByKey[w.rec_geo + '|' + w.rec_niche_id] : nicheByKey[w.geo + '|' + w.niche_id];
@@ -1062,10 +1070,12 @@
     ]);
 
     $('view').innerHTML = '<section class="page">' +
-      pageHead('Методика v2.0 · ' + geoName(state.geo), f.rec ? 'Рекомендуемый топ ниш' : (state.geo === WW ? 'Топ тем' : 'Топ ниш'), f.rec
+      pageHead('Методика v2.0 · ' + geoName(state.geo), f.rec ? 'Рекомендуемый топ ниш' : (state.geo === WW && f.grain === 'themes' ? 'Топ тем' : 'Топ ниш'), f.rec
         ? 'Рекомендуемый топ: ниши, где свободные ключи дают вход на ASO. Скор — свободные ключи, остальная свобода, чистота, молодые органики, монетизация и ёмкость; «Мимо» и закрытые ниши исключены.'
         : state.geo === WW
-          ? 'Строка здесь — тема, а не ниша: одна и та же тема есть в разных странах, и в ворлдвайде они схлопываются в одну строку по гео с лучшим рангом, с небольшой поправкой на деньги гео. Всего ниш в каталоге ' + int(D.niches.length) + ' в ' + int(D.geos.filter(function (g) { return g.date; }).length) + ' странах — выберите страну в шапке, чтобы увидеть её ниши по отдельности. Ранг — ключ сортировки; решение принимается по четырём числам и матрице.'
+          ? (f.grain === 'themes'
+            ? 'Строка здесь — тема, а не ниша: одна и та же тема есть в разных странах, и они схлопываются в одну строку по гео с лучшим рангом, с небольшой поправкой на деньги гео. Всего тем ' + int(D.worldNiches.length) + ', а ниш в каталоге ' + int(D.niches.length) + ' в ' + int(D.geos.filter(function (g) { return g.date; }).length) + ' странах — переключите «Показывать» на «все ниши», чтобы увидеть каждую отдельно.'
+            : 'Все ' + int(D.niches.length) + ' ниш всех стран подряд: одна и та же тема встречается столько раз, в скольких странах она есть, и у каждой свои дверь, свобода и чистота. Колонка «Гео» показывает страну.') + ' Ранг — ключ сортировки; решение принимается по четырём числам и матрице.'
           : 'Ниши ' + esc(geoName(state.geo)) + ' на ' + esc(dmy(GEO[state.geo].date)) + '. Ранг — ключ сортировки; решение принимается по четырём числам и матрице.') +
       kpiCards(kpis) + matrix +
       '<div class="card" style="overflow:hidden">' +
@@ -1076,6 +1086,7 @@
           catList.map(function (c) { return '<button class="pill" data-act="nf-cat" data-cat="' + esc(c) + '" aria-pressed="' + (f.cat === c) + '">' + esc(c === 'GAME' ? 'Игры' : genre(c)) + ' <span class="num" style="opacity:.7">' + cats[c] + '</span></button>'; }).join('') + '</div>' : '') +
         '<div class="toolbar">' +
           sel('channel', 'Канал роста', f.channel, [['all', 'любой'], ['organic', CHANNEL.organic], ['organic_ubt', CHANNEL.organic_ubt], ['ubt', CHANNEL.ubt]], 'n.channel') +
+          (state.geo === WW ? selectField('n-', 'nf', 'grain', 'Показывать', f.grain, [['themes', 'темы (' + int(D.worldNiches.length) + ')'], ['niches', 'все ниши (' + int(D.niches.length) + ')']], 'n.grain') : '') +
           sel('quad', 'Квадрант', f.quad, [['all', 'все']].concat(Object.keys(QUAD).map(function (k) { return [k, QUAD[k][0]]; })), 'n.quad') +
           sel('freedom', 'Свобода', f.freedom, [['all', 'любая'], ['75', '≥ 75'], ['50', '≥ 50']], 'n.freedom') +
           sel('purity', 'Чистота', f.purity, [['all', 'любая'], ['p50', '≥ p50 гео']], 'n.purity') +
@@ -1637,9 +1648,10 @@
     ['n30', 'Интерполяция — топ роста ниш за 1 месяц', 'niche', 1, 'Ниши · 1 месяц'],
     ['n90', 'Интерполяция — топ роста ниш за 3 месяца', 'niche', 3, 'Ниши · 3 месяца']
   ];
-  var HOR = { 1: { col: 'Интерполяция на 30 дн.', rel: 'Рост в месяц', word: 'месяц' }, 3: { col: 'Интерполяция на 3 мес.', rel: 'Рост за 3 мес.', word: 'три месяца' } };
+  var HOR = { 1: { col: 'Интерполяция на 30 дн.', rel: 'Рост в месяц', word: 'месяц' }, 3: { col: 'Разброс за 3 мес.', rel: 'Рост за 3 мес.', word: 'три месяца' } };
   function reportOf(id) { for (var i = 0; i < REPORTS.length; i++) if (REPORTS[i][0] === id) return REPORTS[i]; return REPORTS[0]; }
   GLOSS['g.interp'] = { t: 'Интерполяция роста', what: 'Сколько установок приложение наберёт при нынешней скорости.', how: 'Прирост за окно наблюдения × 30 / длина окна в днях; для горизонта в три месяца — ещё × 3. Если истории в одном гео уже 14+ дней, берётся официальная дельта методики. Установки у Play общие для всех стран, поэтому ряд собирается по карточкам всех гео.', why: 'Сравнить скорость роста приложений с разной длиной истории. Это не прогноз: скорость меняется, а на трёхмесячном горизонте ошибка короткого окна утраивается вместе с самим числом.' };
+  GLOSS['g.range'] = { t: 'Диапазон на три месяца', what: 'От и до — вместо одного числа.', how: 'У приложения есть несколько интервалов между обновлениями счётчика установок, и скорость в них разная. Берутся самая низкая и самая высокая наблюдавшаяся скорость, каждая приводится к 30 дням и умножается на три. Диапазон показывается, только если интервалов не меньше двух: по одному интервалу о разбросе судить нечего.', why: 'Раньше три месяца показывались как «измеренное × 3» — это молча выдавало нынешнюю скорость за постоянную. Диапазон показывает то, что видно в данных: насколько скорость самого приложения непостоянна. Это по-прежнему не прогноз, а разброс уже измеренного.' };
   GLOSS['g.window'] = { t: 'Окно наблюдения', what: 'Сколько дней между первым и последним снимком установок.', how: 'Чем короче окно, тем больше шум: Play обновляет счётчик установок ступенями и неравномерно. От 14 дней берётся официальная дельта методики.', why: 'Понимать, насколько надёжна интерполяция.' };
   GLOSS['g.rel'] = { t: 'Рост, %', what: 'Интерполированный прирост относительно нынешних установок.', how: 'Интерполяция / установки.', why: 'Находит небольшие приложения, которые быстро удваиваются, — их проще повторить, чем гигантов.' };
   GLOSS['g.flags'] = { t: 'Сигналы антифрода', what: 'Признаки, что рост может быть накручен.', how: 'Считаются: установок на оценку вне p01–p99 гео, шаблонных отзывов больше p95 гео, всплеск отзывов, не пройден антифрод методики.', why: 'Рост с сигналами копировать как образец рискованно.' };
@@ -1739,7 +1751,18 @@
         if (r.flat) return '<div class="small" style="color:var(--orange)" data-tip="g.flat">счётчик не двигался</div><div class="muted small">' + r.w + ' дн.</div>';
         return '<div class="num">' + (r.raw > 0 ? '+' : '') + short(r.raw) + '</div><div class="muted small">' + r.w + ' дн.' + (r.official ? ' · офиц.' : '') + '</div>';
       } },
-      { t: H.col, tip: 'g.interp', r: true, v: function (r) {
+      { t: H.col, tip: k > 1 ? 'g.range' : 'g.interp', r: true, v: function (r) {
+        // На горизонте в три месяца одно число означало бы, что скорость постоянна. Если у
+        // приложения есть хотя бы два интервала между обновлениями счётчика, показывается
+        // разброс его собственной скорости; если нет — честный прочерк.
+        if (k > 1) {
+          if (r.ivals >= 2 && isNum(r.lo) && isNum(r.hi)) {
+            return '<div class="num strong" style="color:var(--green)">' + short(r.lo * k) + ' – ' + short(r.hi * k) + '</div>'
+              + '<div class="muted small">по ' + r.ivals + ' интервалам</div>';
+          }
+          if (r.interp != null) return '<div class="num" style="color:var(--muted)">~' + short(r.interp * k) + '</div><div class="small" style="color:var(--orange)" data-tip="g.range">разброс неизвестен</div>';
+          return dash('нечем оценить разброс');
+        }
         if (r.interp != null) return '<span class="num strong" style="color:' + (r.interp > 0 ? 'var(--green)' : 'var(--muted)') + '">' + (r.interp > 0 ? '+' : '') + short(r.interp * k) + '</span>';
         if (r.rest) return '<div class="num" style="color:var(--muted)">~' + short(r.rest * k) + '</div><div class="muted small" data-tip="g.ratings">по оценкам</div>';
         return dash('рост не измерен');
@@ -1758,7 +1781,7 @@
       { t: 'Сигналы', tip: 'g.flags', r: true, v: function (r) { return r.flags ? '<span class="badge b-orange">' + r.flags + '</span>' : '<span class="muted small">нет</span>'; } }
     ];
     $('view').innerHTML = '<section class="page">' +
-      pageHead('Отчёты', R[1], 'Приложения без найденной закупки трафика, по приросту установок за ' + H.word + '. Прирост считается по собранной дельте и приводится к 30 дням: прирост за окно × 30 / длина окна' + (k > 1 ? ', затем × 3 на три месяца' : '') + '. Если в гео накопилось 14+ дней — берётся официальная дельта. Короткие окна шумные: по умолчанию показаны окна от ' + f.win + ' дней.') +
+      pageHead('Отчёты', R[1], 'Приложения без найденной закупки трафика, по приросту установок за ' + H.word + '. Прирост считается по собранной дельте и приводится к 30 дням: прирост за окно × 30 / длина окна' + (k > 1 ? '. На трёхмесячном горизонте показывается не одно число, а разброс собственной скорости приложения между обновлениями счётчика: одно число означало бы, что скорость постоянна' : '') + '. Если в гео накопилось 14+ дней — берётся официальная дельта. Короткие окна шумные: по умолчанию показаны окна от ' + f.win + ' дней.') +
       reportTabs() +
       kpiCards([
         { label: 'Приложений в отчёте', tip: 'g.report', value: int(rows.length), delta: shortWin ? 'ещё ' + int(shortWin) + ' с окном короче' : '', hint: state.geo === WW ? 'по всем гео, одна строка на приложение' : 'присутствуют в ' + geoName(state.geo) },

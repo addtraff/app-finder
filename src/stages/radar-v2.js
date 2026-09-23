@@ -311,6 +311,26 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     return { delta: (raw * V.full_window_days) / w, raw, w, from: past.snapshot_date, flat: 0, asOf, stale };
   };
 
+  // Разброс собственной скорости приложения. Между обновлениями счётчика видно несколько
+  // интервалов, и скорость в них разная — это и есть честное основание для диапазона вместо
+  // одного числа на длинном горизонте. Раньше три месяца показывались как «измерено × 3»,
+  // что молча выдавало нынешнюю скорость за постоянную.
+  const EMPTY_RANGE = { lo: null, hi: null, n: 0 };
+  const rateRange = (id) => {
+    const s = previewHist.get(id);
+    if (!s || s.length < 2) return EMPTY_RANGE;
+    const rates = [];
+    let prev = s[0];
+    for (let i = 1; i < s.length; i++) {
+      if (s[i].installs === prev.installs) continue;         // счётчик не обновлялся — интервал не закрыт
+      const days = daysBetween(prev.snapshot_date, s[i].snapshot_date);
+      if (days > 0) rates.push((s[i].installs - prev.installs) / days);
+      prev = s[i];
+    }
+    if (rates.length < 2) return EMPTY_RANGE;
+    return { lo: Math.min(...rates) * V.full_window_days, hi: Math.max(...rates) * V.full_window_days, n: rates.length };
+  };
+
   // Скорость по числу оценок. Оценки — косвенная мера: они меняются каждый день (59,5 % пар
   // против 20,9 % у установок), поэтому дают разрешение там, где счётчик установок молчит.
   // Перевод в установки — через «установок на оценку» у самого приложения, так что это
@@ -998,6 +1018,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
       installs: m.installs ?? null, installs_delta_30d: round(dl.delta), delta_window_days: dl.w, delta_partial: dl.partial,
       ...(() => { const p = deltaPreview(m.app_id); return { delta_preview: round(p.delta), delta_preview_raw: p.raw, delta_preview_w: p.w, delta_preview_from: p.from, delta_flat: p.flat, installs_as_of: p.asOf, installs_stale_days: p.stale }; })(),
       ...(() => { const v = ratingsVelocity(m.app_id); return { ratings_delta_30d: round(v.rDelta), ratings_delta_raw: v.rRaw, ratings_delta_w: v.rW, installs_per_rating_now: v.ipr, installs_est_ratings: round(v.est) }; })(),
+      ...(() => { const q = rateRange(m.app_id); return { rate_lo_30d: round(q.lo), rate_hi_30d: round(q.hi), rate_intervals: q.n }; })(),
       // Текущее значение хранится рядом с прошлым и на той же общей базе ключей: обычные
       // счётчики kw_top10_count считаются по всем ключам, и сравнивать их с прошлым нельзя.
       ...(() => { const q = kwMom(m.app_id); return { kw_top10_cmp: q.k10, kw_top50_cmp: q.k50, kw_top10_prev: q.k10p, kw_top50_prev: q.k50p, kw_momentum_days: q.days, kw_momentum_base: q.days != null ? (kwCommon || null) : null }; })(),
