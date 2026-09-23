@@ -48,6 +48,32 @@ export async function run({ geo, date }) {
   const niches = [];
   const rejected = [];
 
+  // ---------- диффузия по странам ----------
+  // В скольких странах приложение видно в выдаче сейчас и сколько было неделю назад.
+  // Идея из разбора: концепция, которая выходит за пределы одной страны, ведёт себя иначе,
+  // чем локальный всплеск, и распространение видно раньше, чем накопленные установки.
+  //
+  // Что именно меряется, чтобы не обмануться: это НЕ «в скольких странах есть приложение»,
+  // а «в скольких странах оно попадает в топ-50 по НАШИМ ключам». Списки ключей разные
+  // (в США 1 357, в остальных 260), поэтому число сравнимо между датами у одного
+  // приложения, но не между приложениями из разных стран как доля рынка.
+  const shiftDate = (iso, days) => new Date(Date.parse(iso) + days * 864e5).toISOString().slice(0, 10);
+  const diffNow = new Map(), diffPrev = new Map(), diffGeos = new Map();
+  for (const g of cfg.geos.geos) {
+    const sd = one(d, `SELECT MAX(snapshot_date) m FROM raw_search WHERE geo=?`, g.geo)?.m;
+    if (!sd) continue;
+    for (const r of all(d, `SELECT DISTINCT app_id FROM raw_search WHERE geo=? AND snapshot_date=? AND position<=50`, g.geo, sd)) {
+      diffNow.set(r.app_id, (diffNow.get(r.app_id) || 0) + 1);
+      const list = diffGeos.get(r.app_id) || [];
+      if (list.length < 12) { list.push(g.geo); diffGeos.set(r.app_id, list); }
+    }
+    const pd = one(d, `SELECT MAX(snapshot_date) m FROM raw_search WHERE geo=? AND snapshot_date<=?`, g.geo, shiftDate(sd, -7))?.m;
+    if (!pd || pd === sd) continue;
+    for (const r of all(d, `SELECT DISTINCT app_id FROM raw_search WHERE geo=? AND snapshot_date=? AND position<=50`, g.geo, pd)) {
+      diffPrev.set(r.app_id, (diffPrev.get(r.app_id) || 0) + 1);
+    }
+  }
+
   for (const g of cfg.geos.geos) {
     const dt = one(d, `SELECT MAX(snapshot_date) m FROM metrics_app_v2 WHERE geo=?`, g.geo)?.m;
     if (!dt) { geos.push({ geo: g.geo, tier: g.tier, date: null, rows: 0 }); continue; }
@@ -131,6 +157,9 @@ export async function run({ geo, date }) {
         // импульс
         k10: c.k10, k50: c.k50, k10p: c.k10p, k50p: c.k50p, kwd: c.kwd,
         interp: r4(interp), est: r4(c.est), flat: c.flat === 1 ? 1 : 0, w, official: official ? 1 : 0, stale: c.stale,
+        // диффузия по странам
+        geos_n: diffNow.get(c.app_id) || 0, geos_prev: diffPrev.get(c.app_id) || 0,
+        geos_list: (diffGeos.get(c.app_id) || []).join(','),
         // повторяемость и соперник
         devs: rr ? rr.devs : null, devs_young: rr ? rr.young : null, devs_big: rr ? rr.big : null,
         inc_rating: r4(ww?.rating ?? null), inc_pain_money: r4(ww?.money ?? null),

@@ -158,7 +158,7 @@ __UNPACK_JS__
   var PAGE = 50;
   var state = { view: 'cand', geo: WW, page: 1, q: '', risk: 'all', paid: 'all', mom: 'all', sort: 'risk',
     inst: 0, instMax: 0, age: 'all', flow: 0, freedom: 0, quad: 'all', concept: 'all', meas: 'all', ubt: 'all',
-    nDoor: 0, nFlow: 0, nFreedom: 0, nPurity: 0, nKeys: 0, nQuad: 'all', nStab: 0, nDevs: 0, nYoung: 0, nRating: 0, nSort: 'freedom' };
+    spread: 'all', nDoor: 0, nFlow: 0, nFreedom: 0, nPurity: 0, nKeys: 0, nQuad: 'all', nStab: 0, nDevs: 0, nYoung: 0, nRating: 0, nSort: 'freedom' };
 
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
@@ -227,6 +227,8 @@ __UNPACK_JS__
       if (state.concept !== 'all' && (r.concept || '') !== state.concept) return false;
       if (state.meas === '1' && r.interp == null) return false;
       if (state.ubt === '1' && !r.ubt) return false;
+      if (state.spread === 'grow' && !((r.geos_n || 0) > (r.geos_prev || 0))) return false;
+      if (state.spread !== 'all' && state.spread !== 'grow' && !((r.geos_n || 0) >= Number(state.spread))) return false;
       return matches(r);
     });
     var by = {
@@ -234,7 +236,8 @@ __UNPACK_JS__
       mom: function (a, b) { return (momentum(b) || 0) - (momentum(a) || 0); },
       evid: function (a, b) { return (a.pscore == null ? 1 : a.pscore) - (b.pscore == null ? 1 : b.pscore); },
       growth: function (a, b) { return (growth(b) || 0) - (growth(a) || 0); },
-      door: function (a, b) { return (a.door_flow == null ? Infinity : a.door_flow) - (b.door_flow == null ? Infinity : b.door_flow); }
+      door: function (a, b) { return (a.door_flow == null ? Infinity : a.door_flow) - (b.door_flow == null ? Infinity : b.door_flow); },
+      spread: function (a, b) { return ((b.geos_n || 0) - (b.geos_prev || 0)) - ((a.geos_n || 0) - (a.geos_prev || 0)) || (b.geos_n || 0) - (a.geos_n || 0); }
     };
     return rows.sort(by[state.sort] || by.risk);
   }
@@ -262,6 +265,13 @@ __UNPACK_JS__
         '<td class="r">' + (m == null ? dash('нет сравнения по ключам') :
           '<div class="num strong" style="color:' + (m > 0 ? 'var(--green)' : m < 0 ? 'var(--muted)' : 'var(--muted)') + '">' + (m > 0 ? '+' : '') + m + '</div>' +
           '<div class="muted small">топ-50: ' + r.k50p + ' → ' + r.k50 + '</div>') + '</td>' +
+        '<td class="r">' + (function () {
+          var dn = (r.geos_n || 0) - (r.geos_prev || 0);
+          if (!r.geos_n) return dash('нет в выдаче ни в одной стране');
+          return '<div class="num strong">' + r.geos_n + '</div>' +
+            (dn ? '<div class="small" style="color:' + (dn > 0 ? 'var(--green)' : 'var(--muted)') + '">' + (dn > 0 ? '+' : '') + dn + ' за неделю</div>'
+              : '<div class="muted small">без изменений</div>');
+        })() + '</td>' +
         '<td class="r">' + (g == null ? dash('рост не измерен') :
           '<div class="num' + (r.interp == null ? ' muted' : ' strong') + '">' + (r.interp == null ? '~' : '+') + short(g) + '</div>' +
           '<div class="muted small">' + (r.interp == null ? 'по оценкам' : r.w + ' дн.') + '</div>') + '</td>' +
@@ -295,11 +305,12 @@ __UNPACK_JS__
           sel('mom', 'Импульс', state.mom, [['all', 'любой'], ['1', 'растёт по ключам']]) +
           sel('meas', 'Рост', state.meas, [['all', 'любой'], ['1', 'только измеренный']]) +
           sel('ubt', 'УБТ', state.ubt, [['all', 'любой'], ['1', 'есть признаки']]) +
-          '<div style="margin-left:auto">' + sel('sort', 'Сортировка', state.sort, [['risk', 'Меньше риска'], ['mom', 'Импульс ключей'], ['growth', 'Рост'], ['evid', 'Меньше признаков закупки'], ['door', 'Дешевле вход']]) + '</div>' +
+          sel('spread', 'Страны', state.spread, [['all', 'любые'], ['grow', 'расширяется'], ['3', 'от 3 стран'], ['8', 'от 8 стран'], ['15', 'от 15 стран']]) +
+          '<div style="margin-left:auto">' + sel('sort', 'Сортировка', state.sort, [['risk', 'Меньше риска'], ['mom', 'Импульс ключей'], ['spread', 'Расширение по странам'], ['growth', 'Рост'], ['evid', 'Меньше признаков закупки'], ['door', 'Дешевле вход']]) + '</div>' +
         '</div>' +
         (slice.length ? '<div class="tbl"><table><thead><tr>' +
-          ['#', 'Приложение', 'Тема', 'Гео', 'Дверь', 'Импульс ключей', 'Рост в месяц', 'Признаки закупки', 'Риск']
-            .map(function (h, i) { return '<th' + (i >= 4 && i <= 7 ? ' class="r"' : '') + '>' + h + '</th>'; }).join('') +
+          ['#', 'Приложение', 'Тема', 'Гео', 'Дверь', 'Импульс ключей', 'Страны', 'Рост в месяц', 'Признаки закупки', 'Риск']
+            .map(function (h, i) { return '<th' + (i >= 4 && i <= 8 ? ' class="r"' : '') + '>' + h + '</th>'; }).join('') +
           '</tr></thead><tbody>' + body + '</tbody></table></div>' + pager(rows.length, pages)
           : '<div class="empty">Ничего не нашлось — ослабьте фильтры</div>') +
       '</div>' +
@@ -480,6 +491,9 @@ __UNPACK_JS__
         '<p class="sub">Насколько выросло число запросов, по которым приложение стоит в топ-50, за неделю. Считается только по ключам, которые снимались и тогда, и сейчас: наш список ключей растёт, и сравнение полных множеств показало бы рост охвата там, где вырос наш собственный список. Это опережающий признак — охват меняется раньше, чем счётчик установок.</p>' +
         '<h3>Рост в месяц</h3>' +
         '<p class="sub">Счётчик установок Play — число точное, но обновляется пачками раз в 3–6 дней. Поэтому окно роста заканчивается на последнем обновлении, а не на сегодняшнем дне. Если обновлений не было вовсе и окно короче недели, роста нет не «нулевого», а неизвестного — тогда показывается оценка по приросту отзывов со знаком «~».</p>' +
+        '<h3>Страны</h3>' +
+        '<p class="sub">В скольких странах приложение попадает в топ-50 и сколько их было неделю назад. Концепция, выходящая за пределы одной страны, ведёт себя иначе, чем локальный всплеск, и расширение видно раньше, чем накопленные установки.</p>' +
+        '<p class="sub">Чем это <b>не</b> является: это не «в скольких странах приложение опубликовано» и не доля рынка. Считается попадание в топ-50 по <b>нашим</b> ключам, а списки ключей у стран разные — в США 1 357, в остальных по 260. Поэтому число честно сравнивать у одного приложения между датами, но не между приложениями из разных стран.</p>' +
         '<h3>Признаки закупки</h3>' +
         '<p class="sub">Число от 0 до 1: ноль означает, что ни одна проверка платного трафика ничего не нашла, единица — что закупка найдена прямо. Проверок четыре: реклама Google по домену разработчика и по его имени, Meta Ad Library, SDK атрибуции в тексте карточки и политики. Непроверенный источник даёт 0,5 — это не «чисто», это «неизвестно». Найденная закупка решает: одна прямая улика перевешивает любое число пустых проверок.</p>' +
         '<p class="sub">Рядом стоит <b>проверено источников</b> — какая доля проверок реально выполнена. Два приложения с одинаковым числом могут стоять на совершенно разном основании: полностью проверенных (и по домену, и по имени) сейчас единицы.</p>' +
@@ -527,6 +541,11 @@ __UNPACK_JS__
           pair('Возраст числа', isNum(r.stale) ? r.stale + ' дн.' : '—', 'с последнего обновления счётчика') +
           pair('Установок', short(r.installs), '') +
           pair('Возраст', isNum(r.age) ? fix(r.age, 0) + ' мес' : '—', r.young ? 'молодое' : '') +
+          pair('Стран в выдаче', int(r.geos_n), (function () {
+            var dn = (r.geos_n || 0) - (r.geos_prev || 0);
+            return dn > 0 ? 'неделю назад ' + r.geos_prev + ', +' + dn : dn < 0 ? 'неделю назад ' + r.geos_prev : 'не менялось за неделю';
+          })()) +
+          pair('Где именно', r.geos_list ? esc(r.geos_list.split(',').slice(0, 8).join(' ')) : '—', r.geos_list && r.geos_list.split(',').length > 8 ? 'и другие' : '') +
         '</div></div>' +
         '<div class="card block"><h3>Риск самообмана</h3><div class="sub">Чего не хватает, чтобы верить этой строке</div>' +
           riskBadge(r.risk_n) +
