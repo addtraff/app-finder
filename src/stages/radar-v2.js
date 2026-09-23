@@ -277,21 +277,38 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     if (!previewHist.has(r.app_id)) previewHist.set(r.app_id, []);
     previewHist.get(r.app_id).push(r);
   }
-  const EMPTY_DELTA = { delta: null, raw: null, w: null, from: null, flat: null };
+  // Счётчик установок Play — число точное (шаг бывает и в шесть установок), но обновляется
+  // пачками: день ко дню значение меняется лишь у 20 % приложений, а у приложений с 1M+
+  // установок — у 25 %. Миллионник получает установки каждый день, значит неизменное число
+  // означает «Play не обновил», а не «роста нет». Серия неизменных значений длится в медиане
+  // 3 дня, p90 — 6, максимум 7.
+  //
+  // Отсюда два следствия. Первое: окно должно заканчиваться на последнем обновлении, а не на
+  // сегодняшнем дне, иначе приложение штрафуется за устаревший хвост. Второе: если за всё
+  // окно обновления не было и окно короче недели — это не нулевой рост, а отсутствие
+  // сведений; а вот неизменное значение на окне от недели уже означает настоящий застой.
+  const STALE_DAYS = 7;
+  const EMPTY_DELTA = { delta: null, raw: null, w: null, from: null, flat: null, asOf: null, stale: null };
   const deltaPreview = (id) => {
     const s = previewHist.get(id);
     if (!s || s.length < 2) return EMPTY_DELTA;
-    const past = s[0], now = s[s.length - 1];
-    const w = daysBetween(past.snapshot_date, now.snapshot_date);
-    if (w < (V.preview_min_window_days ?? 1)) return EMPTY_DELTA;
-    const raw = now.installs - past.installs;
-    // Счётчик установок у Play — ступенька (10 тыс., 50 тыс., 100 тыс.). Если за окно он не
-    // сдвинулся, это не «рост нулевой», а «рост меньше одной ступени»: настоящее значение
-    // неизвестно и лежит ниже потолка. Выдавать такое за ноль — значит уверенно ошибаться:
-    // день ко дню счётчик стоит на месте у 79 % приложений. Поэтому здесь NULL и пометка,
-    // а скорость для таких берётся по числу оценок — оно меняется втрое чаще.
-    if (raw === 0) return { delta: null, raw: 0, w, from: past.snapshot_date, flat: 1 };
-    return { delta: (raw * V.full_window_days) / w, raw, w, from: past.snapshot_date, flat: 0 };
+    const past = s[0], last = s[s.length - 1];
+    const span = daysBetween(past.snapshot_date, last.snapshot_date);
+    if (span < (V.preview_min_window_days ?? 1)) return EMPTY_DELTA;
+    // Последнее обновление счётчика: первый снимок с конца, где значение отличается от предыдущего.
+    let lastChange = -1;
+    for (let i = s.length - 1; i > 0; i--) if (s[i].installs !== s[i - 1].installs) { lastChange = i; break; }
+    const asOf = lastChange >= 0 ? s[lastChange].snapshot_date : past.snapshot_date;
+    const stale = daysBetween(asOf, last.snapshot_date);
+    if (lastChange < 0) {
+      // Обновлений не было ни разу.
+      if (span < STALE_DAYS) return { delta: null, raw: 0, w: span, from: past.snapshot_date, flat: 1, asOf, stale };
+      return { delta: 0, raw: 0, w: span, from: past.snapshot_date, flat: 0, asOf, stale };
+    }
+    const end = s[lastChange];
+    const w = daysBetween(past.snapshot_date, end.snapshot_date) || span;
+    const raw = end.installs - past.installs;
+    return { delta: (raw * V.full_window_days) / w, raw, w, from: past.snapshot_date, flat: 0, asOf, stale };
   };
 
   // Скорость по числу оценок. Оценки — косвенная мера: они меняются каждый день (59,5 % пар
@@ -943,11 +960,11 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
       attribution_sdk: o.attribution, tracking_names: o.trackingNames, apk_parsed: o.apkParsed,
       ads_check_scope: o.checkScope,
       installs: m.installs ?? null, installs_delta_30d: round(dl.delta), delta_window_days: dl.w, delta_partial: dl.partial,
-      ...(() => { const p = deltaPreview(m.app_id); return { delta_preview: round(p.delta), delta_preview_raw: p.raw, delta_preview_w: p.w, delta_preview_from: p.from, delta_flat: p.flat }; })(),
+      ...(() => { const p = deltaPreview(m.app_id); return { delta_preview: round(p.delta), delta_preview_raw: p.raw, delta_preview_w: p.w, delta_preview_from: p.from, delta_flat: p.flat, installs_as_of: p.asOf, installs_stale_days: p.stale }; })(),
       ...(() => { const v = ratingsVelocity(m.app_id); return { ratings_delta_30d: round(v.rDelta), ratings_delta_raw: v.rRaw, ratings_delta_w: v.rW, installs_per_rating_now: v.ipr, installs_est_ratings: round(v.est) }; })(),
       // Текущее значение хранится рядом с прошлым и на той же общей базе ключей: обычные
       // счётчики kw_top10_count считаются по всем ключам, и сравнивать их с прошлым нельзя.
-      ...(() => { const q = kwMom(m.app_id); return { kw_top10_cmp: q.k10, kw_top50_cmp: q.k50, kw_top10_prev: q.k10p, kw_top50_prev: q.k50p, kw_momentum_days: q.days, kw_momentum_base: kwCommon || null }; })(),
+      ...(() => { const q = kwMom(m.app_id); return { kw_top10_cmp: q.k10, kw_top50_cmp: q.k50, kw_top10_prev: q.k10p, kw_top50_prev: q.k50p, kw_momentum_days: q.days, kw_momentum_base: q.days != null ? (kwCommon || null) : null }; })(),
       search_weight: round(weight.get(m.app_id) ?? null), explained: round(aso?.explained ?? null), aso_share: round(aso?.share ?? null),
       traffic_source: traffic, exogenous_spike_rate: round(spike),
       keywords_json: JSON.stringify((kwContrib.get(m.app_id) || []).sort((a, b) => b.contrib - a.contrib).slice(0, 15)),
