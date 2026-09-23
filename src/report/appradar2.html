@@ -734,7 +734,8 @@
   function renderNav() {
     var items = [
       { id: 'apps', title: 'Топ приложений', svg: '<path d="M4 19V10M10 19V5M16 19v-7M22 19H2"/>', count: D.worldApps.length },
-      { id: 'niches', title: 'Топ ниш', svg: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.6"/>', count: D.worldNiches.length },
+      { id: 'niches', title: state.geo === WW ? 'Топ тем' : 'Топ ниш', svg: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.6"/>',
+        count: state.geo === WW ? D.worldNiches.length : D.niches.filter(function (n) { return n.geo === state.geo; }).length },
       { id: 'fav', title: 'Избранное', svg: '<path d="M12 3l2.7 5.7 6.3.8-4.6 4.3 1.2 6.2L12 17l-5.6 3 1.2-6.2L3 9.5l6.3-.8z"/>', count: state.favs.length + state.nfavs.length },
       { id: 'reports', title: 'Отчёты', svg: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h7M9 9h3"/>', count: REPORTS.length },
       { id: 'collection', title: 'Сбор и планы', svg: '<rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>' }
@@ -1061,10 +1062,10 @@
     ]);
 
     $('view').innerHTML = '<section class="page">' +
-      pageHead('Методика v2.0 · ' + geoName(state.geo), f.rec ? 'Рекомендуемый топ ниш' : 'Топ ниш', f.rec
+      pageHead('Методика v2.0 · ' + geoName(state.geo), f.rec ? 'Рекомендуемый топ ниш' : (state.geo === WW ? 'Топ тем' : 'Топ ниш'), f.rec
         ? 'Рекомендуемый топ: ниши, где свободные ключи дают вход на ASO. Скор — свободные ключи, остальная свобода, чистота, молодые органики, монетизация и ёмкость; «Мимо» и закрытые ниши исключены.'
         : state.geo === WW
-          ? 'Концепты каталога ворлдвайд: каждая ниша — в гео, где её ранг выше, с небольшой поправкой на деньги гео. Ранг — ключ сортировки; решение принимается по четырём числам и матрице.'
+          ? 'Строка здесь — тема, а не ниша: одна и та же тема есть в разных странах, и в ворлдвайде они схлопываются в одну строку по гео с лучшим рангом, с небольшой поправкой на деньги гео. Всего ниш в каталоге ' + int(D.niches.length) + ' в ' + int(D.geos.filter(function (g) { return g.date; }).length) + ' странах — выберите страну в шапке, чтобы увидеть её ниши по отдельности. Ранг — ключ сортировки; решение принимается по четырём числам и матрице.'
           : 'Ниши ' + esc(geoName(state.geo)) + ' на ' + esc(dmy(GEO[state.geo].date)) + '. Ранг — ключ сортировки; решение принимается по четырём числам и матрице.') +
       kpiCards(kpis) + matrix +
       '<div class="card" style="overflow:hidden">' +
