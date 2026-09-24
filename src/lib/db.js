@@ -88,9 +88,11 @@ CREATE TABLE IF NOT EXISTS raw_app_page (
   PRIMARY KEY (app_id, geo, hl, snapshot_date)
 );
 CREATE INDEX IF NOT EXISTS ix_app_page_date ON raw_app_page(snapshot_date, geo);
--- Разрешения сняты у 3 391 приложения из 19 385, и искать их приходится по всей таблице в
--- 554 000 строк: без частичного индекса один такой проход занимает 12 секунд на каждое гео.
-CREATE INDEX IF NOT EXISTS ix_app_page_perms ON raw_app_page(app_id, snapshot_date) WHERE permissions IS NOT NULL;
+-- Частичный индекс по разрешениям живёт не здесь, а в tools/ensure-indexes.js. Причина:
+-- построение индекса на таблице в 554 000 строк держит блокировку записи секунд двадцать,
+-- а схема выполняется при КАЖДОМ открытии базы — то есть первый же процесс, запущенный
+-- во время сбора, уронил бы полосу по SQLITE_BUSY (ожидание записи у нас 15 секунд).
+-- Индекс строится отдельным шагом, когда конвейер свободен.
 
 CREATE TABLE IF NOT EXISTS raw_search (
   snapshot_date TEXT, geo TEXT, keyword TEXT, position INTEGER, app_id TEXT, run_id TEXT,

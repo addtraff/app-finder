@@ -55,6 +55,8 @@ const tag = (t) => `${String(t.getMonth() + 1).padStart(2, '0')}${String(t.getDa
 const k7 = (t) => run(`k7-${tag(t)}`, ['src/cli.js', 'stage', 'check-ads', '--geo', ALL.join(','), '--scope', 'core-top', '--limit', '10', '--sequential', 'yes']);
 
 async function reports() {
+  // Дорогие индексы строятся здесь: конвейер уже свободен, блокировка записи никому не мешает.
+  await run('post', ['tools/ensure-indexes.js']);
   await run('post', ['src/cli.js', 'stage', 'analyze-ubt', '--geo', 'GB']);
   await run('post', ['src/cli.js', 'stage', 'radar-v2', '--geo', ALL.join(',')]);
   await run('post', ['tools/restore-en-titles.js']);
