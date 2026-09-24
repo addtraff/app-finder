@@ -158,7 +158,7 @@ __UNPACK_JS__
   var PAGE = 50;
   var state = { view: 'cand', geo: WW, page: 1, q: '', risk: 'all', paid: 'all', mom: 'all', sort: 'risk',
     inst: 0, instMax: 0, age: 'all', flow: 0, freedom: 0, quad: 'all', concept: 'all', meas: 'all', ubt: 'all',
-    spread: 'all', cpy: 'all', nDoor: 0, nFlow: 0, nFreedom: 0, nPurity: 0, nKeys: 0, nQuad: 'all', nStab: 0, nDevs: 0, nYoung: 0, nRating: 0, nSort: 'freedom' };
+    spread: 'all', cpy: 'all', dem: 0, nDem: 0, nDoor: 0, nFlow: 0, nFreedom: 0, nPurity: 0, nKeys: 0, nQuad: 'all', nStab: 0, nDevs: 0, nYoung: 0, nRating: 0, nSort: 'freedom' };
 
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
@@ -188,6 +188,14 @@ __UNPACK_JS__
   function cpyBadge(r) {
     var c = CPY[r.cpy] || CPY.easy;
     return '<div style="margin-top:8px"><span class="badge ' + c[1] + '" title="' + esc(c[2]) + '">' + esc(c[0]) + ((r.cpy_unknown || []).length ? ' · не ниже' : '') + '</span></div>';
+  }
+  // Спрос — показов в день по ядровым ключам ниши, навигационные исключены. Источник —
+  // ASO-сервис, то есть их модель, а не выгрузка Google: для решения годится, за факт
+  // выдавать нельзя. Оценка по США помечена «~» и подписью.
+  function demandHtml(n) {
+    if (!isNum(n.dem)) return dash('внешних объёмов по этой нише нет');
+    if (n.dem_est) return '<div class="num muted">~' + short(n.dem) + '</div><div class="small" style="color:var(--orange)">оценка по US</div>';
+    return '<div class="num strong">' + short(n.dem) + '</div><div class="muted small">' + (isNum(n.dem_cov) ? 'покрытие ' + pct(n.dem_cov) : 'в день') + '</div>';
   }
   function riskBadge(n) {
     var cls = n <= 1 ? 'b-green' : n <= 3 ? 'b-orange' : 'b-red';
@@ -239,6 +247,7 @@ __UNPACK_JS__
       if (state.meas === '1' && r.interp == null) return false;
       if (state.ubt === '1' && !r.ubt) return false;
       if (state.spread === 'grow' && !((r.geos_n || 0) > (r.geos_prev || 0))) return false;
+      if (state.dem && !(isNum(r.dem) && r.dem >= state.dem)) return false;
       if (state.cpy === 'checked' && (r.cpy_unknown || []).length) return false;
       if (state.cpy !== 'all' && state.cpy !== 'checked' && r.cpy !== state.cpy) return false;
       if (state.spread !== 'all' && state.spread !== 'grow' && !((r.geos_n || 0) >= Number(state.spread))) return false;
@@ -320,6 +329,7 @@ __UNPACK_JS__
           sel('ubt', 'УБТ', state.ubt, [['all', 'любой'], ['1', 'есть признаки']]) +
           sel('spread', 'Страны', state.spread, [['all', 'любые'], ['grow', 'расширяется'], ['3', 'от 3 стран'], ['8', 'от 8 стран'], ['15', 'от 15 стран']]) +
           sel('cpy', 'Повторить', state.cpy, [['all', 'любая цена'], ['easy', 'дёшево'], ['medium', 'средне'], ['hard', 'дорого'], ['checked', 'разрешения сняты']]) +
+          sel('dem', 'Спрос от', state.dem, [[0, 'любой'], [100, '100/дн.'], [500, '500/дн.'], [2000, '2 тыс./дн.'], [10000, '10 тыс./дн.']]) +
           '<div style="margin-left:auto">' + sel('sort', 'Сортировка', state.sort, [['risk', 'Меньше риска'], ['mom', 'Импульс ключей'], ['spread', 'Расширение по странам'], ['growth', 'Рост'], ['evid', 'Меньше признаков закупки'], ['door', 'Дешевле вход']]) + '</div>' +
         '</div>' +
         (slice.length ? '<div class="tbl"><table><thead><tr>' +
@@ -373,6 +383,7 @@ __UNPACK_JS__
       if (state.nFreedom && !(isNum(n.freedom) && n.freedom >= state.nFreedom)) return false;
       if (state.nPurity && !(isNum(n.purity) && n.purity >= state.nPurity / 100)) return false;
       if (state.nKeys && !((n.free_keys || 0) >= state.nKeys)) return false;
+      if (state.nDem && !(isNum(n.dem) && n.dem >= state.nDem)) return false;
       if (state.nQuad !== 'all' && (n.quad || 'undetermined') !== state.nQuad) return false;
       if (state.nStab && !((n.qdays || 0) >= state.nStab)) return false;
       if (state.nDevs && !((n.devs || 0) >= state.nDevs)) return false;
@@ -393,6 +404,7 @@ __UNPACK_JS__
         '<td class="num">' + esc(n.geo) + '</td>' +
         '<td class="r"><div class="num strong">' + short(n.door) + '</div>' +
           (isNum(n.door_flow) ? '<div class="muted small">поток ' + short(n.door_flow) + '/дн.</div>' : '') + '</td>' +
+        '<td class="r">' + demandHtml(n) + (isNum(n.dif) ? '<div class="muted small">сложность ' + fix(n.dif, 0) + '</div>' : '') + '</td>' +
         '<td class="r"><div class="num strong">' + fix(n.freedom, 0) + '</div>' +
           (isNum(n.fmargin) ? '<div class="small" style="color:' + (edge ? 'var(--orange)' : 'var(--muted)') + '">до границы ' + (n.fmargin > 0 ? '+' : '') + fix(n.fmargin, 0) + (edge ? ' — на краю' : '') + '</div>' : '') + '</td>' +
         '<td class="r"><div class="num">' + pct(n.purity) + '</div><div class="muted small">ключей ' + int(n.free_keys || 0) + '</div></td>' +
@@ -417,6 +429,7 @@ __UNPACK_JS__
           sel('nFreedom', 'Свобода от', state.nFreedom, [[0, 'любая'], [50, '50'], [75, '75'], [85, '85']]) +
           sel('nPurity', 'Чистота от', state.nPurity, [[0, 'любая'], [50, '50 %'], [70, '70 %'], [85, '85 %']]) +
           sel('nKeys', 'Свободных ключей от', state.nKeys, [[0, 'любое'], [1, '1'], [3, '3'], [5, '5']]) +
+          sel('nDem', 'Спрос от', state.nDem, [[0, 'любой'], [100, '100/дн.'], [500, '500/дн.'], [2000, '2 тыс./дн.'], [10000, '10 тыс./дн.']]) +
         '</div><div class="toolbar">' +
           sel('nQuad', 'Квадрант', state.nQuad, [['all', 'любой'], ['target', 'Цель'], ['mature', 'Зрелая ниша'], ['bought', 'Трафик выкуплен'], ['pass', 'Мимо']]) +
           sel('nStab', 'Метка держится', state.nStab, [[0, 'любая'], [5, '5 дней из 7'], [6, '6 из 7'], [7, 'все 7']]) +
@@ -426,7 +439,7 @@ __UNPACK_JS__
           '<div style="margin-left:auto">' + sel('nSort', 'Сортировка', state.nSort, [['freedom', 'Свобода'], ['flow', 'Дешевле поток'], ['door', 'Дешевле запас'], ['purity', 'Чистота'], ['keys', 'Свободные ключи'], ['devs', 'Разработчиков'], ['young', 'Молодых органиков'], ['weak', 'Слабее соперник'], ['stab', 'Устойчивее метка']]) + '</div>' +
         '</div>' +
         (slice.length ? '<div class="tbl"><table><thead><tr>' +
-          ['#', 'Тема', 'Гео', 'Дверь', 'Свобода', 'Чистота', 'Разработчиков', 'Рейтинг крупных']
+          ['#', 'Тема', 'Гео', 'Дверь', 'Спрос', 'Свобода', 'Чистота', 'Разработчиков', 'Рейтинг крупных']
             .map(function (h, i) { return '<th' + (i >= 3 ? ' class="r"' : '') + '>' + h + '</th>'; }).join('') +
           '</tr></thead><tbody>' + body + '</tbody></table></div>' + pager(rows.length, pages) : '<div class="empty">Ничего не нашлось</div>') +
       '</div></section>';
@@ -501,6 +514,10 @@ __UNPACK_JS__
         '<p class="sub"><b>Дверь — это порог входа в топ-10 по запросу: сколько установок у самого слабого приложения десятки.</b> Чтобы встать в топ-10, не нужно обходить лидера — нужно обойти того, кто стоит десятым. Ниша с лидером на 500 млн установок и дверью на 10 тысяч доступнее, чем ровная ниша, где у всех по 2 млн.</p>' +
         '<p class="sub">Считается так: по каждому ключу ядра ниши берётся минимум установок среди топ-10 выдачи (если данные есть хотя бы по трём приложениям из десяти), затем по ключам берётся медиана. Строки, где оценок больше, чем установок, выбрасываются — это артефакт Play, и один такой обнулял бы дверь.</p>' +
         '<p class="sub">У двери две формы. <b>Запас</b> — сколько установок десятый накопил за всё время жизни. <b>Поток</b> — сколько он получает в день сейчас, оценено по приросту оценок. Пятилетнее приложение с 500 тыс. установок и трёхмесячное со 100 тыс. по запасу похожи, а по потоку могут отличаться в тридцать раз: в Великобритании у ниш «метроном» и «трансляция экрана» запас 49 и 47 тысяч, а поток 0 и 3 346 установок в день.</p>' +
+        '<h3>Спрос</h3>' +
+        '<p class="sub">Сколько раз в день ищут то, из чего собрана ниша: сумма показов по ядровым ключам. Навигационные запросы в сумму не идут — отсекается связка «запрос держит бренд и сложность от 90»: instagram, instacart, photos. У ниши «blur-photo» таких показов оказалось 101 000 против 18 630 настоящих, и без чистки она выглядела бы самой востребованной в каталоге.</p>' +
+        '<p class="sub">Источник — выгрузка ASO-сервиса, а не Play Console: это их модель, оценка, а не факт Google. Рядом со спросом стоит покрытие — по какой доле ключей ядра объём вообще известен; на первой выгрузке по США это 62 % в среднем. Там, где выгрузки по стране ещё нет, показана оценка по США со знаком «~» и подписью: пересчитывать чужую страну по американскому спросу можно только как прикидку.</p>' +
+        '<p class="sub">Сложность ключей рядом — это их шкала, не наша. Наша «свобода» меряет, двигается ли ниша: входят ли новички, есть ли оборот, остались ли свободные ключи. Их сложность меряет, насколько сильны те, кто уже стоит. Ранговая корреляция между ними по США оказалась −0,14, то есть они почти не связаны — поэтому обе показаны рядом, а не сведены в одно число.</p>' +
         '<h3>Импульс ключей</h3>' +
         '<p class="sub">Насколько выросло число запросов, по которым приложение стоит в топ-50, за неделю. Считается только по ключам, которые снимались и тогда, и сейчас: наш список ключей растёт, и сравнение полных множеств показало бы рост охвата там, где вырос наш собственный список. Это опережающий признак — охват меняется раньше, чем счётчик установок.</p>' +
         '<h3>Рост в месяц</h3>' +
@@ -547,6 +564,9 @@ __UNPACK_JS__
           pair('Дверь, поток', isNum(r.door_flow) ? short(r.door_flow) + '/дн.' : '—', 'оценка по приросту оценок') +
           pair('Свобода', fix(r.freedom, 0), isNum(r.fmargin) ? 'до границы ' + (r.fmargin > 0 ? '+' : '') + fix(r.fmargin, 0) : '') +
           pair('Чистота', pct(r.purity), 'спроса достаётся органике') +
+          pair('Спрос', isNum(r.dem) ? (r.dem_est ? '~' + short(r.dem) + '/дн.' : short(r.dem) + '/дн.') : '—',
+            r.dem_est ? 'оценка по США, не замер страны' : (isNum(r.dem_cov) ? 'объём известен по ' + pct(r.dem_cov) + ' ключей ядра' : 'показов в день по ядру')) +
+          pair('Сложность ключей', isNum(r.dif) ? fix(r.dif, 0) + ' из 100' : '—', 'насколько сильны те, кто уже стоит') +
           pair('Свободных ключей', int(r.free_keys), '') +
           pair('Срок выхода', isNum(r.tto) ? fix(r.tto, 1) + ' мес' : '—', 'до двери') +
         '</div></div>' +
