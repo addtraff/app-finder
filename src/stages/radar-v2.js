@@ -847,6 +847,23 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
        FROM raw_external_keyword_planner WHERE geo=? AND daily_impressions IS NOT NULL`
   ).all(geo).map((r) => [r.keyword, r]));
   const isNav = (e) => !!(e && e.brand && e.dif != null && e.dif >= navDif);
+
+  // Рост или падение спроса. Считается между снимками выгрузок, а не внутри одной: в файле
+  // Asodesk истории спроса нет, там 90 колонок с датами — это позиции чужого приложения.
+  // Поэтому первая выгрузка даёт только уровень, а направление появляется со второй.
+  //
+  // Сравниваются ТОЛЬКО ключи, которые есть в обоих снимках, — тот же принцип, что у импульса
+  // по ключам: список ключей растёт, и сравнение полных сумм показало бы рост спроса там, где
+  // вырос наш собственный список.
+  const prevDate = d.prepare(
+    `SELECT MAX(snapshot_date) m FROM raw_external_keyword_hist WHERE geo=? AND snapshot_date < (SELECT MAX(snapshot_date) FROM raw_external_keyword_hist WHERE geo=?)`
+  ).get(geo, geo)?.m || null;
+  const extPrev = prevDate ? new Map(d.prepare(
+    `SELECT keyword, daily_impressions imp FROM raw_external_keyword_hist WHERE geo=? AND snapshot_date=? AND daily_impressions IS NOT NULL`
+  ).all(geo, prevDate).map((r) => [r.keyword, r.imp])) : new Map();
+  const curDate = prevDate ? d.prepare(`SELECT MAX(snapshot_date) m FROM raw_external_keyword_hist WHERE geo=?`).get(geo)?.m : null;
+  const trendDays = prevDate && curDate ? Math.round((Date.parse(curDate) - Date.parse(prevDate)) / 864e5) : null;
+
   for (const r of nicheRows) {
     const known = r.km.filter((k) => ext.get(k.kw)?.imp != null);
     const nav = known.filter((k) => isNav(ext.get(k.kw)));
@@ -856,6 +873,13 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     r.difficultyExt = median(r.km.map((k) => ext.get(k.kw)?.dif).filter((v) => v != null));
     r.demandSrc = known.length ? 'asodesk' : null;
     r.demandEst = 0;
+    // База сравнения — ключи, известные в обоих снимках и не навигационные.
+    const both = known.filter((k) => !isNav(ext.get(k.kw)) && extPrev.has(k.kw));
+    r.demandPrev = both.length ? both.reduce((a, k) => a + extPrev.get(k.kw), 0) : null;
+    r.demandNow = both.length ? both.reduce((a, k) => a + ext.get(k.kw).imp, 0) : null;
+    r.demandTrend = r.demandPrev > 0 && r.demandNow != null ? r.demandNow / r.demandPrev - 1 : null;
+    r.demandTrendKeys = both.length || null;
+    r.demandTrendDays = r.demandTrend != null ? trendDays : null;
   }
   // Гео без своих замеров: оценка по США тем же концептом. Это именно оценка — размер
   // аудитории страны мы не измеряем, коэффициент взят из конфига и подлежит замене, как
@@ -1125,8 +1149,8 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
   // ---------- запись ----------
   const insKw = d.prepare(`INSERT OR REPLACE INTO metrics_keyword_geo
     (geo, snapshot_date, niche_id, keyword, is_head, suggest_score, serp_date, top10_cards, door_key, door_app_id, is_free, paid_in_top10, paid_ctr_share, ads_checked_share,
-     ext_impressions, ext_difficulty, ext_brand_app, ext_navigational)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+     ext_impressions, ext_difficulty, ext_brand_app, ext_navigational, ext_impressions_prev)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
   const nicheCols = ['niche_id', 'geo', 'snapshot_date', 'niche_date', 'concept', 'head_keyword', 'keywords_count', 'door', 'door_flow', 'wall_installs',
     'free_keys_count', 'free_demand_share', 'door_head', 'door_tail', 'door_velocity', 'demand_per_app', 'aso_saturation', 'relevance_gap_pct',
     'entry_rate_90d', 'last_entry_days', 'history_days', 'time_to_door_median', 'turnover_up_new', 'turnover_window_days', 'hhi_top10', 'clone_density',
@@ -1137,7 +1161,8 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     'niche_rank', 'rank_basis', 'rank_pct', 'quadrant', 'quadrant_smooth', 'quadrant_days', 'quadrant_seen',
     'freedom_margin', 'purity_margin', 'tail_clean', 'incomplete', 'partial_window',
     'ubt_share', 'ubt_apps', 'ubt_flag', 'rec_score', 'rec_pct', 'rec_parts',
-    'demand_ext', 'demand_nav', 'demand_cov', 'difficulty_ext', 'demand_src', 'demand_est'];
+    'demand_ext', 'demand_nav', 'demand_cov', 'difficulty_ext', 'demand_src', 'demand_est',
+    'demand_trend', 'demand_trend_keys', 'demand_trend_days'];
   const insNiche = d.prepare(`INSERT OR REPLACE INTO metrics_niche_v2 (${nicheCols.join(',')}) VALUES (${nicheCols.map((c) => '@' + c).join(',')})`);
   const appCols = Object.keys(appOut[0] || { app_id: 1 });
   const insApp = appOut.length ? d.prepare(`INSERT OR REPLACE INTO metrics_app_v2 (geo, snapshot_date, ${appCols.join(',')})
@@ -1154,7 +1179,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
         const e = ext.get(k.kw) || null;
         insKw.run(geo, D, r.n.niche_id, k.kw, k.kw === r.head ? 1 : 0, round(k.s), k.serpDate, k.cards, k.door_key, k.door_app,
           k.is_free, k.paid, round(k.paidShare), round(k.checkedShare),
-          e?.imp ?? null, e?.dif ?? null, e?.brand ?? null, isNav(e) ? 1 : 0);
+          e?.imp ?? null, e?.dif ?? null, e?.brand ?? null, isNav(e) ? 1 : 0, extPrev.get(k.kw) ?? null);
       }
       const partial = (r.historyDays < V.entry_window_days && r.entryRate != null) || (r.turnoverWindow != null && r.turnoverWindow < V.full_window_days) ? 1 : 0;
       insNiche.run({
@@ -1177,6 +1202,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
         head_top10: JSON.stringify(r.headTop10),
         demand_ext: round(r.demandExt), demand_nav: round(r.demandNav), demand_cov: round(r.demandCov, 3),
         difficulty_ext: round(r.difficultyExt), demand_src: r.demandSrc, demand_est: r.demandEst,
+        demand_trend: round(r.demandTrend, 3), demand_trend_keys: r.demandTrendKeys ?? null, demand_trend_days: r.demandTrendDays ?? null,
         niche_rank: round(r.rank), rank_basis: r.rank == null ? null : basis, rank_pct: round(r.rank == null ? null : rankPct(r.rank), 3),
         quadrant: r.quadrant, quadrant_smooth: r.quadrantSmooth, quadrant_days: r.quadrantDays, quadrant_seen: r.quadrantSeen,
         freedom_margin: r.freedomMargin, purity_margin: r.purityMargin, tail_clean: r.tailClean, incomplete: JSON.stringify(r.incomplete), partial_window: partial,

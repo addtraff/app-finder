@@ -372,6 +372,7 @@ export function collect(d) {
         // это оценка по США, а не замер страны; в отчёте такие числа подписаны отдельно.
         dem: r4(n.demand_ext), dem_nav: r4(n.demand_nav), dem_cov: r4(n.demand_cov),
         dif: r4(n.difficulty_ext), dem_est: n.demand_est ?? 0, dem_src: n.demand_src ?? null,
+        dem_tr: r4(n.demand_trend), dem_tr_keys: n.demand_trend_keys ?? null, dem_tr_days: n.demand_trend_days ?? null,
         aso_saturation: r4(n.aso_saturation), relevance_gap: r4(n.relevance_gap_pct),
         entry_rate: n.entry_rate_90d, last_entry_days: n.last_entry_days, history_days: n.history_days,
         time_to_door: r4(n.time_to_door_median), turnover_up_new: r4(n.turnover_up_new), turnover_w: n.turnover_window_days,
@@ -476,6 +477,7 @@ export function collect(d) {
       // Спрос темы показывается по США, где он измерен, а не суммируется по странам:
       // в остальных гео это была бы сумма оценок, выданная за измерение.
       dem: us ? us.dem : null, dif: us ? us.dif : null, dem_cov: us ? us.dem_cov : null, dem_est: us ? us.dem_est : 0,
+      dem_tr: us ? us.dem_tr : null, dem_tr_days: us ? us.dem_tr_days : null,
       cheapest_geo: cheapest ? cheapest.geo : null, cheapest_door: cheapest ? cheapest.door : null,
       young_unique: young.size, us_niche_id: us ? us.niche_id : null,
       rec_geo: (rows.filter((r) => r.rec_pct != null).sort(recOrder)[0] || {}).geo || null,
@@ -495,7 +497,7 @@ export function collect(d) {
     if (n.concept) continue;
     worldNiches.push({
       concept: null, geo: n.geo, niche_id: n.niche_id, geos_count: 1, no_concept: 1,
-      dem: n.dem, dif: n.dif, dem_cov: n.dem_cov, dem_est: n.dem_est,
+      dem: n.dem, dif: n.dif, dem_cov: n.dem_cov, dem_est: n.dem_est, dem_tr: n.dem_tr, dem_tr_days: n.dem_tr_days,
       target_geos: n.quadrant === 'target' ? 1 : 0,
       cheapest_geo: n.door != null ? n.geo : null, cheapest_door: n.door ?? null,
       young_unique: (n.young_apps || []).length, us_niche_id: n.geo === ref ? n.niche_id : null,

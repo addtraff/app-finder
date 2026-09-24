@@ -155,7 +155,7 @@ export async function run({ geo, date }) {
               m.iap_min_usd iap_lo, m.iap_max_usd iap_hi,
               n.concept, n.head_keyword head, n.door, n.door_flow, n.freedom_pct freedom,
               n.organic_purity purity, n.free_keys_count free_keys, n.time_to_organic tto,
-              n.demand_ext, n.demand_cov, n.difficulty_ext, n.demand_est,
+              n.demand_ext, n.demand_cov, n.difficulty_ext, n.demand_est, n.demand_trend, n.demand_trend_days,
               COALESCE(n.quadrant_smooth, n.quadrant) quad, n.quadrant_days qdays, n.quadrant_seen qseen,
               n.freedom_margin fmargin, n.young_organic_count nyoung, n.closed_flag closed
          FROM metrics_app_v2 v
@@ -180,6 +180,7 @@ export async function run({ geo, date }) {
         door: c.door, door_flow: c.door_flow, freedom: r4(c.freedom), purity: r4(c.purity),
         free_keys: c.free_keys, tto: r4(c.tto), quad: c.quad, qdays: c.qdays, qseen: c.qseen,
         dem: r4(c.demand_ext), dem_cov: r4(c.demand_cov), dif: r4(c.difficulty_ext), dem_est: c.demand_est ?? 0,
+        dem_tr: r4(c.demand_trend), dem_tr_days: c.demand_trend_days ?? null,
         fmargin: r4(c.fmargin), nyoung: c.nyoung, closed: c.closed,
         // органика
         // Проверки ищут закупку, поэтому и число называется признаками закупки: 0 — ни одна
@@ -276,7 +277,7 @@ export async function run({ geo, date }) {
 
     for (const n of all(d,
       `SELECT niche_id, concept, head_keyword head, door, door_flow, freedom_pct freedom, organic_purity purity,
-              free_keys_count free_keys, demand_ext, demand_cov, difficulty_ext, demand_est,
+              free_keys_count free_keys, demand_ext, demand_cov, difficulty_ext, demand_est, demand_trend, demand_trend_days,
               COALESCE(quadrant_smooth, quadrant) quad, quadrant_days qdays,
               quadrant_seen qseen, freedom_margin fmargin, young_organic_count nyoung, time_to_organic tto,
               closed_flag closed, organic_capacity cap
@@ -288,6 +289,7 @@ export async function run({ geo, date }) {
         door: n.door, door_flow: n.door_flow, freedom: r4(n.freedom), purity: r4(n.purity),
         free_keys: n.free_keys, quad: n.quad, qdays: n.qdays, qseen: n.qseen, fmargin: r4(n.fmargin),
         dem: r4(n.demand_ext), dem_cov: r4(n.demand_cov), dif: r4(n.difficulty_ext), dem_est: n.demand_est ?? 0,
+        dem_tr: r4(n.demand_trend), dem_tr_days: n.demand_trend_days ?? null,
         nyoung: n.nyoung, tto: r4(n.tto), closed: n.closed, cap: r4(n.cap),
         devs: rr ? rr.devs : null, devs_young: rr ? rr.young : null, devs_big: rr ? rr.big : null,
         inc_rating: r4(ww?.rating ?? null), inc_pain_broken: r4(ww?.broken ?? null), inc_pain_missing: r4(ww?.missing ?? null),
