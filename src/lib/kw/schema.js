@@ -119,6 +119,12 @@ CREATE TABLE IF NOT EXISTS kw_runs (
 const MIGRATIONS = [
   ['raw_external_keyword_planner', 'range_low', 'INTEGER'],
   ['raw_external_keyword_planner', 'range_high', 'INTEGER'],
+  // Конкуренция приходит словом (low/medium/high) или числом (0–100, иногда 0–1): храним
+  // и то и другое, не приводя одно к другому. Источник обязателен — объём из Keyword Planner
+  // это веб-поиск Google, объём из ASO-сервиса — поиск в сторе, и в одну шкалу они не идут.
+  ['raw_external_keyword_planner', 'competition', 'TEXT'],
+  ['raw_external_keyword_planner', 'competition_index', 'INTEGER'],
+  ['raw_external_keyword_planner', 'source', 'TEXT'],
 ];
 
 let ready = false;

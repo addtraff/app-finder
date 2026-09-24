@@ -153,21 +153,35 @@ export function importConsole(d, file, { app = null, geo = null, lang = null, me
   return { ...stats, days: stats.days.size, apps: [...stats.apps], geos: [...stats.geos], date };
 }
 
-// Keyword Planner: «Keyword» и «Avg. monthly searches» — число или диапазон «1K – 10K».
-export function importPlanner(d, file, { geo = null }) {
+// Внешние объёмы по словам: Keyword Planner («Keyword» + «Avg. monthly searches», число или
+// диапазон «1K – 10K») и такая же выгрузка из ASO-сервиса («volume», «competition»).
+//
+// Колонка конкуренции принимается в любом из трёх видов, потому что сервисы пишут её
+// по-разному: словом (low/medium/high), индексом 0–100 или долей 0–1. Слово сохраняется
+// как слово, число — как индекс; долю приводим к сотне. Своего смысла мы ей пока не
+// приписываем: сперва надо увидеть, что именно прислали, и сверить с нашей выдачей.
+//
+// Источник записывается рядом со строкой. Объём из Keyword Planner — это веб-поиск Google,
+// а объём из ASO-сервиса — поиск в сторе; смешивать их в одну шкалу нельзя, и без пометки
+// об источнике они бы слились.
+export function importPlanner(d, file, { geo = null, source = null }) {
   const rows = readTable(file);
   // Над заголовком у Keyword Planner служебные строки («Keyword Stats …»), поэтому заголовок —
   // первая строка, где есть и колонка слова, и колонка объёма.
-  const h = rows.findIndex((r) => r.some((c) => /^(keyword|ключевое слово)$/i.test(c)) && r.some((c) => /searches|запросов/i.test(c)));
-  if (h < 0) throw new Error('не найдена строка заголовка с колонками Keyword и Avg. monthly searches');
+  const volRe = /avg\.? monthly searches|searches|volume|объ[её]м|показ|запросов/i;
+  const h = rows.findIndex((r) => r.some((c) => /^(keyword|ключевое слово|ключ)$/i.test(c)) && r.some((c) => volRe.test(c)));
+  if (h < 0) throw new Error('не найдена строка заголовка с колонками keyword и объёма (searches/volume/показы)');
   const header = rows[h].map((c) => c.toLowerCase());
-  const iK = header.findIndex((c) => /^keyword|ключев/.test(c));
-  const iV = header.findIndex((c) => /avg\.? monthly searches|searches|среднее число запросов/.test(c));
+  const iK = header.findIndex((c) => /^keyword|ключев|^ключ$/.test(c));
+  const iV = header.findIndex((c) => volRe.test(c));
   const iG = header.findIndex((c) => c === 'geo' || c === 'country' || c === 'страна');
-  if (iV < 0) throw new Error('не найдена колонка Avg. monthly searches');
-  const ins = d.prepare(`INSERT OR REPLACE INTO raw_external_keyword_planner (geo, keyword, avg_monthly_searches, imported_at, range_low, range_high)
-    VALUES (?,?,?,?,?,?)`);
-  let n = 0;
+  const iC = header.findIndex((c) => /competition|difficulty|конкурен|сложност/.test(c));
+  const iS = header.findIndex((c) => c === 'source' || c === 'источник');
+  if (iV < 0) throw new Error('не найдена колонка объёма');
+  const ins = d.prepare(`INSERT OR REPLACE INTO raw_external_keyword_planner
+      (geo, keyword, avg_monthly_searches, imported_at, range_low, range_high, competition, competition_index, source)
+    VALUES (?,?,?,?,?,?,?,?,?)`);
+  let n = 0, withComp = 0;
   const now = new Date().toISOString().slice(0, 10);
   d.transaction(() => {
     for (const r of rows.slice(h + 1)) {
@@ -175,11 +189,17 @@ export function importPlanner(d, file, { geo = null }) {
       const g = iG >= 0 ? countryCode(r[iG]) : geo;
       const range = parsePlannerRange(r[iV]);
       if (!kw || !g || !range) continue;
-      ins.run(g, kw, Math.round(range.mid), now, range.low, range.high);
+      const raw = iC >= 0 ? String(r[iC] ?? '').trim() : '';
+      const num = raw && /^[\d.,]+$/.test(raw) ? Number(raw.replace(',', '.')) : null;
+      const idx = num == null ? null : Math.round(num <= 1 ? num * 100 : num);
+      const word = raw && num == null ? raw.toLowerCase() : null;
+      if (raw) withComp++;
+      ins.run(g, kw, Math.round(range.mid), now, range.low, range.high, word, idx,
+        (iS >= 0 ? r[iS] : null) || source);
       n++;
     }
   })();
-  return { rows: n };
+  return { rows: n, with_competition: withComp };
 }
 
 // Google Trends multiTimeline.csv: служебные строки, затем «Week,слово: (United States),…».
