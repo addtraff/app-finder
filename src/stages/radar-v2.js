@@ -843,7 +843,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
   // любую нишу, куда такой ключ затесался, самой востребованной на рынке.
   const navDif = cfg.scoring.navigational_difficulty ?? 90;
   const ext = new Map(d.prepare(
-    `SELECT keyword, daily_impressions imp, competition_index dif, brand_app brand, apps_ranked apps
+    `SELECT keyword, daily_impressions imp, competition_index dif, brand_app brand, apps_ranked apps, imp_status st
        FROM raw_external_keyword_planner WHERE geo=? AND daily_impressions IS NOT NULL`
   ).all(geo).map((r) => [r.keyword, r]));
   const isNav = (e) => !!(e && e.brand && e.dif != null && e.dif >= navDif);
@@ -869,7 +869,11 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     const nav = known.filter((k) => isNav(ext.get(k.kw)));
     r.demandExt = known.length ? known.filter((k) => !isNav(ext.get(k.kw))).reduce((a, k) => a + ext.get(k.kw).imp, 0) : null;
     r.demandNav = nav.length ? nav.reduce((a, k) => a + ext.get(k.kw).imp, 0) : null;
-    r.demandCov = r.km.length ? known.length / r.km.length : null;
+    // Покрытие — доля ИЗМЕРЕННЫХ ключей, а не тех, у которых просто есть число. Ключи,
+    // принятые за ноль по решению от 25.09, в сумму входят (нулём), но качество данных
+    // не улучшают: покрытие 30 % при сотне ключей значит, что семьдесят из них сервис
+    // не считал, и настоящий спрос ниши может оказаться выше.
+    r.demandCov = r.km.length ? known.filter((k) => ext.get(k.kw).st === 'measured').length / r.km.length : null;
     r.difficultyExt = median(r.km.map((k) => ext.get(k.kw)?.dif).filter((v) => v != null));
     r.demandSrc = known.length ? 'asodesk' : null;
     r.demandEst = 0;

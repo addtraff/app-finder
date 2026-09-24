@@ -434,6 +434,11 @@ const MIGRATIONS = [
   ['raw_external_keyword_planner', 'apps_ranked', 'INTEGER'],
   ['raw_external_keyword_planner', 'brand_app', 'TEXT'],
   ['raw_external_keyword_planner', 'measured_at', 'TEXT'],
+  // measured — сервис посчитал и написал число; calculating — не посчитал, и по решению
+  // от 25.09 такой ключ принят за ноль. Различие хранится, чтобы решение можно было
+  // пересмотреть по второй выгрузке.
+  ['raw_external_keyword_planner', 'imp_status', 'TEXT'],
+  ['raw_external_keyword_hist', 'imp_status', 'TEXT'],
   // Спрос ниши в настоящих единицах: сумма показов по ядровым ключам, без навигационных.
   // demand_est=1 означает «оценка по США», а не замер этой страны.
   ['metrics_niche_v2', 'demand_ext', 'REAL'],
