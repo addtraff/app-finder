@@ -830,6 +830,56 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     r.components = parts;
     r.missing = missing;
   }
+  // ---------- внешний спрос ----------
+  // До сих пор спрос был порядковым баллом из подсказок Play: по США он лежал между 0 и 5,8
+  // при среднем 0,66, то есть почти у всех ключей почти ноль. Выгрузка Asodesk даёт ему
+  // единицы — показы в день, — и «дверь 2 000 установок при спросе 12 000 показов в день»
+  // становится фразой, которую можно произнести.
+  //
+  // Навигационные запросы в спрос ниши не идут. «Бренд держит запрос» само по себе не порок:
+  // у «sleep tracker» тоже стоит бренд, и это нормальный ключ с сильным инкумбентом.
+  // Отсекается связка «бренд + сложность от 90»: instagram, instacart, inshot, photos,
+  // angry birds — в среднем 22 тысячи показов на запрос. Оставить их значило бы объявить
+  // любую нишу, куда такой ключ затесался, самой востребованной на рынке.
+  const navDif = cfg.scoring.navigational_difficulty ?? 90;
+  const ext = new Map(d.prepare(
+    `SELECT keyword, daily_impressions imp, competition_index dif, brand_app brand, apps_ranked apps
+       FROM raw_external_keyword_planner WHERE geo=? AND daily_impressions IS NOT NULL`
+  ).all(geo).map((r) => [r.keyword, r]));
+  const isNav = (e) => !!(e && e.brand && e.dif != null && e.dif >= navDif);
+  for (const r of nicheRows) {
+    const known = r.km.filter((k) => ext.get(k.kw)?.imp != null);
+    const nav = known.filter((k) => isNav(ext.get(k.kw)));
+    r.demandExt = known.length ? known.filter((k) => !isNav(ext.get(k.kw))).reduce((a, k) => a + ext.get(k.kw).imp, 0) : null;
+    r.demandNav = nav.length ? nav.reduce((a, k) => a + ext.get(k.kw).imp, 0) : null;
+    r.demandCov = r.km.length ? known.length / r.km.length : null;
+    r.difficultyExt = median(r.km.map((k) => ext.get(k.kw)?.dif).filter((v) => v != null));
+    r.demandSrc = known.length ? 'asodesk' : null;
+    r.demandEst = 0;
+  }
+  // Гео без своих замеров: оценка по США тем же концептом. Это именно оценка — размер
+  // аудитории страны мы не измеряем, коэффициент взят из конфига и подлежит замене, как
+  // только придёт выгрузка по этому гео. Поэтому рядом всегда стоит demand_est=1.
+  if (!ext.size) {
+    const usDate = d.prepare(`SELECT MAX(snapshot_date) m FROM metrics_niche_v2 WHERE geo='US' AND demand_ext IS NOT NULL AND demand_est=0`).get()?.m;
+    const k = geoConf(geo)?.demand_rel_us ?? null;
+    if (usDate && k != null) {
+      const usByConcept = new Map(d.prepare(
+        `SELECT concept, SUM(demand_ext) s, AVG(difficulty_ext) dif FROM metrics_niche_v2
+          WHERE geo='US' AND snapshot_date=? AND concept IS NOT NULL AND demand_ext IS NOT NULL GROUP BY concept`
+      ).all(usDate).map((r) => [r.concept, r]));
+      for (const r of nicheRows) {
+        const u = r.n.concept ? usByConcept.get(r.n.concept) : null;
+        if (!u) continue;
+        r.demandExt = u.s * k;
+        r.difficultyExt = r.difficultyExt ?? u.dif;
+        r.demandSrc = 'us_estimate';
+        r.demandEst = 1;
+        r.demandCov = null;
+      }
+    }
+  }
+
   const freedomPct = percentileOf(nicheRows.map((r) => r.freedomRaw));
   const purityP50 = quantile(nicheRows.map((r) => r.purity), 0.5);
   const fdsP75 = quantile(nicheRows.map((r) => r.freeDemandShare), 0.75);
@@ -1074,8 +1124,9 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
   tick('rec-apps');
   // ---------- запись ----------
   const insKw = d.prepare(`INSERT OR REPLACE INTO metrics_keyword_geo
-    (geo, snapshot_date, niche_id, keyword, is_head, suggest_score, serp_date, top10_cards, door_key, door_app_id, is_free, paid_in_top10, paid_ctr_share, ads_checked_share)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+    (geo, snapshot_date, niche_id, keyword, is_head, suggest_score, serp_date, top10_cards, door_key, door_app_id, is_free, paid_in_top10, paid_ctr_share, ads_checked_share,
+     ext_impressions, ext_difficulty, ext_brand_app, ext_navigational)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
   const nicheCols = ['niche_id', 'geo', 'snapshot_date', 'niche_date', 'concept', 'head_keyword', 'keywords_count', 'door', 'door_flow', 'wall_installs',
     'free_keys_count', 'free_demand_share', 'door_head', 'door_tail', 'door_velocity', 'demand_per_app', 'aso_saturation', 'relevance_gap_pct',
     'entry_rate_90d', 'last_entry_days', 'history_days', 'time_to_door_median', 'turnover_up_new', 'turnover_window_days', 'hhi_top10', 'clone_density',
@@ -1085,7 +1136,8 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     'candidates_count', 'candidates_organic_count', 'candidates_paid_count', 'monetized_share', 'leaders_pain', 'head_top10',
     'niche_rank', 'rank_basis', 'rank_pct', 'quadrant', 'quadrant_smooth', 'quadrant_days', 'quadrant_seen',
     'freedom_margin', 'purity_margin', 'tail_clean', 'incomplete', 'partial_window',
-    'ubt_share', 'ubt_apps', 'ubt_flag', 'rec_score', 'rec_pct', 'rec_parts'];
+    'ubt_share', 'ubt_apps', 'ubt_flag', 'rec_score', 'rec_pct', 'rec_parts',
+    'demand_ext', 'demand_nav', 'demand_cov', 'difficulty_ext', 'demand_src', 'demand_est'];
   const insNiche = d.prepare(`INSERT OR REPLACE INTO metrics_niche_v2 (${nicheCols.join(',')}) VALUES (${nicheCols.map((c) => '@' + c).join(',')})`);
   const appCols = Object.keys(appOut[0] || { app_id: 1 });
   const insApp = appOut.length ? d.prepare(`INSERT OR REPLACE INTO metrics_app_v2 (geo, snapshot_date, ${appCols.join(',')})
@@ -1099,8 +1151,10 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     }
     for (const r of nicheRows) {
       for (const k of r.km) {
+        const e = ext.get(k.kw) || null;
         insKw.run(geo, D, r.n.niche_id, k.kw, k.kw === r.head ? 1 : 0, round(k.s), k.serpDate, k.cards, k.door_key, k.door_app,
-          k.is_free, k.paid, round(k.paidShare), round(k.checkedShare));
+          k.is_free, k.paid, round(k.paidShare), round(k.checkedShare),
+          e?.imp ?? null, e?.dif ?? null, e?.brand ?? null, isNav(e) ? 1 : 0);
       }
       const partial = (r.historyDays < V.entry_window_days && r.entryRate != null) || (r.turnoverWindow != null && r.turnoverWindow < V.full_window_days) ? 1 : 0;
       insNiche.run({
@@ -1121,6 +1175,8 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
         candidates_count: r.candidates, candidates_organic_count: r.candidates - r.candPaid, candidates_paid_count: r.candPaid,
         monetized_share: round(r.monetizedShare), leaders_pain: r.leadersPain ? JSON.stringify(r.leadersPain) : null,
         head_top10: JSON.stringify(r.headTop10),
+        demand_ext: round(r.demandExt), demand_nav: round(r.demandNav), demand_cov: round(r.demandCov, 3),
+        difficulty_ext: round(r.difficultyExt), demand_src: r.demandSrc, demand_est: r.demandEst,
         niche_rank: round(r.rank), rank_basis: r.rank == null ? null : basis, rank_pct: round(r.rank == null ? null : rankPct(r.rank), 3),
         quadrant: r.quadrant, quadrant_smooth: r.quadrantSmooth, quadrant_days: r.quadrantDays, quadrant_seen: r.quadrantSeen,
         freedom_margin: r.freedomMargin, purity_margin: r.purityMargin, tail_clean: r.tailClean, incomplete: JSON.stringify(r.incomplete), partial_window: partial,

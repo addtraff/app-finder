@@ -434,6 +434,18 @@ const MIGRATIONS = [
   ['raw_external_keyword_planner', 'apps_ranked', 'INTEGER'],
   ['raw_external_keyword_planner', 'brand_app', 'TEXT'],
   ['raw_external_keyword_planner', 'measured_at', 'TEXT'],
+  // Спрос ниши в настоящих единицах: сумма показов по ядровым ключам, без навигационных.
+  // demand_est=1 означает «оценка по США», а не замер этой страны.
+  ['metrics_niche_v2', 'demand_ext', 'REAL'],
+  ['metrics_niche_v2', 'demand_nav', 'REAL'],
+  ['metrics_niche_v2', 'demand_cov', 'REAL'],
+  ['metrics_niche_v2', 'difficulty_ext', 'REAL'],
+  ['metrics_niche_v2', 'demand_src', 'TEXT'],
+  ['metrics_niche_v2', 'demand_est', 'INTEGER'],
+  ['metrics_keyword_geo', 'ext_impressions', 'REAL'],
+  ['metrics_keyword_geo', 'ext_difficulty', 'INTEGER'],
+  ['metrics_keyword_geo', 'ext_brand_app', 'TEXT'],
+  ['metrics_keyword_geo', 'ext_navigational', 'INTEGER'],
   ['seed_keywords', 'concept', 'TEXT'],
   ['disc_keywords', 'concept', 'TEXT'],
   ['niches', 'concept', 'TEXT'],
