@@ -382,7 +382,10 @@ CREATE TABLE IF NOT EXISTS predictions (
   pred_date TEXT, geo TEXT, kind TEXT, object_id TEXT,
   model_set TEXT,                    -- версия набора моделей; порядок меняется — версия растёт
   rank_ar3 INTEGER, rank_ar2 INTEGER, score_ar2 REAL,
-  in_head INTEGER,                   -- 1 — голова модели, 0 — случайная выборка сравнения
+  -- Для приложений: 1 — голова модели, 0 — случайная выборка сравнения.
+  -- Для ниш смысл другой и записан здесь же: 1 — квадрант «Цель», то есть само предсказание
+  -- «в этой нише появятся молодые органики»; выборки сравнения у ниш нет, они пишутся все.
+  in_head INTEGER,
   features TEXT,                     -- признаки на T0, как их видела модель
   created_at TEXT,
   outcome_30 TEXT, outcome_30_at TEXT,
