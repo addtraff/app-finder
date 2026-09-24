@@ -182,6 +182,24 @@ CREATE TABLE IF NOT EXISTS raw_external_keyword_planner (
   geo TEXT, keyword TEXT, avg_monthly_searches INTEGER, imported_at TEXT,
   PRIMARY KEY (geo, keyword)
 );
+-- Снимки внешнего спроса по датам: та же выгрузка, но с историей.
+--
+-- Зачем отдельная таблица. В raw_external_keyword_planner ключ первичный — (гео, слово),
+-- то есть там живёт одно, последнее значение: так его читает kw/features.js, и ломать это
+-- незачем. А рост и падение спроса видны только между снимками, поэтому каждый импорт
+-- дополнительно ложится сюда своей датой.
+--
+-- Важно, чего здесь НЕ будет. Первая выгрузка Asodesk (24.09, США) истории спроса не
+-- содержит: 90 колонок с датами в ней — это позиции чужого приложения, к которому привязан
+-- аккаунт, а спрос дан одним числом на сегодня. Значит, первый тренд появится со второй
+-- выгрузкой, и до тех пор поле роста честно пустует.
+CREATE TABLE IF NOT EXISTS raw_external_keyword_hist (
+  geo TEXT, keyword TEXT, snapshot_date TEXT, source TEXT,
+  daily_impressions REAL, difficulty INTEGER, apps_ranked INTEGER, brand_app TEXT,
+  imported_at TEXT,
+  PRIMARY KEY (geo, keyword, snapshot_date, source)
+);
+CREATE INDEX IF NOT EXISTS ix_ext_kw_hist ON raw_external_keyword_hist(geo, snapshot_date);
 CREATE TABLE IF NOT EXISTS raw_external_trends (
   geo TEXT, keyword TEXT, point_date TEXT, value REAL, imported_at TEXT,
   PRIMARY KEY (geo, keyword, point_date)
@@ -406,6 +424,16 @@ CREATE TABLE IF NOT EXISTS day_status (
 // CREATE TABLE IF NOT EXISTS не добавляет колонки в уже созданную базу,
 // поэтому новые поля доезжают отдельным идемпотентным шагом.
 const MIGRATIONS = [
+  // Внешние объёмы: Asodesk даёт дневные показы, сложность 0–100, число ранжирующихся
+  // приложений и бренд, который держит запрос. Последнее особенно важно: запрос с брендом
+  // и сложностью под сотню — навигационный, и в спрос ниши он идти не должен.
+  ['raw_external_keyword_planner', 'competition', 'TEXT'],
+  ['raw_external_keyword_planner', 'competition_index', 'INTEGER'],
+  ['raw_external_keyword_planner', 'source', 'TEXT'],
+  ['raw_external_keyword_planner', 'daily_impressions', 'REAL'],
+  ['raw_external_keyword_planner', 'apps_ranked', 'INTEGER'],
+  ['raw_external_keyword_planner', 'brand_app', 'TEXT'],
+  ['raw_external_keyword_planner', 'measured_at', 'TEXT'],
   ['seed_keywords', 'concept', 'TEXT'],
   ['disc_keywords', 'concept', 'TEXT'],
   ['niches', 'concept', 'TEXT'],
