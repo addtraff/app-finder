@@ -492,6 +492,8 @@
     'nc.geo': { t: 'Гео', what: 'Лучшее гео ниши, «+N» — в скольких гео она есть; ниже — в скольких гео она в «Цели» и где door ниже всего.' },
     'nc.freedom': { t: 'Свобода', what: 'Есть ли в нише куда встать: процентиль индекса свободы среди ниш гео.', how: 'Свободный спрос 25 %, пустота выдачи, незанятость ASO, спрос на конкурента, входы новичков по 15 %, оборот за счёт новых 10 %, мало клонов 5 %; пустые компоненты исключаются с весом.', why: 'Первая ось матрицы решения.' },
     'nc.capacity': { t: 'Ёмкость', what: 'Сколько установок в месяц даст свободное место — оценка порядка.', how: 'Курс гео «спрос → установки» × Σ спроса свободных ключей × CTR 5-го места. Курс появится при окне ' + M.min_window + ' дней.', why: 'Сравнить с порогом окупаемости.' },
+    'nc.demand': { t: 'Спрос', what: 'Сколько раз в день ищут то, из чего собрана ниша.', how: 'Сумма дневных показов по ядровым ключам. Источник — выгрузка ASO-сервиса (Asodesk), а не Play Console: это их модель, оценка, а не факт Google. Навигационные ключи в сумму не идут — отсекается связка «запрос держит бренд и сложность от 90»: instagram, instacart, photos и подобные. Рядом стоит покрытие: по какой доле ключей ядра объём вообще известен.', why: 'До этого спрос был порядковым баллом из подсказок Play — по США от 0 до 5,8 при среднем 0,66, то есть почти у всех ниш почти ноль. Теперь дверь и спрос можно ставить рядом: «вход стоит 3 700 установок при 9 600 показах в день» — это уже решение, а не ощущение.' },
+    'n.demand': { t: 'Спрос от', what: 'Отсечка по числу показов в день.', how: 'Считаются показы по ядровым ключам ниши без навигационных. Ниши, по которым внешних объёмов нет вовсе, фильтр отбрасывает.', why: 'Свободная ниша без спроса — не возможность, а пустота; до внешних данных отличить одно от другого было нечем.' },
     'nc.purity': { t: 'Чистота', what: 'Доля спроса ядра, уходящая приложениям без закупки.', how: 'Доля трафика топ-10 у закупающих по кривой CTR, с весом спроса ключа; пусто при покрытии проверки рекламы ниже ' + Math.round((M.purity_min || 0.6) * 100) + ' %.', why: 'Вторая ось матрицы: не выкуплен ли трафик.' },
     'nc.tto': { t: 'Срок', what: 'Через сколько месяцев после релиза молодые органики вошли в топ-10.', how: '«≈» — измерено по вошедшим при нас (окно от ' + M.min_window + ' дней); «≤» — верхняя граница: приложение уже было в топ-10 на первом снимке.', why: 'Сколько ждать результата.' },
     'nc.freekeys': { t: 'Свободных ключей', what: 'Ключи ядра с дешёвой дверью и заметным спросом / всего ключей.', how: 'door ключа ≤ p25 гео, спрос > 0 и не ниже медианы ниши.', why: 'Вход через хвост ключей, а не через головной.' },
@@ -589,7 +591,7 @@
   var state = {
     view: 'apps', geo: WW, q: '', page: 1,
     af: { cat: 'all', level: 'all', channel: 'all', traffic: 'all', minPassed: 0, quad: 'all', age: 'all', monet: 'all', sort: 'checks', niche: null, rec: false },
-    nf: { cat: 'all', quad: 'all', freedom: 'all', purity: 'all', channel: 'all', young: false, cand: false, full: false, sort: 'rank', rec: false, grain: 'themes' },
+    nf: { cat: 'all', quad: 'all', freedom: 'all', purity: 'all', channel: 'all', young: false, cand: false, full: false, sort: 'rank', rec: false, grain: 'themes', dem: 0 },
     hidePaid: !!load('appradar2-hide-paid', false), showDisq: false,
     favs: load('appradar2-favs', []), nfavs: load('appradar2-nfavs', []), cTab: 'collect',
     rTab: 'g30', gf: { win: 7, inst: 10000, instMax: 0, passed: '1', channel: 'organic', age: 'all', sort: 'interp', easy: 0, easy5: 0, scope: 'all', meas: 'all', osc: 'all' }
@@ -968,6 +970,21 @@
     if (ch === 'organic_ubt') return clean && n.ubt === 1;
     return clean && n.ubt !== 1;
   }
+  // Спрос в показах в день. Измеренный — обычным числом, оценённый по США — со знаком «~»
+  // и подписью: это разные по надёжности величины, и путать их нельзя.
+  function demandCell(n) {
+    if (!isNum(n.dem)) return dash('внешних объёмов по этой нише нет');
+    if (n.dem_est) {
+      return '<div class="num muted" data-tip="nc.demand" data-tip-val="оценка по США × коэффициент рынка гео">~' + short(n.dem) + '</div>'
+        + '<div class="small" style="color:var(--orange)">оценка по US</div>';
+    }
+    var val = 'показов в день по ядровым ключам, без навигационных'
+      + (isNum(n.dem_cov) ? '\nобъём известен по ' + pct(n.dem_cov) + ' ключей ядра' : '')
+      + (isNum(n.dif) ? '\nсложность ' + fix(n.dif, 0) + ' из 100' : '')
+      + (isNum(n.dem_nav) ? '\nисключено навигационных: ' + short(n.dem_nav) + '/дн.' : '');
+    return '<div class="num strong" data-tip="nc.demand" data-tip-val="' + esc(val) + '">' + short(n.dem) + '</div>'
+      + '<div class="muted small">' + (isNum(n.dem_cov) ? 'покрытие ' + pct(n.dem_cov) : 'в день') + '</div>';
+  }
   function applyNicheFilters(rows, ignoreQuad) {
     var f = state.nf;
     return rows.filter(function (n) {
@@ -976,6 +993,7 @@
       if (f.cat !== 'all' && n._genre !== f.cat) return false;
       if (f.freedom !== 'all' && !(isNum(n.freedom) && n.freedom >= Number(f.freedom))) return false;
       if (f.purity === 'p50') { var g = GEO[n.geo]; if (!(isNum(n.purity) && isNum(g.purityP50) && n.purity >= g.purityP50)) return false; }
+      if (f.dem && !(isNum(n.dem) && n.dem >= f.dem)) return false;
       if (!nicheChannelOk(n, f.channel)) return false;
       if (f.young && !(n.young >= 1)) return false;
       if (f.cand && !(n.cand_organic >= 1)) return false;
@@ -1054,6 +1072,7 @@
         var top = n.components.filter(function (c) { return isNum(c.contrib); }).sort(function (a, b) { return b.contrib - a.contrib; }).slice(0, 3);
         return '<div data-tip="nc.freedom" data-tip-val="' + esc('крупнейшие вклады:\n' + top.map(function (c) { return (COMP[c.name] || [c.name])[0] + ': ' + fix(c.contrib, 2); }).join('\n')) + '">' + meter(n.freedom, freedomColor(n.freedom)) + '</div>';
       } },
+      { t: 'Спрос', tip: 'nc.demand', r: true, v: demandCell },
       { t: 'Ёмкость', tip: 'nc.capacity', r: true, v: function (n) { return '<span class="num strong">' + capacityText(n) + '</span>'; } },
       { t: 'Чистота', tip: 'nc.purity', r: true, v: function (n) { return isNum(n.purity) ? '<span class="num strong" data-tip="nc.purity" data-tip-val="проверено ' + pct(n.purity_cov) + ' трафика ядра">' + pct(n.purity) + '</span>' : dash('проверено ' + pct(n.purity_cov) + ' трафика ядра, нужно ' + pct(M.purity_min)); } },
       { t: 'УБТ', tip: 'nc.ubt', r: true, v: function (n) {
@@ -1092,6 +1111,7 @@
           sel('quad', 'Квадрант', f.quad, [['all', 'все']].concat(Object.keys(QUAD).map(function (k) { return [k, QUAD[k][0]]; })), 'n.quad') +
           sel('freedom', 'Свобода', f.freedom, [['all', 'любая'], ['75', '≥ 75'], ['50', '≥ 50']], 'n.freedom') +
           sel('purity', 'Чистота', f.purity, [['all', 'любая'], ['p50', '≥ p50 гео']], 'n.purity') +
+          selectField('n-', 'nf', 'dem', 'Спрос от', f.dem, [[0, 'любой'], [100, '100/дн.'], [500, '500/дн.'], [2000, '2 тыс./дн.'], [10000, '10 тыс./дн.']], 'n.demand') +
           (f.rec ? '' : '<div class="toolbar-right">' + sel('sort', 'Сортировка', f.sort, [['rank', 'Ранг'], ['rec', 'Рекомендуемый скор'], ['freedom', 'Свобода'], ['capacity', 'Ёмкость'], ['purity', 'Чистота'], ['tto', 'Срок'], ['young', 'Молодые органики'], ['door', 'door']], 'n.sort') + '</div>') +
         '</div>' +
         tableHtml(cols, slice, { minWidth: state.geo === WW ? 1640 : 1560, empty: f.rec ? 'Под фильтры не попала ни одна рекомендуемая ниша' : 'Под фильтры ничего не попало' }) +
@@ -1370,7 +1390,12 @@
           recBars(a.rec_parts, ['Рост из поиска (ASO)', 'Свобода ниши', 'Пройденные проверки', 'Индекс копируемости', 'Молодость и прирост', 'Монетизация'],
             [REC.app_weights.aso, REC.app_weights.freedom, REC.app_weights.checks, REC.app_weights.prescore, REC.app_weights.youth, REC.app_weights.monetization], 'rec.parts.app') + '</div>' +
         '<div class="card panel"><div class="panel-title">Ключи, где приложение в топ-50</div><div class="panel-sub">вклад = спрос ключа × CTR места; топ-8 по вкладу · в топ-10 по ' + (a.kw_top10 ?? '—') + ', в топ-50 по ' + (a.kw_top50 ?? '—') + ' ключам</div>' +
-          (a.kw.length ? '<table class="mini"><thead><tr><th>Ключ</th><th class="r">Место</th><th class="r">Вклад</th></tr></thead><tbody>' + a.kw.map(function (k) { return '<tr><td class="strong">' + esc(k[0]) + '</td><td class="r num">' + k[1] + '</td><td class="r num">' + fix(k[2], 2) + '</td></tr>'; }).join('') + '</tbody></table>' : '<div class="empty" style="padding:18px">Нет ключей ядра с этим приложением в топ-50</div>') + '</div>' +
+          (a.kw.length ? '<table class="mini"><thead><tr><th>Ключ</th><th class="r">Место</th><th class="r">Вклад</th><th class="r" data-tip="nc.demand">Показов/дн.</th><th class="r">Сложность</th></tr></thead><tbody>' + a.kw.map(function (k) {
+            return '<tr><td class="strong">' + esc(k[0]) + (k[5] ? ' <span class="badge b-muted" data-tip="nc.demand" data-tip-val="запрос держит бренд, в спрос ниши не идёт">навигационный</span>' : '') + '</td>'
+              + '<td class="r num">' + k[1] + '</td><td class="r num">' + fix(k[2], 2) + '</td>'
+              + '<td class="r num' + (isNum(k[3]) ? ' strong' : ' muted') + '">' + (isNum(k[3]) ? short(k[3]) : '—') + '</td>'
+              + '<td class="r num muted">' + (isNum(k[4]) ? fix(k[4], 0) : '—') + '</td></tr>';
+          }).join('') + '</tbody></table>' : '<div class="empty" style="padding:18px">Нет ключей ядра с этим приложением в топ-50</div>') + '</div>' +
         rivalsBlock(a, n) +
         (n ? '<div class="card panel"><div class="panel-title">Ниша: ' + esc(n.concept || n.head) + '</div><div class="panel-sub">' + esc(n.head) + ' · ' + (QUAD[n.quadrant] || QUAD.undetermined)[0] + '</div>' +
           '<div class="kv"><div><dt>Свобода</dt><dd>' + fix(n.freedom, 0) + '</dd></div><div><dt>Ёмкость</dt><dd>' + capacityText(n) + '</dd></div>' +

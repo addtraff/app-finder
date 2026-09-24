@@ -271,6 +271,13 @@ export function collect(d) {
       else if (!cur.easy && r.freedom_pct != null && cur.n_freedom == null) Object.assign(cur, niche);
     }
 
+    // Объём спроса по ключам этого гео: в карточке приложения рядом с позицией по ключу
+    // теперь видно, сколько этот ключ вообще приносит показов.
+    const extKw = new Map(all(d,
+      `SELECT keyword, ext_impressions imp, ext_difficulty dif, ext_navigational nav
+         FROM metrics_keyword_geo WHERE geo=? AND snapshot_date=? AND ext_impressions IS NOT NULL`,
+      g.geo, date).map((r) => [r.keyword, r]));
+
     const apps = all(d,
       `SELECT v.*, m.prescore, m.score, m.ratings_count, m.monetization_type, m.iap_min_usd, m.iap_max_usd, m.contains_ads,
               m.demand, m.src_ads_pct, m.feasibility, m.monetization_proof, m.policy_ok, m.policy_auto_ok, m.fraud_ok,
@@ -333,7 +340,10 @@ export function collect(d) {
         fraud_ok: a.fraud_ok, days_since_update: r4(a.days_since_update), ipm: r4(a.installs_per_month_lifetime),
         pain_dominant: a.pain_dominant, pain_money: r4(a.pain_money), pain_ads: r4(a.pain_ads), pain_broken: r4(a.pain_broken),
         kw_top10: a.kw_top10_count, kw_top50: a.kw_top50_count,
-        kw: parse(a.keywords_json, []).slice(0, 8).map((k) => [k.kw, k.pos, r4(k.contrib)]),
+        kw: parse(a.keywords_json, []).slice(0, 8).map((k) => {
+          const e = extKw.get(k.kw);
+          return [k.kw, k.pos, r4(k.contrib), e?.imp ?? null, e?.dif ?? null, e?.nav ?? 0];
+        }),
         niche_weak: r4(baseById.get(a.niche_id)?.weak_share ?? null), niche_gap: r4(baseById.get(a.niche_id)?.index_gap_leader ?? null),
         ubt: a.ubt_signal, ubt_mentions: a.ubt_mentions, ubt_reviews: a.ubt_reviews, ubt_share: r4(a.ubt_share), ubt_related: a.ubt_related,
         rec_pct: r4(a.rec_pct), rec_score: r4(a.rec_score), rec_parts: parse(a.rec_parts),
@@ -358,6 +368,10 @@ export function collect(d) {
         geo: g.geo, niche_id: n.niche_id, concept: n.concept, head: n.head_keyword, keywords_count: n.keywords_count,
         door: n.door, door_flow: n.door_flow, door_head: n.door_head, door_tail: n.door_tail, door_velocity: r4(n.door_velocity), wall: n.wall_installs,
         free_keys: n.free_keys_count, fds: r4(n.free_demand_share), demand_per_app: r4(n.demand_per_app),
+        // Внешний спрос: показов в день по ядровым ключам, без навигационных. dem_est=1 —
+        // это оценка по США, а не замер страны; в отчёте такие числа подписаны отдельно.
+        dem: r4(n.demand_ext), dem_nav: r4(n.demand_nav), dem_cov: r4(n.demand_cov),
+        dif: r4(n.difficulty_ext), dem_est: n.demand_est ?? 0, dem_src: n.demand_src ?? null,
         aso_saturation: r4(n.aso_saturation), relevance_gap: r4(n.relevance_gap_pct),
         entry_rate: n.entry_rate_90d, last_entry_days: n.last_entry_days, history_days: n.history_days,
         time_to_door: r4(n.time_to_door_median), turnover_up_new: r4(n.turnover_up_new), turnover_w: n.turnover_window_days,
@@ -459,6 +473,9 @@ export function collect(d) {
     worldNiches.push({
       concept, geo: best.geo, niche_id: best.niche_id, geos_count: rows.length,
       target_geos: rows.filter((r) => r.quadrant === 'target').length,
+      // Спрос темы показывается по США, где он измерен, а не суммируется по странам:
+      // в остальных гео это была бы сумма оценок, выданная за измерение.
+      dem: us ? us.dem : null, dif: us ? us.dif : null, dem_cov: us ? us.dem_cov : null, dem_est: us ? us.dem_est : 0,
       cheapest_geo: cheapest ? cheapest.geo : null, cheapest_door: cheapest ? cheapest.door : null,
       young_unique: young.size, us_niche_id: us ? us.niche_id : null,
       rec_geo: (rows.filter((r) => r.rec_pct != null).sort(recOrder)[0] || {}).geo || null,
@@ -478,6 +495,7 @@ export function collect(d) {
     if (n.concept) continue;
     worldNiches.push({
       concept: null, geo: n.geo, niche_id: n.niche_id, geos_count: 1, no_concept: 1,
+      dem: n.dem, dif: n.dif, dem_cov: n.dem_cov, dem_est: n.dem_est,
       target_geos: n.quadrant === 'target' ? 1 : 0,
       cheapest_geo: n.door != null ? n.geo : null, cheapest_door: n.door ?? null,
       young_unique: (n.young_apps || []).length, us_niche_id: n.geo === ref ? n.niche_id : null,
