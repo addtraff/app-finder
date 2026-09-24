@@ -35,6 +35,7 @@
     "draw over other apps", "modify system settings", "install other apps",
     "body sensors", "read your contacts"
   ],
+  "data_feed_categories": ["WEATHER", "MAPS_AND_NAVIGATION", "TRAVEL_AND_LOCAL", "AUTO_AND_VEHICLES", "NEWS_AND_MAGAZINES", "FINANCE", "SPORTS", "SHOPPING", "FOOD_AND_DRINK", "EVENTS"],
   "regional_clone_suffixes": ["VN","ID","TH","BR","IN","PH","MY","MX","TR","EG","PK","BD","NG","RU","JP","KR","TW","CN"],
   "thin_app_regex": "\b(tracker|timer|converter|scanner|counter|identifier|meter|recorder|reminder|calculator|compass|level|ruler|stopwatch|translator|compressor|cleaner|remover)\b",
   "cheap_categories": ["TOOLS", "PHOTOGRAPHY", "PRODUCTIVITY", "PERSONALIZATION", "ART_AND_DESIGN", "LIBRARIES_AND_DEMO"],

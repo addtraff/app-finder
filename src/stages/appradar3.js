@@ -19,6 +19,7 @@ import { db, ROOT } from '../lib/db.js';
 import { config } from '../lib/config.js';
 import { log } from '../lib/util.js';
 import { packRows, UNPACK_JS } from '../lib/pack.js';
+import { parsePerms, permsLang, copyability } from '../lib/permissions.js';
 
 const one = (d, sql, ...p) => d.prepare(sql).get(...p);
 const all = (d, sql, ...p) => d.prepare(sql).all(...p);
@@ -42,11 +43,38 @@ function riskFactors(r) {
 
 export async function run({ geo, date }) {
   const d = db();
-  const cfg = { geos: config().geos, scoring: config().scoring };
+  const cfg = { geos: config().geos, scoring: config().scoring, inst: config().institutions };
   const geos = [];
   const rows = [];
   const niches = [];
   const rejected = [];
+
+  // ---------- стоимость повторения ----------
+  // Пункт 9 ТЗ. Три оси — разрешения, категория под усиленной модерацией, зависимость от
+  // внешнего потока данных — и три градации. Оценку «8–12 дней до MVP» не даём: сроки
+  // разработки из витрины Play не видны никак, это было бы выдумкой.
+  //
+  // Разрешения берутся с последней карточки, где они есть, а не только с сегодняшней:
+  // снимаются они отдельным запросом раз в несколько недель, и в карточке текущего дня их
+  // почти никогда нет. Список на языке витрины считается непроверенным — английские шаблоны
+  // по нему не срабатывают, и «опасных нет» означало бы «мы не посмотрели».
+  const lastPerms = new Map();
+  for (const r of d.prepare(
+    `SELECT app_id, permissions FROM raw_app_page WHERE permissions IS NOT NULL ORDER BY snapshot_date`
+  ).iterate()) {
+    const list = parsePerms(r.permissions);
+    if (!list) continue;
+    const lang = permsLang(list);
+    const prev = lastPerms.get(r.app_id);
+    if (!prev || lang === 'en' || prev.lang !== 'en') lastPerms.set(r.app_id, { list, lang });
+  }
+  const policyRiskCats = new Set(cfg.inst.policy_risk_categories);
+  const feedCats = new Set(cfg.inst.data_feed_categories || []);
+  const copyOf = (appId, genreId) => copyability({
+    perms: lastPerms.get(appId)?.list || null,
+    riskyLabels: cfg.inst.risky_permission_labels,
+    genreId, policyRiskCats, feedCats,
+  });
 
   // ---------- диффузия по странам ----------
   // В скольких странах приложение видно в выдаче сейчас и сколько было неделю назад.
@@ -119,7 +147,7 @@ export async function run({ geo, date }) {
               v.installs_stale_days stale, v.installs_est_ratings est,
               v.kw_top10_cmp k10, v.kw_top50_cmp k50, v.kw_top10_prev k10p, v.kw_top50_prev k50p,
               v.kw_momentum_days kwd, v.ubt_signal ubt, v.passed, v.failed,
-              a.title, a.developer, a.developer_id,
+              a.title, a.developer, a.developer_id, a.genre_id,
               m.ratings_count reviews, m.fraud_ok, m.burst_flag, m.permissions_risky perm,
               m.policy_risk_category polrisk, m.pain_dominant pain,
               n.concept, n.head_keyword head, n.door, n.door_flow, n.freedom_pct freedom,
@@ -168,7 +196,14 @@ export async function run({ geo, date }) {
         // стоимость входа
         perm: c.perm, polrisk: c.polrisk, checks_ok: c.passed, checks_bad: c.failed,
         reviews: c.reviews, pain: c.pain, flags,
+        genre: c.genre_id,
       };
+      // Стоимость повторения: градация, её причины и то, чего не проверили.
+      const cp = copyOf(c.app_id, c.genre_id);
+      row.cpy = cp.level;
+      row.cpy_why = cp.reasons;
+      row.cpy_perm = cp.risky ? cp.risky.map((p) => p.replace(/^[^:]*:\s*/, '')) : null;
+      row.cpy_unknown = cp.unknown;
       row.risk = riskFactors(row);
       row.risk_n = row.risk.length;
       geoRows.push(row);

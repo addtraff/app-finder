@@ -8,6 +8,7 @@ import { setWatchLevel } from '../lib/registry.js';
 import { norm, clamp, median, log } from '../lib/util.js';
 import { hostOf, META_DETECTOR } from './check-ads.js';
 import { ageMonthsAt } from '../lib/dates.js';
+import { parsePerms, permsLang, riskyPerms } from '../lib/permissions.js';
 
 const DAY = 86400000;
 
@@ -271,6 +272,23 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     @copy_score_provisional,@geo_multiplier)`);
 
   const riskyLabels = inst.risky_permission_labels.map((s) => s.toLowerCase());
+  // Разрешения переносятся с последней карточки, где они есть, а не читаются только из
+  // сегодняшней. Снимаются они раз в несколько недель и отдельным запросом (enrich-permissions),
+  // поэтому в карточке текущего дня их почти никогда нет: на 24.09 permissions_risky был NULL
+  // у всех 35 690 строк, хотя списки известны у 2 023 кандидатов из 2 668. Меняются разрешения
+  // с выходом версии, то есть редко, и последний известный список — законный ответ.
+  const lastPerms = new Map();
+  for (const r of d.prepare(
+    `SELECT app_id, permissions, snapshot_date FROM raw_app_page
+      WHERE permissions IS NOT NULL ORDER BY snapshot_date`
+  ).iterate()) {
+    const list = parsePerms(r.permissions);
+    if (!list) continue;
+    const prev = lastPerms.get(r.app_id);
+    // Английский список вытесняет любой другой: по языку витрины проверить нечем.
+    const lang = permsLang(list);
+    if (!prev || lang === 'en' || prev.lang !== 'en') lastPerms.set(r.app_id, { list, lang, date: r.snapshot_date });
+  }
   const blockedApps = new Set(d.prepare(`SELECT value FROM blocklist WHERE kind='app'`).all().map((r) => r.value));
   const blockedDevs = new Set(d.prepare(`SELECT value FROM blocklist WHERE kind='developer'`).all().map((r) => r.value));
   const regulated = new Set(inst.regulated_categories);
@@ -300,8 +318,11 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     const p90upd = Q('days_since_update', 'p90');
     const hist = c.histogram ? JSON.parse(c.histogram) : null;
     const polarization = hist && hist['5'] ? hist['1'] / hist['5'] : null;
-    const perms = c.permissions ? JSON.parse(c.permissions) : null;
-    const permsRisky = perms ? (perms.some((p) => riskyLabels.some((l) => String(p).toLowerCase().includes(l))) ? 1 : 0) : null;
+    // Список на языке витрины (иврит, арабский, китайский) английские шаблоны не ловят,
+    // поэтому riskyPerms возвращает по нему null — «не проверено», а не «чисто».
+    const perms = parsePerms(c.permissions) || lastPerms.get(c.app_id)?.list || null;
+    const risky = riskyPerms(perms, riskyLabels);
+    const permsRisky = risky == null ? null : (risky.length ? 1 : 0);
     const policyRiskCat = policyRiskCats.has(c.genre_id) ? 1 : 0;
 
     const ks = kwStats.get(c.app_id) || { top10: 0, top50: 0, best_pos: null, sug_depth: null };

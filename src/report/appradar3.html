@@ -158,7 +158,7 @@ __UNPACK_JS__
   var PAGE = 50;
   var state = { view: 'cand', geo: WW, page: 1, q: '', risk: 'all', paid: 'all', mom: 'all', sort: 'risk',
     inst: 0, instMax: 0, age: 'all', flow: 0, freedom: 0, quad: 'all', concept: 'all', meas: 'all', ubt: 'all',
-    spread: 'all', nDoor: 0, nFlow: 0, nFreedom: 0, nPurity: 0, nKeys: 0, nQuad: 'all', nStab: 0, nDevs: 0, nYoung: 0, nRating: 0, nSort: 'freedom' };
+    spread: 'all', cpy: 'all', nDoor: 0, nFlow: 0, nFreedom: 0, nPurity: 0, nKeys: 0, nQuad: 'all', nStab: 0, nDevs: 0, nYoung: 0, nRating: 0, nSort: 'freedom' };
 
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
@@ -178,6 +178,17 @@ __UNPACK_JS__
 
   var QUAD = { target: ['Цель', 'b-green'], bought: ['Трафик выкуплен', 'b-orange'], mature: ['Зрелая ниша', 'b-accent'], pass: ['Мимо', 'b-muted'], undetermined: ['Не определено', 'b-muted'] };
   function quadBadge(q) { var x = QUAD[q] || QUAD.undetermined; return '<span class="badge ' + x[1] + '">' + x[0] + '</span>'; }
+  // Стоимость повторения: три оси ТЗ и три градации. Балла нет намеренно — балл потребовал
+  // бы весов, которых взять неоткуда; перечисление осей проверяемо, балл нет.
+  var CPY = {
+    easy: ['Дёшево повторить', 'b-green', 'Опасных разрешений нет, категория обычная, внешний поток данных не нужен.'],
+    medium: ['Средняя цена', 'b-orange', 'Сработала одна ось из трёх: разрешения, модерация категории или покупной поток данных.'],
+    hard: ['Дорого повторить', 'b-red', 'Сработали минимум две оси из трёх.']
+  };
+  function cpyBadge(r) {
+    var c = CPY[r.cpy] || CPY.easy;
+    return '<div style="margin-top:8px"><span class="badge ' + c[1] + '" title="' + esc(c[2]) + '">' + esc(c[0]) + ((r.cpy_unknown || []).length ? ' · не ниже' : '') + '</span></div>';
+  }
   function riskBadge(n) {
     var cls = n <= 1 ? 'b-green' : n <= 3 ? 'b-orange' : 'b-red';
     var txt = n <= 1 ? 'низкий' : n <= 3 ? 'средний' : 'высокий';
@@ -228,6 +239,8 @@ __UNPACK_JS__
       if (state.meas === '1' && r.interp == null) return false;
       if (state.ubt === '1' && !r.ubt) return false;
       if (state.spread === 'grow' && !((r.geos_n || 0) > (r.geos_prev || 0))) return false;
+      if (state.cpy === 'checked' && (r.cpy_unknown || []).length) return false;
+      if (state.cpy !== 'all' && state.cpy !== 'checked' && r.cpy !== state.cpy) return false;
       if (state.spread !== 'all' && state.spread !== 'grow' && !((r.geos_n || 0) >= Number(state.spread))) return false;
       return matches(r);
     });
@@ -306,6 +319,7 @@ __UNPACK_JS__
           sel('meas', 'Рост', state.meas, [['all', 'любой'], ['1', 'только измеренный']]) +
           sel('ubt', 'УБТ', state.ubt, [['all', 'любой'], ['1', 'есть признаки']]) +
           sel('spread', 'Страны', state.spread, [['all', 'любые'], ['grow', 'расширяется'], ['3', 'от 3 стран'], ['8', 'от 8 стран'], ['15', 'от 15 стран']]) +
+          sel('cpy', 'Повторить', state.cpy, [['all', 'любая цена'], ['easy', 'дёшево'], ['medium', 'средне'], ['hard', 'дорого'], ['checked', 'разрешения сняты']]) +
           '<div style="margin-left:auto">' + sel('sort', 'Сортировка', state.sort, [['risk', 'Меньше риска'], ['mom', 'Импульс ключей'], ['spread', 'Расширение по странам'], ['growth', 'Рост'], ['evid', 'Меньше признаков закупки'], ['door', 'Дешевле вход']]) + '</div>' +
         '</div>' +
         (slice.length ? '<div class="tbl"><table><thead><tr>' +
@@ -504,6 +518,10 @@ __UNPACK_JS__
         '<p class="sub">Три причины отсева — низкий рейтинг, много похожих приложений и слишком крупный размер — выбрасывают ровно то, что означает «спрос доказан, соперник слабый». Они вынесены в отдельный раздел как сигналы: копировать их напрямую не нужно, но читать стоит. Сама воронка не изменена, чтобы цифры AppRadar 2 остались сопоставимыми.</p>' +
         '<h3>Повторяемость</h3>' +
         '<p class="sub">Сколько независимых разработчиков уже сделали похожее приложение. Несколько разных команд в одной теме — доказательство, что концепция повторяема. Фабрика клонов — это когда много приложений у одного разработчика; здесь считаются разные.</p>' +
+        '<h3>Стоимость повторения</h3>' +
+        '<p class="sub">Три оси, три градации, никакого балла. <b>Разрешения:</b> SMS, журнал звонков, фоновая геолокация, установка других приложений и спецдоступ требуют отдельной формы в Play Console и чаще всего заканчиваются отказом. <b>Категория:</b> финансы, медицина, новости, знакомства и родительский контроль проходят усиленную модерацию. <b>Внешний поток данных:</b> погода, карты, транспорт, новости и цены живут на чужом потоке, и повторить такое — не только написать приложение, но и достать (обычно купить) сам поток.</p>' +
+        '<p class="sub">Что здесь <b>не</b> меряется. Не «сколько дней до MVP»: сроки разработки из витрины Play не видны никак, такая цифра была бы выдумкой. Не разбор кода: заглянуть внутрь и увидеть вызовы чужого API можно было бы только по APK — файлу установки приложения, — а его мы не скачиваем. Ось внешнего потока — правило уровня категории, и только.</p>' +
+        '<p class="sub">Разрешения берутся с последней карточки, где они сняты, а не только с сегодняшней: снимаются они отдельным запросом раз в несколько недель. Если списка нет или он снят на языке витрины (иврит, арабский, китайский — английские шаблоны по нему не срабатывают), приложение помечается «не ниже»: ось не проверена, и настоящий уровень может быть только хуже показанного. Считать непроверенное чистым — худшая из возможных ошибок, потому что она выглядит как хорошая новость.</p>' +
       '</div></section>';
   }
 
@@ -560,8 +578,13 @@ __UNPACK_JS__
           pair('Жалобы на поломки', pct(r.inc_pain_broken), 'у них же') +
           pair('Просят функции', pct(r.inc_pain_missing), 'у них же') +
         '</div></div>' +
-        '<div class="card block"><h3>Стоимость и риск входа</h3><div class="sub">Грубо: чем опаснее разрешения и категория, тем дороже модерация</div><div class="pairs">' +
-          pair('Опасные разрешения', r.perm == null ? '—' : int(r.perm), '') +
+        '<div class="card block"><h3>Стоимость повторения</h3><div class="sub">Три оси: разрешения, модерация категории, внешний поток данных</div>' +
+          cpyBadge(r) +
+          ((r.cpy_why || []).length ? '<ul class="risk-list">' + r.cpy_why.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') +
+          ((r.cpy_perm || []).length ? '<div class="sub" style="margin-top:6px">Просит: ' + esc(r.cpy_perm.slice(0, 5).join('; ')) + '</div>' : '') +
+          ((r.cpy_unknown || []).length ? '<div class="sub" style="margin-top:6px;color:var(--orange)">Не проверено: ' + esc(r.cpy_unknown.join(', ')) + ' — уровень может быть только хуже.</div>' : '') +
+          '<div class="pairs" style="margin-top:10px">' +
+          pair('Категория', esc(r.genre || '—'), '') +
           pair('Риск категории', r.polrisk ? 'повышенный' : 'обычный', '') +
           pair('Проверок пройдено', int(r.checks_ok), 'из семи') +
           pair('Провалено', int(r.checks_bad), '') +
