@@ -58,6 +58,10 @@ async function reports() {
   await run('post', ['src/cli.js', 'stage', 'analyze-ubt', '--geo', 'GB']);
   await run('post', ['src/cli.js', 'stage', 'radar-v2', '--geo', ALL.join(',')]);
   await run('post', ['tools/restore-en-titles.js']);
+  // Журнал предсказаний пишется каждый день и сразу после radar-v2: он фиксирует порядок,
+  // который отчёты покажут сегодня. Пропущенный день — дырка в будущем backtest, восполнить
+  // её потом нельзя, потому что признаки пересчитаются уже другой формулой.
+  await run('post', ['src/cli.js', 'stage', 'predict-log', '--geo', 'US']);
   // Живых отчётов два: AppRadar 2 и AppRadar 3 (создан 23.09). Три старых заморожены.
   await run('post', ['src/cli.js', 'stage', 'appradar2', '--geo', 'US']);
   await run('post', ['src/cli.js', 'stage', 'appradar2', '--geo', 'US'], { RADAR_REPORT_FULL: '1' });

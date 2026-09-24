@@ -28,7 +28,7 @@ const ROWS_PER_GEO = Number(process.env.RADAR3_ROWS || 150);
 
 // Риск принять чужой рост за свой шанс. Каждый фактор — отдельная причина не верить строке;
 // они не складываются в вероятность, а перечисляются, чтобы было видно, чего именно не хватает.
-function riskFactors(r) {
+export function riskFactors(r) {
   const f = [];
   if (!(r.w >= 14)) f.push('окно наблюдения короче двух недель');
   if (r.stale != null && r.stale >= 7) f.push('счётчик установок не обновлялся ' + r.stale + ' дн.');

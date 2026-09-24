@@ -368,6 +368,29 @@ CREATE TABLE IF NOT EXISTS column_class (
   PRIMARY KEY (table_name, column_name)
 );
 
+-- Журнал предсказаний (этап 0 ТЗ AppRadar 3). Без него проверить модель нечем: чтобы
+-- сказать «наш порядок лучше случайного», нужно иметь записанным, ЧТО именно мы выдали
+-- в прошлом и на каких признаках, а не пересчитывать задним числом сегодняшней формулой.
+-- Именно поэтому признаки хранятся копией на момент T0, а не читаются потом из метрик:
+-- определения метрик меняются, и пересчёт показал бы не то, что модель видела.
+--
+-- Пишется не весь список кандидатов, а голова обеих моделей (то, что мы действительно
+-- рекомендуем) плюс случайная выборка из остальных того же размера. Голова нужна для
+-- Precision@K, выборка — как база сравнения: без неё «80 % из топа выросли» ничего не
+-- значит, потому что неизвестно, сколько выросло бы при случайном выборе.
+CREATE TABLE IF NOT EXISTS predictions (
+  pred_date TEXT, geo TEXT, kind TEXT, object_id TEXT,
+  model_set TEXT,                    -- версия набора моделей; порядок меняется — версия растёт
+  rank_ar3 INTEGER, rank_ar2 INTEGER, score_ar2 REAL,
+  in_head INTEGER,                   -- 1 — голова модели, 0 — случайная выборка сравнения
+  features TEXT,                     -- признаки на T0, как их видела модель
+  created_at TEXT,
+  outcome_30 TEXT, outcome_30_at TEXT,
+  outcome_90 TEXT, outcome_90_at TEXT,
+  PRIMARY KEY (pred_date, geo, kind, object_id)
+);
+CREATE INDEX IF NOT EXISTS ix_pred_due ON predictions(pred_date, kind);
+
 -- Правило последнего полного дня (K0).
 CREATE TABLE IF NOT EXISTS day_status (
   geo TEXT, snapshot_date TEXT, rows_today INTEGER, rows_prev INTEGER,
