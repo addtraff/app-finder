@@ -48,9 +48,19 @@ Write-Output ("конвейер свободен " + (Get-Date -Format 'HH:mm') 
 
 foreach ($c in $list) {
   Write-Output ("-> " + $c + "  (" + (Get-Date -Format 'HH:mm') + ")")
-  $parts = $c.Split(' ')
-  if ($c.StartsWith('tools/')) { & node @parts *>> $Log }
+  $parts = @($c.Split(' '))
+  # Команда может начинаться с «env:ИМЯ=ЗНАЧЕНИЕ» — так собирается полная версия отчёта
+  # (RADAR_REPORT_FULL=1), которая пишется в out/full и не затирается полосами.
+  $setEnv = @()
+  while ($parts.Count -gt 0 -and $parts[0].StartsWith('env:')) {
+    $kv = $parts[0].Substring(4).Split('=', 2)
+    Set-Item -Path ("Env:" + $kv[0]) -Value $kv[1]
+    $setEnv += $kv[0]
+    $parts = @($parts[1..($parts.Count - 1)])
+  }
+  if ($parts[0].StartsWith('tools/')) { & node @parts *>> $Log }
   else { & node src/cli.js @parts *>> $Log }
+  foreach ($name in $setEnv) { Remove-Item -Path ("Env:" + $name) -ErrorAction SilentlyContinue }
   if ($LASTEXITCODE -ne 0) {
     Write-Output ("остановлено: код " + $LASTEXITCODE + " на «" + $c + "», подробности в " + $Log)
     exit $LASTEXITCODE
