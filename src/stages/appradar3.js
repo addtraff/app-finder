@@ -150,6 +150,9 @@ export async function run({ geo, date }) {
               a.title, a.developer, a.developer_id, a.genre_id,
               m.ratings_count reviews, m.fraud_ok, m.burst_flag, m.permissions_risky perm,
               m.policy_risk_category polrisk, m.pain_dominant pain,
+              m.pain_money, m.pain_ads, m.pain_broken, m.pain_missing, m.pain_trust,
+              m.reviews_labeled, m.monetization_type mtype, m.contains_ads has_ads,
+              m.iap_min_usd iap_lo, m.iap_max_usd iap_hi,
               n.concept, n.head_keyword head, n.door, n.door_flow, n.freedom_pct freedom,
               n.organic_purity purity, n.free_keys_count free_keys, n.time_to_organic tto,
               COALESCE(n.quadrant_smooth, n.quadrant) quad, n.quadrant_days qdays, n.quadrant_seen qseen,
@@ -197,6 +200,13 @@ export async function run({ geo, date }) {
         perm: c.perm, polrisk: c.polrisk, checks_ok: c.passed, checks_bad: c.failed,
         reviews: c.reviews, pain: c.pain, flags,
         genre: c.genre_id,
+        // Чем недовольны пользователи самого кандидата (у соперника это inc_pain_*).
+        // Доли считаются от размеченных отзывов, поэтому рядом идёт их число: 12 % от
+        // восьми отзывов и 12 % от восьмисот — разные утверждения.
+        p_money: r4(c.pain_money), p_ads: r4(c.pain_ads), p_broken: r4(c.pain_broken),
+        p_missing: r4(c.pain_missing), p_trust: r4(c.pain_trust), labeled: c.reviews_labeled,
+        // Монетизация: чем приложение зарабатывает и по каким ценам.
+        mtype: c.mtype, has_ads: c.has_ads, iap_lo: r4(c.iap_lo), iap_hi: r4(c.iap_hi),
       };
       // Стоимость повторения: градация, её причины и то, чего не проверили.
       const cp = copyOf(c.app_id, c.genre_id);
