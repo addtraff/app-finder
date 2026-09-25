@@ -1,7 +1,8 @@
 // Расписание сборов на несколько суток (решение заказчика 18.09: «все сборы, которых не хватает»).
 //   K7 по топ-10 ключей ядра — пачками по 10 доменов на гео в 07:30, 15:30 и 23:30:
 //     ~900 доменов в сутки, больше Google начинает блокировать по IP;
-//   дневной проход по 30 гео — в 03:05 (начало суток по UTC), в 3 параллельных потока;
+//   дневной проход по 30 гео — в 15:00 (решение заказчика 25.09), в 3 параллельных потока;
+//     время меняется ключом --daily-at=ЧЧ:ММ, пересобирать код для этого не нужно;
 //   после дневного прохода — Google по имени для новых кандидатов, разметка УБТ, слой v2,
 //     английские названия, отчёты для артефактов и полные — в out/full.
 //
@@ -11,7 +12,7 @@
 // прошедшие ДО запуска расписания: если этап затянулся и перекрыл следующий момент (проход
 // 20.09 закончился в 03:23 и съел момент 03:05), просроченный запускается сразу, а не через
 // сутки. Запустить этап немедленно — ключ --now=daily,k7.
-//   node tools/scheduler.js [--days=3] [--now=daily,k7]
+//   node tools/scheduler.js [--days=3] [--now=daily,k7] [--daily-at=15:00]
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -26,6 +27,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const arg = (name, def) => (process.argv.find((a) => a.startsWith(`--${name}=`)) || `--${name}=${def}`).slice(name.length + 3);
 const DAYS = Number(arg('days', 3));
 const NOW = new Set(arg('now', '').split(',').filter(Boolean));
+// Час дневного прохода. Проход идёт около пятнадцати часов, поэтому старт в 15:00 означает
+// окончание под утро — это и есть замысел: отчёты готовы к началу рабочего дня.
+const [DH, DM] = arg('daily-at', '15:00').split(':').map(Number);
 
 const START = Date.now();
 const BASE = new Date(); BASE.setHours(0, 0, 0, 0);
@@ -80,7 +84,7 @@ async function daily(t) {
 
 const times = { daily: [], k7: [] };
 for (let day = 0; day < DAYS; day++) {
-  times.daily.push(at(day, 3, 5));
+  times.daily.push(at(day, DH, DM || 0));
   for (const [hh, mm] of [[7, 30], [15, 30], [23, 30]]) times.k7.push(at(day, hh, mm));
 }
 log(`=== расписание на ${DAYS} сут., сразу: ${[...NOW].join(',') || 'ничего'}`);
