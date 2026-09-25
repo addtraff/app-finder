@@ -340,8 +340,8 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
       wall_installs, wall_ratings, demand_installs, weak_share, new_share_18m, leader_share,
       exact_in_title, jaccard_top5_median, relevance_gap_pct, generic_demand_share, suggest_score_sum,
       top10_turnover_30d, index_gap_leader, top_apps, concept,
-      top10_turnover_7d, top10_turnover_14d, partial_window, door_flow)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+      top10_turnover_7d, top10_turnover_14d, partial_window, door_flow, door5, door_flow5)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
   const upAppNiche = d.prepare(`UPDATE apps SET niche_id=? WHERE app_id=?`);
 
   const coreVersion = `${date}:${md5(keywords.sort().join('|')).slice(0, 8)}`;
@@ -386,16 +386,31 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
     usedIds.add(nicheId);
 
     // --- door: медиана по ключам ядра от минимальных установок в топ-10 ---
-    const perKwMin = [], perKwFlow = [];
+    //
+    // Рядом считается дверь в топ-5 — по первой половине той же выдачи. Разница между ними
+    // и есть цена верхних мест: по кривой CTR места 1–5 забирают вчетверо больше, чем 6–10,
+    // поэтому «войти в десятку» и «войти в пятёрку» — два разных решения с разным бюджетом.
+    // Порог знания тот же по сути: не меньше трёх приложений с известными установками, но
+    // из пяти строк, а не из десяти, — то есть требование строже, и по редким ключам дверь
+    // в топ-5 останется пустой там, где обычная посчиталась.
+    const perKwMin = [], perKwFlow = [], perKwMin5 = [], perKwFlow5 = [];
     for (const kw of core) {
-      const vals = top10raw.get(kw).map(installsForDoor).filter((v) => v != null);
+      const raw = top10raw.get(kw);
+      const raw5 = raw.slice(0, 5);
+      const vals = raw.map(installsForDoor).filter((v) => v != null);
       if (vals.length >= 3) perKwMin.push(Math.min(...vals));
+      const vals5 = raw5.map(installsForDoor).filter((v) => v != null);
+      if (vals5.length >= 3) perKwMin5.push(Math.min(...vals5));
       // Тот же расчёт, но в потоке: сколько установок в день у самого слабого из топ-10.
-      const flows = top10raw.get(kw).map(flowOf).filter((v) => v != null);
+      const flows = raw.map(flowOf).filter((v) => v != null);
       if (flows.length >= 3) perKwFlow.push(Math.min(...flows));
+      const flows5 = raw5.map(flowOf).filter((v) => v != null);
+      if (flows5.length >= 3) perKwFlow5.push(Math.min(...flows5));
     }
     const doorFlow = perKwFlow.length ? Math.round(median(perKwFlow)) : null;
     const door = perKwMin.length ? Math.round(median(perKwMin)) : null;
+    const doorFlow5 = perKwFlow5.length ? Math.round(median(perKwFlow5)) : null;
+    const door5 = perKwMin5.length ? Math.round(median(perKwMin5)) : null;
 
     const headTop10 = top10.get(head) || [];
     const headApps = headTop10.map((id) => cardOf(id)).filter(Boolean);
@@ -489,7 +504,7 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
       insMetric.run(nicheId, geo, date, head, head, core.length, allApps.size, door, bestDoor,
         wall, wallRatings, demandInstalls, weakShare, newShare, leaderShare, exactInTitle, jac5,
         relevanceGap, genericShare, sugSum, turnover, indexGapLeader, topAppsJson, concept,
-        turnover7, turnover14, partialWindow, doorFlow);
+        turnover7, turnover14, partialWindow, doorFlow, door5, doorFlow5);
       // Приложение относится к нише, где у него лучшая позиция.
       for (const id of allApps) {
         const cur = d.prepare(`SELECT niche_id FROM apps WHERE app_id=?`).get(id);

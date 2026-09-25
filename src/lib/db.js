@@ -455,6 +455,13 @@ const MIGRATIONS = [
   ['metrics_niche_v2', 'demand_trend', 'REAL'],
   ['metrics_niche_v2', 'demand_trend_keys', 'INTEGER'],
   ['metrics_niche_v2', 'demand_trend_days', 'INTEGER'],
+  // Дверь в топ-5: тот же расчёт, но по первой половине выдачи. Места 1–5 по кривой CTR
+  // забирают вчетверо больше трафика, чем 6–10, поэтому вход в пятёрку — отдельное решение
+  // с отдельной ценой.
+  ['metrics_niche_geo', 'door5', 'INTEGER'],
+  ['metrics_niche_geo', 'door_flow5', 'INTEGER'],
+  ['metrics_niche_v2', 'door5', 'INTEGER'],
+  ['metrics_niche_v2', 'door_flow5', 'INTEGER'],
   ['seed_keywords', 'concept', 'TEXT'],
   ['disc_keywords', 'concept', 'TEXT'],
   ['niches', 'concept', 'TEXT'],

@@ -158,7 +158,7 @@ __UNPACK_JS__
   var PAGE = 50;
   var state = { view: 'cand', geo: WW, page: 1, q: '', risk: 'all', paid: 'all', mom: 'all', sort: 'risk',
     inst: 0, instMax: 0, age: 'all', flow: 0, freedom: 0, quad: 'all', concept: 'all', meas: 'all', ubt: 'all',
-    spread: 'all', cpy: 'all', dem: 0, nDem: 0, nDoor: 0, nFlow: 0, nFreedom: 0, nPurity: 0, nKeys: 0, nQuad: 'all', nStab: 0, nDevs: 0, nYoung: 0, nRating: 0, nSort: 'freedom' };
+    spread: 'all', cpy: 'all', dem: 0, door5: 0, nDem: 0, nDoor5: 0, nDoor: 0, nFlow: 0, nFreedom: 0, nPurity: 0, nKeys: 0, nQuad: 'all', nStab: 0, nDevs: 0, nYoung: 0, nRating: 0, nSort: 'freedom' };
 
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); };
@@ -192,6 +192,14 @@ __UNPACK_JS__
   // Спрос — показов в день по ядровым ключам ниши, навигационные исключены. Источник —
   // ASO-сервис, то есть их модель, а не выгрузка Google: для решения годится, за факт
   // выдавать нельзя. Оценка по США помечена «~» и подписью.
+  // Дверь в топ-5: та же величина, но по местам 1–5. По США вход в пятёрку дороже входа в
+  // десятку в среднем в двенадцать раз, а у каждой восьмой ниши разницы почти нет — именно
+  // такие и интересны: попасть внутрь и сразу оказаться высоко.
+  function door5Line(n) {
+    if (!isNum(n.door5)) return '<div class="muted small">топ-5 не посчитан</div>';
+    var mult = isNum(n.door) && n.door > 0 ? n.door5 / n.door : null;
+    return '<div class="muted small">топ-5: ' + short(n.door5) + (mult ? ' (×' + fix(mult, 1) + ')' : '') + '</div>';
+  }
   function demandHtml(n) {
     if (!isNum(n.dem)) return dash('внешних объёмов по этой нише нет');
     if (n.dem === 0) return '<div class="num muted">ниже порога</div><div class="muted small">измерено ' + (isNum(n.dem_cov) ? pct(n.dem_cov) : '—') + '</div>';
@@ -256,6 +264,7 @@ __UNPACK_JS__
       if (state.ubt === '1' && !r.ubt) return false;
       if (state.spread === 'grow' && !((r.geos_n || 0) > (r.geos_prev || 0))) return false;
       if (state.dem && !(isNum(r.dem) && r.dem >= state.dem)) return false;
+      if (state.door5 && !(isNum(r.door5) && r.door5 <= state.door5)) return false;
       if (state.cpy === 'checked' && (r.cpy_unknown || []).length) return false;
       if (state.cpy !== 'all' && state.cpy !== 'checked' && r.cpy !== state.cpy) return false;
       if (state.spread !== 'all' && state.spread !== 'grow' && !((r.geos_n || 0) >= Number(state.spread))) return false;
@@ -291,7 +300,9 @@ __UNPACK_JS__
           '<div style="margin-top:3px">' + quadBadge(r.quad) + '</div></td>' +
         '<td class="num">' + esc(r.geo) + '</td>' +
         '<td class="r"><div class="num strong">' + short(r.door) + '</div>' +
-          (isNum(r.door_flow) ? '<div class="muted small">поток ' + short(r.door_flow) + '/дн.</div>' : '') + '</td>' +
+          (isNum(r.door_flow) ? '<div class="muted small">поток ' + short(r.door_flow) + '/дн.</div>' : '') +
+          door5Line(r) + '</td>' +
+        '<td class="r">' + demandHtml(r) + '</td>' +
         '<td class="r">' + (m == null ? dash('нет сравнения по ключам') :
           '<div class="num strong" style="color:' + (m > 0 ? 'var(--green)' : m < 0 ? 'var(--muted)' : 'var(--muted)') + '">' + (m > 0 ? '+' : '') + m + '</div>' +
           '<div class="muted small">топ-50: ' + r.k50p + ' → ' + r.k50 + '</div>') + '</td>' +
@@ -338,11 +349,12 @@ __UNPACK_JS__
           sel('spread', 'Страны', state.spread, [['all', 'любые'], ['grow', 'расширяется'], ['3', 'от 3 стран'], ['8', 'от 8 стран'], ['15', 'от 15 стран']]) +
           sel('cpy', 'Повторить', state.cpy, [['all', 'любая цена'], ['easy', 'дёшево'], ['medium', 'средне'], ['hard', 'дорого'], ['checked', 'разрешения сняты']]) +
           sel('dem', 'Спрос от', state.dem, [[0, 'любой'], [100, '100/дн.'], [500, '500/дн.'], [2000, '2 тыс./дн.'], [10000, '10 тыс./дн.']]) +
+          sel('door5', 'Дверь в топ-5 до', state.door5, [[0, 'любая'], [10000, '10 тыс.'], [50000, '50 тыс.'], [200000, '200 тыс.'], [1000000, '1 млн']]) +
           '<div style="margin-left:auto">' + sel('sort', 'Сортировка', state.sort, [['risk', 'Меньше риска'], ['mom', 'Импульс ключей'], ['spread', 'Расширение по странам'], ['growth', 'Рост'], ['evid', 'Меньше признаков закупки'], ['door', 'Дешевле вход']]) + '</div>' +
         '</div>' +
         (slice.length ? '<div class="tbl"><table><thead><tr>' +
-          ['#', 'Приложение', 'Тема', 'Гео', 'Дверь', 'Импульс ключей', 'Страны', 'Рост в месяц', 'Признаки закупки', 'Риск']
-            .map(function (h, i) { return '<th' + (i >= 4 && i <= 8 ? ' class="r"' : '') + '>' + h + '</th>'; }).join('') +
+          ['#', 'Приложение', 'Тема', 'Гео', 'Дверь', 'Спрос', 'Импульс ключей', 'Страны', 'Рост в месяц', 'Признаки закупки', 'Риск']
+            .map(function (h, i) { return '<th' + (i >= 4 && i <= 9 ? ' class="r"' : '') + '>' + h + '</th>'; }).join('') +
           '</tr></thead><tbody>' + body + '</tbody></table></div>' + pager(rows.length, pages)
           : '<div class="empty">Ничего не нашлось — ослабьте фильтры</div>') +
       '</div>' +
@@ -392,6 +404,7 @@ __UNPACK_JS__
       if (state.nPurity && !(isNum(n.purity) && n.purity >= state.nPurity / 100)) return false;
       if (state.nKeys && !((n.free_keys || 0) >= state.nKeys)) return false;
       if (state.nDem && !(isNum(n.dem) && n.dem >= state.nDem)) return false;
+      if (state.nDoor5 && !(isNum(n.door5) && n.door5 <= state.nDoor5)) return false;
       if (state.nQuad !== 'all' && (n.quad || 'undetermined') !== state.nQuad) return false;
       if (state.nStab && !((n.qdays || 0) >= state.nStab)) return false;
       if (state.nDevs && !((n.devs || 0) >= state.nDevs)) return false;
@@ -412,6 +425,7 @@ __UNPACK_JS__
         '<td class="num">' + esc(n.geo) + '</td>' +
         '<td class="r"><div class="num strong">' + short(n.door) + '</div>' +
           (isNum(n.door_flow) ? '<div class="muted small">поток ' + short(n.door_flow) + '/дн.</div>' : '') + '</td>' +
+        '<td class="r">' + (isNum(n.door5) ? '<div class="num strong">' + short(n.door5) + '</div>' + (isNum(n.door) && n.door > 0 ? '<div class="muted small">×' + fix(n.door5 / n.door, 1) + ' к десятке</div>' : '') : dash('в топ-5 меньше трёх приложений с известными установками')) + '</td>' +
         '<td class="r">' + demandHtml(n) + (isNum(n.dif) ? '<div class="muted small">сложность ' + fix(n.dif, 0) + '</div>' : '') + '</td>' +
         '<td class="r"><div class="num strong">' + fix(n.freedom, 0) + '</div>' +
           (isNum(n.fmargin) ? '<div class="small" style="color:' + (edge ? 'var(--orange)' : 'var(--muted)') + '">до границы ' + (n.fmargin > 0 ? '+' : '') + fix(n.fmargin, 0) + (edge ? ' — на краю' : '') + '</div>' : '') + '</td>' +
@@ -438,6 +452,7 @@ __UNPACK_JS__
           sel('nPurity', 'Чистота от', state.nPurity, [[0, 'любая'], [50, '50 %'], [70, '70 %'], [85, '85 %']]) +
           sel('nKeys', 'Свободных ключей от', state.nKeys, [[0, 'любое'], [1, '1'], [3, '3'], [5, '5']]) +
           sel('nDem', 'Спрос от', state.nDem, [[0, 'любой'], [100, '100/дн.'], [500, '500/дн.'], [2000, '2 тыс./дн.'], [10000, '10 тыс./дн.']]) +
+          sel('nDoor5', 'Дверь в топ-5 до', state.nDoor5, [[0, 'любая'], [10000, '10 тыс.'], [50000, '50 тыс.'], [200000, '200 тыс.'], [1000000, '1 млн']]) +
         '</div><div class="toolbar">' +
           sel('nQuad', 'Квадрант', state.nQuad, [['all', 'любой'], ['target', 'Цель'], ['mature', 'Зрелая ниша'], ['bought', 'Трафик выкуплен'], ['pass', 'Мимо']]) +
           sel('nStab', 'Метка держится', state.nStab, [[0, 'любая'], [5, '5 дней из 7'], [6, '6 из 7'], [7, 'все 7']]) +
@@ -447,7 +462,7 @@ __UNPACK_JS__
           '<div style="margin-left:auto">' + sel('nSort', 'Сортировка', state.nSort, [['freedom', 'Свобода'], ['flow', 'Дешевле поток'], ['door', 'Дешевле запас'], ['purity', 'Чистота'], ['keys', 'Свободные ключи'], ['devs', 'Разработчиков'], ['young', 'Молодых органиков'], ['weak', 'Слабее соперник'], ['stab', 'Устойчивее метка']]) + '</div>' +
         '</div>' +
         (slice.length ? '<div class="tbl"><table><thead><tr>' +
-          ['#', 'Тема', 'Гео', 'Дверь', 'Спрос', 'Свобода', 'Чистота', 'Разработчиков', 'Рейтинг крупных']
+          ['#', 'Тема', 'Гео', 'Дверь', 'Дверь в топ-5', 'Спрос', 'Свобода', 'Чистота', 'Разработчиков', 'Рейтинг крупных']
             .map(function (h, i) { return '<th' + (i >= 3 ? ' class="r"' : '') + '>' + h + '</th>'; }).join('') +
           '</tr></thead><tbody>' + body + '</tbody></table></div>' + pager(rows.length, pages) : '<div class="empty">Ничего не нашлось</div>') +
       '</div></section>';
@@ -485,7 +500,9 @@ __UNPACK_JS__
         '<td class="r">' + (isNum(r.pain_broken) ? '<div class="num">' + pct(r.pain_broken) + '</div><div class="muted small">просят функции ' + pct(r.pain_missing) + '</div>' : dash('нет разметки отзывов')) + '</td>' +
         '<td class="r">' + (m == null ? dash() : '<span class="num' + (m > 0 ? ' strong' : ' muted') + '">' + (m > 0 ? '+' : '') + m + '</span>') + '</td>' +
         '<td class="r"><div class="num strong">' + short(r.door) + '</div>' +
-          (isNum(r.door_flow) ? '<div class="muted small">поток ' + short(r.door_flow) + '/дн.</div>' : '') + '</td>' +
+          (isNum(r.door_flow) ? '<div class="muted small">поток ' + short(r.door_flow) + '/дн.</div>' : '') +
+          door5Line(r) + '</td>' +
+        '<td class="r">' + demandHtml(r) + '</td>' +
       '</tr>';
     }).join('');
     var counts = {};
@@ -503,7 +520,7 @@ __UNPACK_JS__
         sel('risk', 'Причина', state.risk, [['all', 'все'], ['dead', 'соперник забросил'], ['broken', 'недовольный спрос'], ['regional_clone', 'тема повторяема'], ['too_big', 'якорь спроса']]) +
       '</div>' +
         (slice.length ? '<div class="tbl"><table><thead><tr>' +
-          ['#', 'Приложение', 'Сигнал', 'Тема', 'Гео', 'Установки', 'Жалобы на поломки', 'Импульс ключей', 'Дверь']
+          ['#', 'Приложение', 'Сигнал', 'Тема', 'Гео', 'Установки', 'Жалобы на поломки', 'Импульс ключей', 'Дверь', 'Спрос']
             .map(function (h, i) { return '<th' + (i >= 5 ? ' class="r"' : '') + '>' + h + '</th>'; }).join('') +
           '</tr></thead><tbody>' + body + '</tbody></table></div>' + pager(rows.length, pages)
           : '<div class="empty">Ничего не нашлось</div>') +
@@ -522,6 +539,9 @@ __UNPACK_JS__
         '<p class="sub"><b>Дверь — это порог входа в топ-10 по запросу: сколько установок у самого слабого приложения десятки.</b> Чтобы встать в топ-10, не нужно обходить лидера — нужно обойти того, кто стоит десятым. Ниша с лидером на 500 млн установок и дверью на 10 тысяч доступнее, чем ровная ниша, где у всех по 2 млн.</p>' +
         '<p class="sub">Считается так: по каждому ключу ядра ниши берётся минимум установок среди топ-10 выдачи (если данные есть хотя бы по трём приложениям из десяти), затем по ключам берётся медиана. Строки, где оценок больше, чем установок, выбрасываются — это артефакт Play, и один такой обнулял бы дверь.</p>' +
         '<p class="sub">У двери две формы. <b>Запас</b> — сколько установок десятый накопил за всё время жизни. <b>Поток</b> — сколько он получает в день сейчас, оценено по приросту оценок. Пятилетнее приложение с 500 тыс. установок и трёхмесячное со 100 тыс. по запасу похожи, а по потоку могут отличаться в тридцать раз: в Великобритании у ниш «метроном» и «трансляция экрана» запас 49 и 47 тысяч, а поток 0 и 3 346 установок в день.</p>' +
+        '<h3>Дверь в топ-5</h3>' +
+        '<p class="sub">Та же дверь, но по местам 1–5: по каждому ключу ядра берётся минимум установок среди первой пятёрки, затем медиана по ключам. Нужно не меньше трёх приложений с известными установками — из пяти строк, а не из десяти, поэтому по редким ключам она пустует там, где обычная посчиталась.</p>' +
+        '<p class="sub">Зачем отдельно. Топ-10 даёт долю трафика, топ-5 — основную его часть: по кривой CTR места 1–5 забирают вчетверо больше. По США вход в пятёрку дороже входа в десятку в среднем в 12 раз (медиана), у четверти ниш — в 47 раз и больше. Но у каждой восьмой разницы почти нет: попал в десятку — считай, уже высоко. Такие ниши и стоит искать, и теперь их видно фильтром.</p>' +
         '<h3>Спрос</h3>' +
         '<p class="sub">Сколько раз в день ищут то, из чего собрана ниша: сумма показов по ядровым ключам. Навигационные запросы в сумму не идут — отсекается связка «запрос держит бренд и сложность от 90»: instagram, instacart, photos. У ниши «blur-photo» таких показов оказалось 101 000 против 18 630 настоящих, и без чистки она выглядела бы самой востребованной в каталоге.</p>' +
         '<p class="sub">У сервиса есть порог измерения: ниже него он пишет ноль. У ключа «duplicate photo remover» стоит ноль показов при сложности 54 — приложения за него борются, а показов сервис не видит. Поэтому ноль в отчёте подписан «ниже порога», а не выдаётся за доказанное отсутствие спроса. Источник — выгрузка ASO-сервиса, а не Play Console: это их модель, оценка, а не факт Google. Рядом со спросом стоит покрытие — по какой доле ключей ядра объём вообще известен; на первой выгрузке по США это 62 % в среднем. Там, где выгрузки по стране ещё нет, показана оценка по США со знаком «~» и подписью: пересчитывать чужую страну по американскому спросу можно только как прикидку.</p>' +
@@ -570,6 +590,8 @@ __UNPACK_JS__
         '<div class="card block"><h3>Рынок</h3><div class="sub">Цена входа и устройство ниши ' + (r.concept ? '«' + esc(r.concept) + '»' : 'вне каталога') + '</div><div class="pairs">' +
           pair('Дверь, запас', short(r.door), 'установок у слабейшего в топ-10') +
           pair('Дверь, поток', isNum(r.door_flow) ? short(r.door_flow) + '/дн.' : '—', 'оценка по приросту оценок') +
+          pair('Дверь в топ-5', isNum(r.door5) ? short(r.door5) : '—',
+            isNum(r.door5) && isNum(r.door) && r.door > 0 ? 'в ' + fix(r.door5 / r.door, 1) + ' раза дороже входа в десятку' : 'в топ-5 меньше трёх приложений с установками') +
           pair('Свобода', fix(r.freedom, 0), isNum(r.fmargin) ? 'до границы ' + (r.fmargin > 0 ? '+' : '') + fix(r.fmargin, 0) : '') +
           pair('Чистота', pct(r.purity), 'спроса достаётся органике') +
           pair('Спрос', isNum(r.dem) ? (r.dem === 0 ? 'ниже порога' : (r.dem_est ? '~' + short(r.dem) + '/дн.' : short(r.dem) + '/дн.')) : '—',
@@ -670,7 +692,8 @@ __UNPACK_JS__
     if (e.target.id === 'geo') { state.geo = e.target.value; state.page = 1; render(); return; }
     var k = e.target.getAttribute('data-key');
     if (k) {
-      var numeric = ['inst', 'instMax', 'flow', 'freedom', 'nDoor', 'nFlow', 'nFreedom', 'nPurity', 'nKeys', 'nStab', 'nDevs', 'nYoung', 'nRating'];
+      var numeric = ['inst', 'instMax', 'flow', 'freedom', 'nDoor', 'nFlow', 'nFreedom', 'nPurity', 'nKeys', 'nStab', 'nDevs', 'nYoung', 'nRating',
+        'dem', 'nDem', 'door5', 'nDoor5'];
       state[k] = numeric.indexOf(k) >= 0 ? Number(e.target.value) : e.target.value;
       state.page = 1; render();
     }

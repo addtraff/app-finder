@@ -1166,7 +1166,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     'freedom_margin', 'purity_margin', 'tail_clean', 'incomplete', 'partial_window',
     'ubt_share', 'ubt_apps', 'ubt_flag', 'rec_score', 'rec_pct', 'rec_parts',
     'demand_ext', 'demand_nav', 'demand_cov', 'difficulty_ext', 'demand_src', 'demand_est',
-    'demand_trend', 'demand_trend_keys', 'demand_trend_days'];
+    'demand_trend', 'demand_trend_keys', 'demand_trend_days', 'door5', 'door_flow5'];
   const insNiche = d.prepare(`INSERT OR REPLACE INTO metrics_niche_v2 (${nicheCols.join(',')}) VALUES (${nicheCols.map((c) => '@' + c).join(',')})`);
   const appCols = Object.keys(appOut[0] || { app_id: 1 });
   const insApp = appOut.length ? d.prepare(`INSERT OR REPLACE INTO metrics_app_v2 (geo, snapshot_date, ${appCols.join(',')})
@@ -1189,6 +1189,7 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
       insNiche.run({
         niche_id: r.n.niche_id, geo, snapshot_date: D, niche_date: nicheDate, concept: r.n.concept ?? null, head_keyword: r.head,
         keywords_count: r.core.length, door: r.n.door ?? null, door_flow: r.n.door_flow ?? null, wall_installs: r.n.wall_installs ?? null,
+        door5: r.n.door5 ?? null, door_flow5: r.n.door_flow5 ?? null,
         free_keys_count: r.freeKeysCount, free_demand_share: round(r.freeDemandShare), door_head: r.doorHead == null ? null : Math.round(r.doorHead),
         door_tail: r.doorTail == null ? null : Math.round(r.doorTail), door_velocity: round(r.doorVelocity), demand_per_app: round(r.demandPerApp),
         aso_saturation: round(r.asoSaturation), relevance_gap_pct: round(r.n.relevance_gap_pct),
