@@ -52,12 +52,12 @@ function collectEntries(d, nicheRows, iconOf) {
     const judgeable = r.observed_after >= 2;   // вошедший в последний снятый день ещё ничего не показал
     const k = r.geo + '|' + r.niche_id;
     let a = agg.get(k);
-    if (!a) agg.set(k, a = { geo: r.geo, niche_id: r.niche_id, n: 0, held: 0, flick: 0, judged: 0, below: 0, fresh: 0, fresh_held: 0, at: [], last: null, fast: [] });
+    if (!a) agg.set(k, a = { geo: r.geo, niche_id: r.niche_id, n: 0, held: 0, flick: 0, judged: 0, below: 0, cmp: 0, fresh: 0, fresh_held: 0, at: [], last: null, fast: [] });
     a.n++;
     if (judgeable) { a.judged++; if (r.still_in) a.held++; if (r.days_in_top10 === 1) a.flick++; }
     if (r.installs_at_entry != null) {
       a.at.push(r.installs_at_entry);
-      if (n.door != null && r.installs_at_entry < n.door) a.below++;
+      if (n.door != null) { a.cmp++; if (r.installs_at_entry < n.door) a.below++; }
     }
     if (r.days_to_top10 != null) a.fast.push(r.days_to_top10);
     if (r.first_seen_serp > r.observed_from) { a.fresh++; if (judgeable && r.still_in) a.fresh_held++; }
@@ -68,7 +68,7 @@ function collectEntries(d, nicheRows, iconOf) {
   const med = (xs) => { if (!xs.length) return null; const s = xs.slice().sort((x, y) => x - y); return s[s.length >> 1]; };
   const stats = [...agg.values()].map((a) => ({
     geo: a.geo, niche_id: a.niche_id, n: a.n, judged: a.judged, held: a.held, flick: a.flick,
-    below: a.below, fresh: a.fresh, fresh_held: a.fresh_held,
+    below: a.below, cmp: a.cmp, fresh: a.fresh, fresh_held: a.fresh_held,
     at_med: med(a.at), at_min: a.at.length ? Math.min(...a.at) : null,
     fast_med: med(a.fast), last: a.last,
   }));
