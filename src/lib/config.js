@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { ROOT, db } from './db.js';
+import { ROOT, db, retryBusy } from './db.js';
 import { todayUTC } from './util.js';
 
 const CFG = path.join(ROOT, 'config');
@@ -36,7 +36,9 @@ export function syncRegistry() {
       start_hour_utc=excluded.start_hour_utc, ecpm_rel_us=excluded.ecpm_rel_us,
       arpu_rel_us=excluded.arpu_rel_us`);
 
-  d.transaction(() => {
+  // Три полосы стартуют в одну секунду, и каждая пишет реестр. Повтор вместо падения:
+  // операции идемпотентны (INSERT OR REPLACE), выполнить их дважды безопасно.
+  retryBusy(() => d.transaction(() => {
     for (const g of c.geos.geos) {
       upGeo.run({
         geo: g.geo, hl: JSON.stringify(g.hl), review_langs: JSON.stringify(g.review_langs),
@@ -85,7 +87,7 @@ export function syncRegistry() {
     const upInst = d.prepare(`INSERT OR REPLACE INTO institution_domains (pattern, kind, note) VALUES (?,?,?)`);
     for (const p of c.institutions.domain_patterns) upInst.run(p, 'domain', null);
     for (const p of c.institutions.package_patterns) upInst.run(p, 'package', null);
-  })();
+  })());
 }
 
 export function activeGeos() {

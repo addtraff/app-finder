@@ -143,6 +143,13 @@ export function collect(d) {
   // Отчёт «Интерполяция — топ роста органик прил за 1 месяц»: одна строка на приложение по всем
   // гео и без отсечки строк отчёта — установки у приложения общие для Play. Прирост за окно
   // приводится к 30 дням (× 30 / окно); если есть официальная дельта (окно ≥ 14 дней) — берётся она.
+  // Иконки: последняя известная ссылка по каждому приложению. Play отдаёт их в карточке,
+  // хранятся ссылки, а не файлы. Пока обход не прошёл после 26.09, карта пустая — в отчёте
+  // тогда рисуются буквы, как раньше.
+  const iconOf = new Map(all(d,
+    `SELECT app_id, icon FROM raw_app_page WHERE icon IS NOT NULL ORDER BY snapshot_date`
+  ).map((r) => [r.app_id, r.icon]));
+
   const growthByApp = new Map();
   // Рост ниши — сумма прироста её органик-приложений. Своей истории у ниши нет: ядро
   // пересобирается каждый день, и стена установок топ-10 скачет на десятки процентов от
@@ -288,7 +295,7 @@ export function collect(d) {
               m.kw_top10_count, m.kw_top50_count,
               m.installs_per_rating, m.burst_flag, m.template_review_pct, m.review_lang_mismatch, m.polarization,
               m.rating_recent_30d, m.crash_pct,
-              a.title, a.developer, a.genre_id,
+              a.title, a.developer, a.genre_id, a.first_seen,
               n.concept, n.head_keyword AS niche_head, n.freedom_pct AS niche_freedom, n.quadrant AS niche_quadrant,
               n.door AS niche_door, n.organic_capacity AS niche_capacity, n.ubt_flag AS niche_ubt_flag,
               n.door5 AS niche_door5, n.demand_ext AS niche_dem, n.demand_cov AS niche_dem_cov, n.demand_est AS niche_dem_est
@@ -325,6 +332,7 @@ export function collect(d) {
       appRows.push({
         geo: g.geo, app_id: a.app_id, title: a.title, developer: a.developer, genre_id: a.genre_id,
         niche_id: a.niche_id, concept: a.concept, niche_head: a.niche_head, niche_freedom: r4(a.niche_freedom),
+        first_seen: a.first_seen, icon: iconOf.get(a.app_id) || null,
         niche_quadrant: a.niche_quadrant, niche_door: a.niche_door, niche_capacity: r4(a.niche_capacity),
         // Спрос и дверь в топ-5 берутся у ниши приложения: в списке приложений видно не
         // только само приложение, но и рынок, на котором оно стоит.

@@ -164,7 +164,8 @@
   .nowrap { white-space: nowrap; }
 
   .app-cell { display: flex; align-items: center; gap: 11px; cursor: pointer; background: none; border: 0; padding: 0; text-align: left; min-width: 0; }
-  .app-icon { width: 36px; height: 36px; border-radius: 9px; flex: 0 0 36px; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; }
+  .app-icon { width: 36px; height: 36px; border-radius: 9px; flex: 0 0 36px; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; position: relative; overflow: hidden; }
+  .app-icon-img { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
   .app-name { font-weight: 700; font-size: 13.5px; }
   .app-cell:hover .app-name { color: var(--accent); }
   .app-pkg { color: var(--muted); font-size: 11.5px; font-family: var(--f-num); overflow: hidden; text-overflow: ellipsis; max-width: 250px; white-space: nowrap; }
@@ -428,7 +429,7 @@
     'f.showDisq': { t: 'Показать отсеянных', what: 'Возвращает приложения с дисквалификаторами «накрутка» и «стена авторитета».', how: 'Накрутка — установки на оценку вне p01–p99 ниши или рейтинг выше 4,9 при 10K+ оценок. Стена — установки или оценки топ-10 ниши выше p90 гео.', why: 'По умолчанию скрыты: рост таких приложений не повторить.' },
     'f.rec': { t: 'Рекомендуемый топ', what: 'Первые ' + REC.top_n + ' приложений по рекомендуемому скору.', how: 'Взвешенная сумма: рост из поиска (ASO) 35 % — вес в выдаче гео, ключи в топ-10, источник «поиск»; свобода ниши 25 % — свободный спрос и индекс свободы; пройденные проверки 15 %; индекс копируемости 10 %; молодость и прирост 10 %; монетизация 5 %. Закупка, накрутка и стена исключены; непроверенная органика ×0,6, протухшая улика ×0,8.', why: 'Короткий список для ручного разбора: кто вырос на ASO в нише со свободными ключами.' },
     'f.cat': { t: 'Категория Play', what: 'Категория приложения в Google Play.', how: 'Из карточки; показаны семь самых частых в выборке.', why: 'Сузить поиск до своей специализации.' },
-    'f.level': { t: 'Органика', what: 'Насколько доказано, что приложение выросло без закупки.', how: 'Сверяются обе рекламные библиотеки, трекер атрибуции в тексте, разбор APK и возраст проверки.', why: 'Отделить органику от выросших на рекламе.', opts: LEVEL_OPTS },
+    'f.level': { t: 'Признаки закупки', what: 'Что нашли проверки платного трафика.', how: 'Сверяются обе рекламные библиотеки, трекер атрибуции в тексте, разбор APK и возраст проверки. Проверки ищут закупку, поэтому «признаков нет» значит «не нашли», а не «выросло органически»: закупка бывает через сети, которых в этих источниках нет, — TikTok, Unity, ironSource, инфлюенсеры, кросс-промо внутри портфеля.', why: 'Отделить тех, кого поймали на закупке, от остальных.', opts: LEVEL_OPTS },
     'f.channel': { t: 'Канал роста', what: 'Откуда приложение, по косвенным признакам, получает пользователей: поиск Play, соцсети и видео (УБТ) или реклама.', how: 'Органика — ступень «признаков закупки нет» или «подтверждена». УБТ: ' + UBT_HOW, why: 'Найти образцы, растущие на поиске, на соцсетях или на обоих сразу.',
       opts: [['Органика (поиск)', 'без закупки, признака УБТ нет'], ['Органика + УБТ', 'без закупки, признак УБТ есть'], ['УБТ', 'признак УБТ есть — независимо от закупки'], ['Закупка найдена', 'реклама или трекер атрибуции'], ['Не проверено', 'реклама не проверена или проверка протухла']] },
     'f.traffic': { t: 'Источник трафика', what: 'Объясняет ли поиск Play прирост установок приложения.', how: 'aso_share = курс гео × вес приложения в выдаче ÷ прирост за 30 дней. Ниже p25 гео — внешний источник. Нужен курс «спрос → установки»: окно ' + M.min_window + ' дней и ' + M.calib_min + ' органиков в топ-10.', why: 'Под ASO стоит копировать тех, кого приводит поиск.', opts: [['Поиск', 'aso_share не ниже p25 гео'], ['Внешний', 'aso_share ниже p25 гео'], ['Не проверено', 'нет курса гео или прироста за окно']] },
@@ -440,6 +441,7 @@
     'c.app': { t: 'Приложение', what: 'Название, пакет и разработчик.', why: 'Клик открывает карточку: проверки, история рекламы, источник трафика, УБТ, рекомендуемый скор и калькулятор окупаемости.' },
     'c.niche': { t: 'Ниша', what: 'Ниша, в ядре ключей которой у приложения больше всего позиций в топ-50.', how: 'Бейдж — квадрант ниши на матрице «свобода × чистота».', why: 'Образец оценивается вместе с нишей. Клик открывает карточку ниши.' },
     'c.geo': { t: 'Гео', what: 'Гео строки; «+N» — в скольких ещё гео приложение прошло воронку.', how: 'В ворлдвайд — гео с наибольшим индексом с поправкой на деньги гео (вес 0,1).', why: 'Широкое присутствие — механика работает не в одной стране.' },
+    'c.firstseen': { t: 'Увидели', what: 'Когда приложение впервые попалось обходу.', how: 'День, в который приложение впервые появилось в нашей базе — через выдачу по ключу, чарты или граф похожих. Это не дата релиза: приложение может существовать годами и попасться нам только сейчас, когда поднялось в выдаче.', why: 'Новое в базе — это либо свежий релиз, либо кто-то, кто только что вошёл в поле зрения по нашим ключам. И то и другое стоит смотреть первым: в первом случае видно, с чего начинают, во втором — кто заходит в занятые ниши.' },
     'c.installs': { t: 'Установки', what: 'Число установок из карточки Play; под ним — рейтинг.', why: 'Масштаб образца: слишком большие — инкумбенты, а не образцы.' },
     'c.demand': { t: 'Спрос ниши', what: 'Сколько раз в день ищут то, из чего собрана ниша этого приложения.', how: 'Сумма дневных показов по ядровым ключам ниши, без навигационных. Источник — выгрузка ASO-сервиса, не Play Console. По гео без своей выгрузки показана оценка по США со знаком «~».', why: 'Приложение с хорошим ростом в нише, которую никто не ищет, — это не образец для повторения. До внешних объёмов отличить одно от другого было нечем.' },
     'c.door5': { t: 'Дверь / топ-5', what: 'Порог входа в десятку и в пятёрку у ниши этого приложения.', how: 'Сверху — обычная дверь (минимум установок среди топ-10, медиана по ключам ядра), под ней — то же самое по местам 1–5.', why: 'Места 1–5 по кривой CTR забирают вчетверо больше трафика, чем 6–10. По США вход в пятёрку дороже входа в десятку в среднем в двенадцать раз, но у каждой восьмой ниши разницы почти нет — вот их и стоит искать.' },
@@ -447,7 +449,7 @@
     'c.delta': { t: 'Прирост за 30 дней', what: 'Сколько установок приложение набирает в месяц сейчас.', how: 'Разница установок между снимками, приведённая к 30 дням; окно не меньше ' + M.min_window + ' дней. Пока истории меньше, показывается предварительная оценка с пометкой «предв.».', why: 'Текущая скорость важнее накопленного счётчика.' },
     'c.dpreview': { t: 'Предварительный прирост', what: 'Оценка скорости установок по короткой истории — пока окна в ' + M.min_window + ' дней ещё нет.', how: 'Установки на последнем снимке минус на самом раннем за 30 дней, по карточкам любого гео (установки у приложения общие), приведено к 30 дням. При окне в несколько дней шум большой: Play обновляет счётчик неравномерно.', why: 'Первые выводы о росте до накопления истории. В курс гео, проверку 3b и рекомендуемый скор не входит.' },
     'c.rowdate': { t: 'Данные на дату', what: 'Строка взята с более раннего дня гео.', how: 'Если в последний день гео карточку приложения не обновляли, берётся его последняя строка не старше ' + M.carry_days + ' дней.', why: 'Приложение не пропадает из отчёта в день, когда его не сняли.' },
-    'c.level': { t: 'Органика', what: 'Ступень доказанности роста без закупки.', opts: LEVEL_OPTS },
+    'c.level': { t: 'Признаки закупки', what: 'Что нашли проверки платного трафика — и только это.', how: 'Ступень «органика подтверждена» требует разбора APK (файла установки приложения), а мы их не скачиваем, поэтому по всей базе она пуста: 0 строк из 100 655. Больше шестидесяти процентов строк сидят на «признаков нет», и это означает «не нашли», а не «доказано».', why: 'Колонка раньше называлась «Органика» и обещала доказанность, которой нет ни у одной строки.', opts: LEVEL_OPTS },
     'c.traffic': { t: 'Источник трафика', what: 'Поиск или внешний источник.', how: 'aso_share = курс гео × вес в выдаче ÷ прирост; ниже p25 гео — внешний.', why: 'Копировать под ASO — только поисковых.' },
     'c.ubt': { t: 'УБТ', what: 'Признак условно-бесплатного трафика: приложение узнают из соцсетей и видео.', how: UBT_HOW, why: 'Такой образец можно усиливать роликами в TikTok, Shorts и Reels, а не только ASO.' },
     'c.checks': { t: 'Семь проверок', what: 'Квадраты: зелёный — пройдена, красный — провалена, пустой — не проверена; пунктир — проверка 3b «трафик поисковый».', how: 'По порядку: спрос органический, инкумбент побеждаем, вырос без закупки, трафик поисковый, дёшев в повторении, монетизация доказана, переживёт модерацию.', why: 'Образец годится, когда пройдены все.' },
@@ -493,11 +495,12 @@
     'nc.quad': { t: 'Квадрант', what: 'Положение на матрице «свобода × чистота» и пометки полноты.', opts: QUAD_OPTS },
     'nc.geo': { t: 'Гео', what: 'Лучшее гео ниши, «+N» — в скольких гео она есть; ниже — в скольких гео она в «Цели» и где door ниже всего.' },
     'nc.freedom': { t: 'Свобода', what: 'Есть ли в нише куда встать: процентиль индекса свободы среди ниш гео.', how: 'Свободный спрос 25 %, пустота выдачи, незанятость ASO, спрос на конкурента, входы новичков по 15 %, оборот за счёт новых 10 %, мало клонов 5 %; пустые компоненты исключаются с весом.', why: 'Первая ось матрицы решения.' },
-    'nc.capacity': { t: 'Ёмкость', what: 'Сколько установок в месяц даст свободное место — оценка порядка.', how: 'Курс гео «спрос → установки» × Σ спроса свободных ключей × CTR 5-го места. Курс появится при окне ' + M.min_window + ' дней.', why: 'Сравнить с порогом окупаемости.' },
+    'nc.capacity': { t: 'Ёмкость', what: 'Сколько установок в месяц даст свободное место — оценка порядка, а не измерение.', how: 'Курс гео «спрос → установки» × Σ спроса свободных ключей × CTR 5-го места. Курс появится при окне ' + M.min_window + ' дней. Калибруется по нашим же наблюдениям, внешней сверки у него нет — ошибка может быть не в процентах, а в разы.', why: 'Сравнить с порогом окупаемости. Рядом стоит колонка «Спрос» — вот она измерена внешним источником, и при расхождении верить надо ей.' },
     'nc.demand': { t: 'Спрос', what: 'Сколько раз в день ищут то, из чего собрана ниша.', how: 'Сумма дневных показов по ядровым ключам. Источник — выгрузка ASO-сервиса (Asodesk), а не Play Console: это их модель, оценка, а не факт Google. У сервиса есть порог: ниже него он пишет ноль — у ключа «duplicate photo remover» ноль показов при сложности 54, то есть приложения за него борются, а показов сервис не видит. Поэтому ноль в отчёте подписан «ниже порога», а не цифрой. Навигационные ключи в сумму не идут — отсекается связка «запрос держит бренд и сложность от 90»: instagram, instacart, photos и подобные. Рядом стоит покрытие: по какой доле ключей ядра объём вообще известен.', why: 'До этого спрос был порядковым баллом из подсказок Play — по США от 0 до 5,8 при среднем 0,66, то есть почти у всех ниш почти ноль. Теперь дверь и спрос можно ставить рядом: «вход стоит 3 700 установок при 9 600 показах в день» — это уже решение, а не ощущение.' },
     'nc.demtrend': { t: 'Куда идёт спрос', what: 'Рост, падение или стояние между выгрузками.', how: 'Сравниваются только те ключи, которые есть в обеих выгрузках: список ключей растёт, и сравнение полных сумм показало бы рост спроса там, где вырос наш собственный список. Изменение меньше 5 % считается стоянием. В самой выгрузке истории спроса нет — 90 колонок с датами там это позиции чужого приложения, — поэтому направление появляется только со второй выгрузки.', why: 'Уровень спроса говорит, сколько людей ищут это сейчас. Направление говорит, будет ли их больше: ниша с падающим спросом и дешёвой дверью — это дверь в пустеющую комнату.' },
     'n.demand': { t: 'Спрос от', what: 'Отсечка по числу показов в день.', how: 'Считаются показы по ядровым ключам ниши без навигационных. Ниши, по которым внешних объёмов нет вовсе, фильтр отбрасывает.', why: 'Свободная ниша без спроса — не возможность, а пустота; до внешних данных отличить одно от другого было нечем.' },
     'nc.door5': { t: 'door в топ-5', what: 'Сколько установок нужно, чтобы встать пятым, а не десятым.', how: 'Считается ровно как обычная дверь, но по местам 1–5: по каждому ключу ядра берётся минимум установок среди первой пятёрки, затем медиана по ключам. Нужно не меньше трёх приложений с известными установками — из пяти строк, а не из десяти, поэтому по редким ключам эта дверь пустует там, где обычная посчиталась.', why: 'Топ-10 даёт долю трафика, топ-5 — основную его часть: по кривой CTR места 1–5 забирают вчетверо больше, чем 6–10. Разница между двумя дверями и есть цена этой разницы, и она бывает неожиданной: иногда пятое место стоит вдвое дороже десятого, иногда почти столько же.' },
+    'nc.entry': { t: 'Новые входы', what: 'Сколько новых приложений вошло в топ-10 ниши за окно наблюдения.', how: 'Считается по истории выдачи: приложение, которого в топ-10 не было, а теперь есть. Под числом — сколько дней назад был последний такой вход. История у нас с 07.09, поэтому окно пока короче девяноста дней, и число надо читать как «за наблюдаемый период», а не «за квартал».', why: 'Свобода и дверь — снимок сегодняшнего дня. Ниша может выглядеть просторной сейчас и оказаться занятой к моменту, когда клон выйдет: если входы идут каждые два дня, место занимают быстрее, чем его успевают занять вы.' },
     'nc.purity': { t: 'Чистота', what: 'Доля спроса ядра, уходящая приложениям без закупки.', how: 'Доля трафика топ-10 у закупающих по кривой CTR, с весом спроса ключа; пусто при покрытии проверки рекламы ниже ' + Math.round((M.purity_min || 0.6) * 100) + ' %.', why: 'Вторая ось матрицы: не выкуплен ли трафик.' },
     'nc.tto': { t: 'Срок', what: 'Через сколько месяцев после релиза молодые органики вошли в топ-10.', how: '«≈» — измерено по вошедшим при нас (окно от ' + M.min_window + ' дней); «≤» — верхняя граница: приложение уже было в топ-10 на первом снимке.', why: 'Сколько ждать результата.' },
     'nc.freekeys': { t: 'Свободных ключей', what: 'Ключи ядра с дешёвой дверью и заметным спросом / всего ключей.', how: 'door ключа ≤ p25 гео, спрос > 0 и не ниже медианы ниши.', why: 'Вход через хвост ключей, а не через головной.' },
@@ -561,7 +564,8 @@
     var words = String(a.title || a.app_id || '?').replace(/[^\p{L}\p{N}\s]/gu, ' ').trim().split(/\s+/);
     var ini = ((words[0] || '?')[0] + ((words[1] || '')[0] || '')).toUpperCase();
     var c = ICON_BG[hash(a.app_id || ini) % ICON_BG.length];
-    return '<div class="app-icon" style="background:linear-gradient(135deg,' + c[0] + ',' + c[1] + ')" aria-hidden="true">' + esc(ini) + '</div>';
+    return '<div class="app-icon" style="background:linear-gradient(135deg,' + c[0] + ',' + c[1] + ')" aria-hidden="true">' + esc(ini)
+      + (a && a.icon ? '<img class="app-icon-img" src="' + esc(a.icon) + '" alt="" loading="lazy" referrerpolicy="no-referrer">' : '') + '</div>';
   }
   function load(key, def) { try { var v = localStorage.getItem(key); return v == null ? def : JSON.parse(v); } catch (e) { return def; } }
   function save(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* хранилище недоступно */ } }
@@ -597,7 +601,7 @@
     af: { cat: 'all', level: 'all', channel: 'all', traffic: 'all', minPassed: 0, quad: 'all', age: 'all', monet: 'all', sort: 'checks', niche: null, rec: false, dem: 0, door5: 0 },
     nf: { cat: 'all', quad: 'all', freedom: 'all', purity: 'all', channel: 'all', young: false, cand: false, full: false, sort: 'rank', rec: false, grain: 'themes', dem: 0, door5: 0 },
     hidePaid: !!load('appradar2-hide-paid', false), showDisq: false,
-    favs: load('appradar2-favs', []), nfavs: load('appradar2-nfavs', []), cTab: 'collect',
+    favs: load('appradar2-favs', []), nfavs: load('appradar2-nfavs', []), cTab: 'collect', newDays: 3,
     rTab: 'g30', gf: { win: 7, inst: 10000, instMax: 0, passed: '1', channel: 'organic', age: 'all', sort: 'interp', easy: 0, easy5: 0, scope: 'all', meas: 'all', osc: 'all' }
   };
   var themeSaved = load('appradar-theme', null);
@@ -762,6 +766,7 @@
   // ---------------- меню и шапка ----------------
   function renderNav() {
     var items = [
+      { id: 'new', title: 'Новинки', svg: '<path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="9"/>', count: newApps().length },
       { id: 'apps', title: 'Топ приложений', svg: '<path d="M4 19V10M10 19V5M16 19v-7M22 19H2"/>', count: D.worldApps.length },
       { id: 'niches', title: state.geo === WW && state.nf.grain !== 'niches' ? 'Темы и ниши' : 'Топ ниш', svg: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.6"/>',
         count: state.geo === WW ? (state.nf.grain === 'niches' ? D.niches.length : D.worldNiches.length) : D.niches.filter(function (n) { return n.geo === state.geo; }).length },
@@ -860,6 +865,62 @@
       options.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (String(cur) === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></span>';
   }
 
+  // Приложения, которых раньше в базе не было: first_seen — день, когда приложение впервые
+  // попалось в обходе. Это не дата релиза (она в колонке «Возраст»), а дата, когда его
+  // увидели мы: свежий релиз и старое приложение, впервые всплывшее в выдаче, тут рядом,
+  // и различает их именно возраст.
+  function newApps() {
+    var days = Number(state.newDays) || 3;
+    var edge = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
+    return appRowsBase().filter(function (a) { return a.first_seen && a.first_seen >= edge; })
+      .sort(function (x, y) { return (y.first_seen || '').localeCompare(x.first_seen || '') || (y.installs || 0) - (x.installs || 0); });
+  }
+  function renderNew() {
+    var rows = matchesQ ? newApps().filter(function (a) { return matchesQ([a.title, a.app_id, a.developer, a.concept]); }) : newApps();
+    var pages = Math.max(1, Math.ceil(rows.length / APP_PAGE));
+    if (state.page > pages) state.page = pages;
+    var slice = rows.slice((state.page - 1) * APP_PAGE, state.page * APP_PAGE);
+    var byDay = {};
+    rows.forEach(function (a) { byDay[a.first_seen] = (byDay[a.first_seen] || 0) + 1; });
+    var days = Object.keys(byDay).sort().reverse();
+
+    var cols = [
+      { t: '#', v: function (a, i) { return '<div style="display:flex;align-items:center;gap:7px">' + starBtn('a', a.app_id) + '<span class="num muted strong" style="font-size:12.5px">' + ((state.page - 1) * APP_PAGE + i + 1) + '</span></div>'; } },
+      { t: 'Приложение', tip: 'c.app', v: function (a) { return appCell(a); } },
+      { t: 'Увидели', tip: 'c.firstseen', r: true, v: function (a) {
+        var d = Math.round((Date.now() - Date.parse(a.first_seen)) / 864e5);
+        return '<div class="num strong">' + (d <= 0 ? 'сегодня' : d + ' дн. назад') + '</div><div class="muted small">' + esc(a.first_seen) + '</div>';
+      } },
+      { t: 'Ниша', tip: 'c.niche', v: function (a) {
+        if (!a.niche_id) return dash('ниша не определена');
+        return '<button class="niche-cell" data-act="open-niche" data-geo="' + esc(a.geo) + '" data-niche="' + esc(a.niche_id) + '"><div class="strong nowrap">' + esc(a.concept || a.niche_head) + '</div><div style="margin-top:3px">' + quadBadge(a.niche_quadrant) + '</div></button>';
+      } },
+      { t: 'Гео', tip: 'c.geo', v: function (a) { return geoPlus(a.geo, a.geos_count, a.geos); } },
+      { t: 'Установки', tip: 'c.installs', r: true, v: function (a) { return '<div class="num strong">' + short(a.installs) + '</div><div class="muted small">' + fix(a.score, 1) + ' ★</div>'; } },
+      { t: 'Возраст', tip: 'c.age', r: true, v: function (a) {
+        if (!isNum(a.age_months)) return dash('дата релиза не разобрана');
+        return '<div class="num strong">' + fix(a.age_months, 0) + ' мес</div>' + (a.young ? '<span class="badge b-green" style="margin-top:3px">молодое</span>' : '');
+      } },
+      { t: 'Спрос ниши', tip: 'c.demand', r: true, v: function (a) { return nicheDemandCell(a); } },
+      { t: 'Дверь / топ-5', tip: 'c.door5', r: true, v: function (a) {
+        if (!isNum(a.niche_door)) return dash('door ниши не посчитан');
+        return '<div class="num strong">' + short(a.niche_door) + '</div><div class="muted small">' + (isNum(a.niche_door5) ? 'топ-5: ' + short(a.niche_door5) : 'топ-5 не посчитан') + '</div>';
+      } },
+      { t: 'Признаки закупки', tip: 'c.level', v: function (a) { return levelBadge(a); } },
+      { t: 'Проверки', tip: 'c.checks', r: true, v: function (a) { return '<span class="num strong">' + int(a.passed) + '</span><span class="muted num"> / 7</span>'; } }
+    ];
+
+    $('view').innerHTML = '<section class="page">' +
+      pageHead('Новинки · ' + geoName(state.geo), 'Приложения, которых раньше не было',
+        'Приложения, впервые попавшиеся обходу за выбранный срок. «Увидели» — это дата, когда приложение впервые появилось в нашей базе, а не дата его релиза: свежий релиз и давно живущее приложение, впервые всплывшее в выдаче, стоят тут рядом, и различает их колонка «Возраст». Строка на приложение, а не на страну.') +
+      '<div class="card" style="margin-bottom:12px"><div class="toolbar">' +
+        selectField('nw-', 'nw', 'newDays', 'За сколько дней', state.newDays, [[1, 'сутки'], [3, 'трое суток'], [7, 'неделю'], [14, 'две недели']], 'c.firstseen') +
+        '<div class="muted small" style="align-self:center">' + days.slice(0, 7).map(function (d) { return esc(d) + ': ' + int(byDay[d]); }).join(' · ') + '</div>' +
+      '</div></div>' +
+      (slice.length ? '<div class="card" style="overflow:hidden">' + tableHtml(cols, slice, { minWidth: 1180 }) + pager(rows.length, state.page, APP_PAGE) + '</div>'
+        : '<div class="empty">За этот срок новых приложений не появилось</div>') +
+    '</section>';
+  }
   function renderApps() {
     var base = appRowsBase(), f = state.af;
     var noPaid = applyAppFilters(base, true);
@@ -904,7 +965,7 @@
     ];
     if (state.geo === WW) cols.push({ t: 'Гео', tip: 'c.geo', v: function (a) { return geoPlus(a.geo, a.geos_count, a.geos); } });
     cols = cols.concat([
-      { t: 'Рекомендация', tip: 'c.rec', r: true, v: function (a) { return recCell(a.rec_pct, 'c.rec'); } },
+      { t: 'Рекомендация*', tip: 'c.rec', r: true, v: function (a) { return recCell(a.rec_pct, 'c.rec'); } },
       { t: 'Спрос ниши', tip: 'c.demand', r: true, v: function (a) { return nicheDemandCell(a); } },
       { t: 'Дверь / топ-5', tip: 'c.door5', r: true, v: function (a) {
         if (!isNum(a.niche_door)) return dash('door ниши не посчитан');
@@ -922,7 +983,7 @@
         var g = GEO[a.geo];
         return '<span class="muted small" data-tip="c.delta">копится: ' + Math.min(g.k_window || 0, M.min_window) + ' из ' + M.min_window + ' дн.</span>';
       } },
-      { t: 'Органика', tip: 'c.level', v: function (a) { return levelBadge(a); } },
+      { t: 'Признаки закупки', tip: 'c.level', v: function (a) { return levelBadge(a); } },
       { t: 'УБТ', tip: 'c.ubt', v: function (a) { return ubtBadge(a); } },
       { t: 'Источник', tip: 'c.traffic', v: function (a) { return trafficBadge(a); } },
       { t: 'Проверки', tip: 'c.checks', v: function (a) { return checksHtml(a) + '<div class="muted small num" style="margin-top:3px">' + a.passed + ' из 7</div>'; } },
@@ -1135,7 +1196,7 @@
         '<div class="muted small nowrap" style="margin-top:3px">«Цель» в ' + int(w.target_geos) + ' · дешевле всего ' + esc(w.cheapest_geo || '—') + '</div></div>';
     } });
     cols = cols.concat([
-      { t: 'Рекомендация', tip: 'nc.rec', r: true, v: function (n) { return recCell(n.rec_pct, 'nc.rec'); } },
+      { t: 'Рекомендация*', tip: 'nc.rec', r: true, v: function (n) { return recCell(n.rec_pct, 'nc.rec'); } },
       { t: 'Свобода', tip: 'nc.freedom', r: true, v: function (n) {
         if (!isNum(n.freedom)) return dash('компонент с данными меньше половины веса');
         var top = n.components.filter(function (c) { return isNum(c.contrib); }).sort(function (a, b) { return b.contrib - a.contrib; }).slice(0, 3);
@@ -1154,6 +1215,12 @@
       { t: 'Свободных ключей', tip: 'nc.freekeys', r: true, v: function (n) { return isNum(n.free_keys) ? '<span class="num strong">' + n.free_keys + '</span><span class="muted num"> / ' + n.keywords_count + '</span>' : dash('door по ключам есть меньше чем у половины ядра'); } },
       { t: 'door', tip: 'nc.door', r: true, v: function (n) { return doorHtml(n); } },
       { t: 'door в топ-5', tip: 'nc.door5', r: true, v: function (n) { return door5Html(n); } },
+      { t: 'Новые входы', tip: 'nc.entry', r: true, v: function (n) {
+        if (!isNum(n.entry_rate)) return dash('истории выдачи меньше окна наблюдения');
+        var d = n.last_entry_days;
+        return '<div class="num strong">' + fix(n.entry_rate, 1) + '</div>'
+          + '<div class="muted small">' + (isNum(d) ? (d === 0 ? 'вход сегодня' : 'последний ' + fix(d, 0) + ' дн. назад') : 'входов не видели') + '</div>';
+      } },
       { t: 'Молодые органики', tip: 'nc.young', r: true, v: function (n) { return isNum(n.young) ? '<span class="num strong" style="color:' + (n.young > 0 ? 'var(--green)' : 'var(--muted)') + '">' + n.young + '</span>' : dash('возраст известен меньше чем у половины топ-20'); } },
       { t: 'Кандидаты', tip: 'nc.cand', r: true, v: function (n) { return '<span class="num strong">' + int(n.cand_organic) + '</span><span class="muted num"> / ' + int(n.cand) + '</span>'; } },
       { t: 'Деньги', tip: 'nc.money', r: true, v: function (n) { return '<span class="num">' + fix(n.money_ratio, 2) + '</span>'; } },
@@ -1731,8 +1798,20 @@
         { t: 'Проверено', r: true, cls: 'num', v: function (k) { return pct(k.checked); } }
       ], krows.slice((state.page - 1) * KP, state.page * KP), { minWidth: 820 }) + pager(krows.length, state.page, KP) + '</div>';
     } else {
-      lead = 'Пусто — это не ноль. Метрики, которых Play не отдаёт или которые ещё не накопились; в скор они не входят.';
-      body = '<div class="card panel">' + D.ref.gaps.map(function (g) { return '<div class="check-row" style="align-items:flex-start"><span class="strong" style="min-width:240px">' + esc(g.name) + '</span><span class="why">' + esc(g.why) + '</span></div>'; }).join('') + '</div>';
+      lead = 'Пусто — это не ноль. Сначала — чего отчёт не знает про будущее, потом метрики, которых Play не отдаёт или которые ещё не накопились.';
+      body = '<div class="card block manual" style="margin-bottom:14px">'
+        + '<h3>Чего этот отчёт про будущее не знает</h3>'
+        + '<p class="sub">Всё, что здесь показано, — снимок сегодняшнего рынка: кто где стоит, какая дверь, у кого нашли закупку. Это наблюдение, и ему можно верить. Но вопрос «если я сделаю такое же, вырастет ли оно на органике» отчёт не решает и не притворяется, что решает.</p>'
+        + '<h3>Почему «Рекомендация» помечена звёздочкой</h3>'
+        + '<p class="sub">Это взвешенная сумма с весами, выставленными руками: рост из поиска 35 %, свобода ниши 25 %, проверки 15 %, индекс 10 %, молодость и монетизация по 5 %. Веса ни разу не проверены на исходах — их выбрали по здравому смыслу, а не по данным о том, что сработало. Проверка станет возможна 16 октября: с 16 сентября ведётся журнал предсказаний, и через тридцать дней у первых записей появятся метки. До тех пор «Рекомендация 94» означает «по нашей гипотезе эта строка в верхних процентах», а не «вероятность успеха 94 %».</p>'
+        + '<h3>Чего нет совсем</h3>'
+        + '<p class="sub"><b>Исполнения.</b> Дверь говорит, сколько установок у десятого. Она не говорит, доедет ли туда конкретный клон: конверсии витрины, удержания, качества скриншотов в отчёте нет. Рейтинг ниже 4,0 заметно режет видимость в поиске Play — это видно в колонке рейтинга, но в скор не входит.</p>'
+        + '<p class="sub"><b>Полной картины закупки.</b> Проверяются Google Ads Transparency и Meta Ad Library. Вне их остаются TikTok, Unity, ironSource, AppLovin, интеграции с блогерами и кросс-промо внутри портфеля разработчика. Поэтому колонка называется «Признаки закупки», а не «Органика»: 63 % строк — это «не нашли», и ступень «органика подтверждена» пуста по всей базе, потому что она требует разбора файла установки, а мы его не скачиваем.</p>'
+        + '<p class="sub"><b>Новых тем.</b> Каталог растёт вглубь, но почти не растёт вширь: снятие лимита на ключи дало по США вчетверо больше слов и всего десять новых ниш. Подсказки Play исчерпаны как источник новых тем — нужны другие семена.</p>'
+        + '<h3>Как этим пользоваться</h3>'
+        + '<p class="sub">Как картой рынка и генератором короткого списка — по назначению. Как автопилотом «что копировать» — нет: внешняя оценка попадания без проверки исполнимости составляет примерно один раз из трёх-пяти. Это оценка со стороны, а не статистика инструмента; своей у него пока нет, и появится она 16 октября.</p>'
+        + '</div>'
+        + '<div class="card panel">' + D.ref.gaps.map(function (g) { return '<div class="check-row" style="align-items:flex-start"><span class="strong" style="min-width:240px">' + esc(g.name) + '</span><span class="why">' + esc(g.why) + '</span></div>'; }).join('') + '</div>';
     }
     $('view').innerHTML = '<section class="page">' + pageHead('Сбор и планы', title, lead) + ctabs() + body + '</section>';
   }
@@ -1878,7 +1957,7 @@
       } },
       { t: H.rel, tip: 'g.rel', r: true, v: function (r) { var e = gv(r); var v = r.installs > 0 && e ? e * k / r.installs : null; return v == null ? dash() : '<span class="num' + (r.interp == null ? ' muted' : '') + '">' + (r.interp == null ? '~' : '') + pct(v, v < 0.1 ? 1 : 0) + '</span>'; } },
       { t: 'Возраст', r: true, v: function (r) { return isNum(r.age) ? '<div class="num">' + fix(r.age, 0) + ' мес</div>' + (r.young ? '<span class="badge b-green" style="margin-top:3px">&lt; ' + M.young_months + ' мес</span>' : '') : dash('дата релиза не разобрана'); } },
-      { t: 'Органика', tip: 'g.scope', v: function (r) {
+      { t: 'Признаки закупки', tip: 'g.scope', v: function (r) {
         var sc = isNum(r.oscore) ? '<div class="num small" style="margin-top:3px" data-tip="g.oscore">вес улик ' + fix(r.oscore, 2)
           + (isNum(r.ocov) ? ' · покрытие ' + pct(r.ocov, 0) : '') + '</div>' : '';
         var s = r.scope === 'domain+name' ? '<div class="muted small" style="margin-top:3px">домен и имя</div>'
@@ -1988,7 +2067,8 @@
   // ---------------- отрисовка и события ----------------
   function render() {
     renderNav(); renderHeader();
-    if (state.view === 'apps') renderApps();
+    if (state.view === 'new') renderNew();
+    else if (state.view === 'apps') renderApps();
     else if (state.view === 'niches') renderNiches();
     else if (state.view === 'fav') renderFav();
     else if (state.view === 'reports') renderReports();
@@ -2040,6 +2120,7 @@
     if (act === 'show-disq') { state.showDisq = t.checked; state.page = 1; render(); return; }
     if (act === 'af') { var k = t.getAttribute('data-key'); state.af[k] = k === 'minPassed' ? Number(t.value) : t.value; state.page = 1; render(); return; }
     if (act === 'nf') { state.nf[t.getAttribute('data-key')] = t.value; state.page = 1; render(); return; }
+    if (act === 'nw') { state.newDays = Number(t.value); state.page = 1; render(); return; }
     if (act === 'gf-check') { state.gf[t.getAttribute('data-key')] = t.checked ? 1 : 0; state.page = 1; render(); return; }
     if (act === 'gf') { var gk = t.getAttribute('data-key'); state.gf[gk] = (gk === 'win' || gk === 'inst' || gk === 'instMax') ? Number(t.value) : t.value; state.page = 1; render(); return; }
     if (act === 'nf-check') { state.nf[t.getAttribute('data-key')] = t.checked; state.page = 1; render(); return; }
@@ -2095,6 +2176,11 @@
   window.addEventListener('scroll', hideTip, true);
   // На сенсорных экранах наведения нет: значок «?» открывает подсказку касанием.
   document.addEventListener('click', function (e) { var el = e.target.closest('.tip-i'); if (el) { e.preventDefault(); if (tipFor === el) hideTip(); else showTip(el); } });
+  // Иконка не загрузилась (нет сети, ссылка протухла) — убираем картинку, под ней остаются
+  // буквы. Обработчик один на документ: инлайновых onerror в шаблоне нет и не будет.
+  document.addEventListener('error', function (e) {
+    if (e.target && e.target.classList && e.target.classList.contains('app-icon-img')) e.target.remove();
+  }, true);
   var qTimer = null;
   $('q').addEventListener('input', function (e) { clearTimeout(qTimer); qTimer = setTimeout(function () { state.q = e.target.value.trim(); state.page = 1; render(); }, 160); });
   if (window.matchMedia) { var mq = window.matchMedia('(prefers-color-scheme: dark)'); if (mq.addEventListener) mq.addEventListener('change', renderHeader); }
