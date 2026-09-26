@@ -2291,6 +2291,8 @@
     if (act === 'geo') { state.geo = t.getAttribute('data-geo'); state.page = 1; state.af.cat = 'all'; state.nf.cat = 'all'; menu.hidden = true; render(); return; }
     if (act === 'report') { state.view = 'reports'; state.rTab = t.getAttribute('data-report'); state.page = 1; closeDrawer(); render(); window.scrollTo(0, 0); return; }
     if (act === 'rtab') { state.rTab = t.getAttribute('data-tab'); state.page = 1; render(); window.scrollTo(0, 0); return; }
+    if (act === 'of-tab') { state.of.tab = t.getAttribute('data-tab'); state.page = 1; hideTip(); render(); window.scrollTo(0, 0); return; }
+    if (act === 'of-cheap') { state.of.cheap = !state.of.cheap; state.page = 1; hideTip(); render(); return; }
     if (act === 'ctab') { state.cTab = t.getAttribute('data-tab'); state.page = 1; hideTip(); render(); window.scrollTo(0, 0); return; }
     if (act === 'page') { state.page = Number(t.getAttribute('data-page')); render(); var head = document.querySelector('.card .toolbar'); if (head) head.scrollIntoView({ block: 'start' }); return; }
     if (act === 'af-cat') { state.af.cat = t.getAttribute('data-cat'); state.page = 1; render(); return; }
@@ -2325,8 +2327,6 @@
     if (act === 'nf') { state.nf[t.getAttribute('data-key')] = t.value; state.page = 1; render(); return; }
     if (act === 'nw') { state.newDays = Number(t.value); state.page = 1; render(); return; }
     if (act === 'of') { state.of[t.getAttribute('data-key')] = t.value; state.page = 1; render(); return; }
-    if (act === 'of-tab') { state.of.tab = t.getAttribute('data-tab'); state.page = 1; render(); return; }
-    if (act === 'of-cheap') { state.of.cheap = !state.of.cheap; state.page = 1; render(); return; }
     if (act === 'gf-check') { state.gf[t.getAttribute('data-key')] = t.checked ? 1 : 0; state.page = 1; render(); return; }
     if (act === 'gf') { var gk = t.getAttribute('data-key'); state.gf[gk] = (gk === 'win' || gk === 'inst' || gk === 'instMax') ? Number(t.value) : t.value; state.page = 1; render(); return; }
     if (act === 'nf-check') { state.nf[t.getAttribute('data-key')] = t.checked; state.page = 1; render(); return; }
