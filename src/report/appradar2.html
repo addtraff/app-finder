@@ -447,6 +447,7 @@
     'e.below': { t: 'Вход дешевле двери', what: 'Входы, у которых установок на день входа было меньше, чем дверь, посчитанная этой нише.', how: 'Установки на входе — последняя карточка приложения не позже дня входа; дверь — сегодняшняя оценка ниши. Сравниваются числа разных дат, но дверь за две недели меняется куда меньше, чем разрыв, который тут интересен.', why: 'Прямая проверка главной метрики. Дверь задумана как «сколько нужно, чтобы стоять в десятке». Если в нишу постоянно входят с установками в разы меньше двери, дверь меряет не барьер входа, а размер тех, кто уже сидит.' },
     'e.inst': { t: 'Установки на входе', what: 'Сколько установок было у приложения в день, когда оно вошло в топ-10.', how: 'Последняя снятая карточка не позже дня входа. Карточки, где отзывов больше, чем установок, отбрасываются: часть локалей Play отдаёт вместо числа заглушку, и ноль там означает «не знаем», а не «ноль».', why: 'Показывает цену входа фактом, а не моделью. Рядом стоит дверь — и расхождение между ними важнее каждого из чисел по отдельности.' },
     'e.from': { t: 'Откуда пришёл', what: 'Сколько дней приложение было видно в позициях 11–50 до того, как вошло в десятку.', how: 'От первого дня, когда его увидели по ядровым ключам ниши, до дня входа. «Появился сразу» — его не видели во второй десятке ни разу: либо поднялось быстрее, чем между снимками, либо пришло из чарта или рекламы.', why: 'Медленный подъём снизу — признак, что место берут работой над выдачей. Появление сразу в десятке чаще означает всплеск, который к ASO отношения не имеет.' },
+    'e.fresh': { t: 'Новичок ниши', what: 'Приложения не было в выдаче этой ниши в первый день окна наблюдения.', how: 'Сравнивается первый день, когда приложение вообще увидели по ядровым ключам ниши (на любом месте до пятидесятого), с первым днём окна. «Был в выдаче» — значит стояло там с самого начала и просто качнулось через границу десятого места.', why: 'Без этого различия список возглавляют WhatsApp и LINE: формально они входят в топ-10, но это перестановка среди своих, а не чей-то вход. Интересны те, кого в нише раньше не было.' },
     'e.entry': { t: 'Вошёл', what: 'День первого появления в топ-10 ниши и место, на которое встал.', how: 'День — из истории выдачи. Место — лучшая позиция приложения в этот день по ядровым ключам ниши.', why: 'Дата даёт возраст события: вход недельной давности с исходом весит больше, чем вчерашний без него.' },
     'e.early': { t: 'Рано судить', what: 'Вход случился в последний снятый день ниши.', how: 'После такого входа снимков ещё не было, поэтому ни «держится», ни «выпал» про него сказать нечего.', why: 'Такие строки не попадают в знаменатель долей: иначе каждый свежий снимок улучшал бы статистику удержания просто потому, что новые входы пока никуда не делись.' },
     'c.firstseen': { t: 'Увидели', what: 'Когда приложение впервые попалось обходу.', how: 'День, в который приложение впервые появилось в нашей базе — через выдачу по ключу, чарты или граф похожих. Это не дата релиза: приложение может существовать годами и попасться нам только сейчас, когда поднялось в выдаче.', why: 'Новое в базе — это либо свежий релиз, либо кто-то, кто только что вошёл в поле зрения по нашим ключам. И то и другое стоит смотреть первым: в первом случае видно, с чего начинают, во втором — кто заходит в занятые ниши.' },
@@ -613,7 +614,7 @@
     nf: { cat: 'all', quad: 'all', freedom: 'all', purity: 'all', channel: 'all', young: false, cand: false, full: false, sort: 'rank', rec: false, grain: 'themes', dem: 0, door5: 0 },
     hidePaid: !!load('appradar2-hide-paid', false), showDisq: false,
     favs: load('appradar2-favs', []), nfavs: load('appradar2-nfavs', []), cTab: 'collect', newDays: 3,
-    of: { out: 'all', src: 'all', cheap: false, sort: 'date', tab: 'events' },
+    of: { out: 'all', src: 'all', cheap: false, sort: 'gap', tab: 'events' },
     rTab: 'g30', gf: { win: 7, inst: 10000, instMax: 0, passed: '1', channel: 'organic', age: 'all', sort: 'interp', easy: 0, easy5: 0, scope: 'all', meas: 'all', osc: 'all' }
   };
   var themeSaved = load('appradar-theme', null);
@@ -958,11 +959,19 @@
     else if (f.out === 'early') rows = rows.filter(function (r) { return !r.judged; });
     if (f.src === 'below') rows = rows.filter(function (r) { return isNum(r.from_below); });
     else if (f.src === 'sudden') rows = rows.filter(function (r) { return !isNum(r.from_below); });
+    else if (f.src === 'fresh') rows = rows.filter(function (r) { return r.fresh; });
+    else if (f.src === 'old') rows = rows.filter(function (r) { return !r.fresh; });
     if (f.cheap) rows = rows.filter(function (r) { return isNum(r.inst_at) && isNum(r.door) && r.inst_at < r.door; });
     if (state.q) rows = rows.filter(function (r) { var c = EC[r.app_id] || []; return matchesQ([c[0], r.app_id, r.concept, r.niche_id]); });
     var big = 1e15;
     rows = rows.slice();
-    if (f.sort === 'inst') rows.sort(function (x, y) { return (isNum(x.inst_at) ? x.inst_at : big) - (isNum(y.inst_at) ? y.inst_at : big); });
+    if (f.sort === 'gap') {
+      // Насколько вход дешевле двери: 0,1 значит вошёл вдесятеро дешевле, чем мы насчитали.
+      // Строки без установок или без двери проверить нечем — они уходят вниз, к дате.
+      var gap = function (r) { return isNum(r.inst_at) && isNum(r.door) && r.door > 0 ? r.inst_at / r.door : big; };
+      rows.sort(function (x, y) { return gap(x) - gap(y) || y.entry_date.localeCompare(x.entry_date); });
+    }
+    else if (f.sort === 'inst') rows.sort(function (x, y) { return (isNum(x.inst_at) ? x.inst_at : big) - (isNum(y.inst_at) ? y.inst_at : big); });
     else if (f.sort === 'hold') rows.sort(function (x, y) { return (y.days_in / Math.max(1, y.obs_after)) - (x.days_in / Math.max(1, x.obs_after)) || y.obs_after - x.obs_after; });
     else if (f.sort === 'grow') rows.sort(function (x, y) { return ((isNum(y.inst_now) && isNum(y.inst_at) ? y.inst_now - y.inst_at : -1)) - ((isNum(x.inst_now) && isNum(x.inst_at) ? x.inst_now - x.inst_at : -1)); });
     else rows.sort(function (x, y) { return y.entry_date.localeCompare(x.entry_date) || (y.still - x.still); });
@@ -991,9 +1000,9 @@
       return;
     }
     // Плитки считаются по сводке, то есть по ВСЕМ событиям, а не по обрезанному списку ниже.
-    var n = 0, judged = 0, held = 0, flick = 0, below = 0, withInst = 0, mins = [], meds = [], fasts = [];
+    var n = 0, judged = 0, held = 0, flick = 0, below = 0, fresh = 0, withInst = 0, mins = [], meds = [], fasts = [];
     stats.forEach(function (s) {
-      n += s.n; judged += s.judged; held += s.held; flick += s.flick; below += s.below;
+      n += s.n; judged += s.judged; held += s.held; flick += s.flick; below += s.below; fresh += s.fresh || 0;
       if (isNum(s.at_med)) { meds.push(s.at_med); withInst++; }
       if (isNum(s.at_min)) mins.push(s.at_min);
       if (isNum(s.fast_med)) fasts.push(s.fast_med);
@@ -1011,6 +1020,8 @@
         hint: below ? int(below) + ' входов с установками ниже двери, которую мы насчитали нише' : 'нет входов с известными установками' },
       { label: 'Медиана на входе', value: meds.length ? short(median(meds)) : '—', tip: 'e.inst',
         hint: mins.length ? 'самый дешёвый вход — ' + short(Math.min.apply(null, mins)) + ' установок' : 'установки на входе неизвестны' },
+      { label: 'Новички ниши', value: n ? pct(fresh / n) : '—', tip: 'e.fresh',
+        hint: int(fresh) + ' входов от тех, кого в выдаче этой ниши раньше не было' },
       { label: 'Шли снизу', value: fasts.length ? fix(median(fasts), 0) + ' дн.' : '—', tip: 'e.from',
         hint: 'медиана пути из второй десятки в первую' }
     ];
@@ -1022,8 +1033,8 @@
         '<button class="pill" data-act="of-tab" data-tab="niches" aria-pressed="' + (tab === 'niches') + '">По нишам</button>' +
       '</div>' +
       (tab === 'events' ? selectField('of-', 'of', 'out', 'Исход', state.of.out, [['all', 'любой'], ['held', 'держится'], ['gone', 'выпал'], ['flick', 'мелькнул один день'], ['early', 'рано судить']], 'e.held') +
-        selectField('of-', 'of', 'src', 'Откуда пришёл', state.of.src, [['all', 'неважно'], ['below', 'поднимался снизу'], ['sudden', 'появился сразу']], 'e.from') +
-        selectField('of-', 'of', 'sort', 'Сортировка', state.of.sort, [['date', 'по дате входа'], ['inst', 'по установкам на входе'], ['hold', 'по доле дней в топе'], ['grow', 'по приросту после входа']], null) +
+        selectField('of-', 'of', 'src', 'Откуда пришёл', state.of.src, [['all', 'неважно'], ['fresh', 'новички ниши'], ['old', 'были в выдаче с начала'], ['below', 'поднимались снизу'], ['sudden', 'появились сразу']], 'e.fresh') +
+        selectField('of-', 'of', 'sort', 'Сортировка', state.of.sort, [['gap', 'сначала вошедшие дешевле двери'], ['date', 'по дате входа'], ['inst', 'по установкам на входе'], ['hold', 'по доле дней в топе'], ['grow', 'по приросту после входа']], 'e.below') +
         '<button class="rec-toggle" data-act="of-cheap" aria-pressed="' + !!state.of.cheap + '">Только дешевле двери</button>' + tipIcon('e.below')
         : '') +
       '</div></div>';
@@ -1047,6 +1058,10 @@
           return '<div class="num strong">' + pct(s.held / s.judged) + '</div><div class="muted small">' + int(s.held) + ' из ' + int(s.judged) + '</div>';
         } },
         { t: 'Мелькнули', tip: 'e.flick', r: true, v: function (s) { return s.judged ? '<span class="num">' + int(s.flick) + '</span>' : dash('исход ещё не наблюдался'); } },
+        { t: 'Новички', tip: 'e.fresh', r: true, v: function (s) {
+          if (!s.fresh) return dash('все вошедшие уже были в выдаче ниши');
+          return '<div class="num strong">' + int(s.fresh) + '</div><div class="muted small">держатся ' + int(s.fresh_held) + '</div>';
+        } },
         { t: 'Вход дешевле двери', tip: 'e.below', r: true, v: function (s) {
           var nn = nicheByKey[s.geo + '|' + s.niche_id];
           if (!nn || !isNum(nn.door) || !isNum(s.at_min)) return dash('нет двери или установок на входе');
@@ -1071,9 +1086,12 @@
         { t: 'Вошёл', tip: 'e.entry', r: true, v: function (r) {
           return '<div class="num strong">' + dmy(r.entry_date) + '</div><div class="muted small">' + (isNum(r.pos) ? 'на ' + r.pos + '-е место' : 'место не записано') + '</div>';
         } },
-        { t: 'Откуда', tip: 'e.from', r: true, v: function (r) {
-          if (!isNum(r.from_below)) return '<span class="muted small" title="в позициях 11–50 по ядровым ключам мы его до входа не видели">появился сразу</span>';
-          return '<div class="num strong">' + r.from_below + ' дн.</div><div class="muted small">поднимался снизу</div>';
+        { t: 'Откуда', tip: 'e.fresh', r: true, v: function (r) {
+          var badge = r.fresh
+            ? '<span class="badge b-green" data-tip="e.fresh">новичок ниши</span>'
+            : '<span class="badge b-muted" data-tip="e.fresh">был в выдаче</span>';
+          var how = isNum(r.from_below) ? 'поднимался снизу ' + r.from_below + ' дн.' : 'во второй десятке не видели';
+          return badge + '<div class="muted small" style="margin-top:3px">' + esc(how) + '</div>';
         } },
         { t: 'Установки на входе', tip: 'e.inst', r: true, v: function (r) {
           if (!isNum(r.inst_at)) return dash('карточка на день входа не снята или отдала неправдоподобное число');
@@ -1090,7 +1108,7 @@
         { t: 'Исход', tip: 'e.held', v: outcomeCell }
       ];
       var note = EM.capped && (D.entries || []).length < EM.total
-        ? '<div class="note" style="padding:10px 14px">Список обрезан до ' + int(EM.capped) + ' событий на гео: всего их ' + int(EM.total) + ', и с иконками они весят больше остального отчёта. Обрезаны самые свежие, по которым исхода ещё нет; плитки наверху и вкладка «По нишам» считаются по всем событиям. Полная версия — в out/full.</div>'
+        ? '<div class="note" style="padding:10px 14px">В списке событий оставлено по ' + int(EM.capped) + ' строк на гео — всего входов ' + int(EM.total) + ' по всем странам, и с иконками они весят больше остального отчёта. Обрезаны самые свежие, по которым исхода ещё нет. Плитки наверху и вкладка «По нишам» считают все события без обрезки, поэтому их числа больше длины этого списка. Полная версия — в out/full.</div>'
         : '';
       body = '<div class="card" style="overflow:hidden">' + note + tableHtml(cols, slice2, { minWidth: 1320 }) + pager(rows.length, state.page, APP_PAGE) + '</div>';
     }

@@ -52,7 +52,7 @@ function collectEntries(d, nicheRows, iconOf) {
     const judgeable = r.observed_after >= 2;   // вошедший в последний снятый день ещё ничего не показал
     const k = r.geo + '|' + r.niche_id;
     let a = agg.get(k);
-    if (!a) agg.set(k, a = { geo: r.geo, niche_id: r.niche_id, n: 0, held: 0, flick: 0, judged: 0, below: 0, at: [], last: null, fast: [] });
+    if (!a) agg.set(k, a = { geo: r.geo, niche_id: r.niche_id, n: 0, held: 0, flick: 0, judged: 0, below: 0, fresh: 0, fresh_held: 0, at: [], last: null, fast: [] });
     a.n++;
     if (judgeable) { a.judged++; if (r.still_in) a.held++; if (r.days_in_top10 === 1) a.flick++; }
     if (r.installs_at_entry != null) {
@@ -60,6 +60,7 @@ function collectEntries(d, nicheRows, iconOf) {
       if (n.door != null && r.installs_at_entry < n.door) a.below++;
     }
     if (r.days_to_top10 != null) a.fast.push(r.days_to_top10);
+    if (r.first_seen_serp > r.observed_from) { a.fresh++; if (judgeable && r.still_in) a.fresh_held++; }
     if (!a.last || r.entry_date > a.last) a.last = r.entry_date;
     events.push([r, n, judgeable]);
   }
@@ -67,7 +68,8 @@ function collectEntries(d, nicheRows, iconOf) {
   const med = (xs) => { if (!xs.length) return null; const s = xs.slice().sort((x, y) => x - y); return s[s.length >> 1]; };
   const stats = [...agg.values()].map((a) => ({
     geo: a.geo, niche_id: a.niche_id, n: a.n, judged: a.judged, held: a.held, flick: a.flick,
-    below: a.below, at_med: med(a.at), at_min: a.at.length ? Math.min(...a.at) : null,
+    below: a.below, fresh: a.fresh, fresh_held: a.fresh_held,
+    at_med: med(a.at), at_min: a.at.length ? Math.min(...a.at) : null,
     fast_med: med(a.fast), last: a.last,
   }));
 
@@ -88,15 +90,16 @@ function collectEntries(d, nicheRows, iconOf) {
       from_below: r.days_to_top10, inst_at: r.installs_at_entry, inst_now: r.installs_now,
       days_in: r.days_in_top10, obs_after: r.observed_after, since: r.days_since_entry,
       still: r.still_in, judged: judgeable ? 1 : 0,
+      fresh: r.first_seen_serp > r.observed_from ? 1 : 0,
     });
   }
 
   const ids = [...new Set(rows.map((r) => r.app_id))];
   const cards = {};
-  for (const c of all(d,
-    `SELECT app_id, title, developer, MAX(snapshot_date) FROM raw_app_page
-       WHERE app_id IN (SELECT value FROM json_each(?)) AND title IS NOT NULL GROUP BY app_id`,
-    JSON.stringify(ids))) cards[c.app_id] = [c.title, iconOf.get(c.app_id) || null, c.developer || null];
+  const cardSql = (langFilter) => `SELECT app_id, title, developer, MAX(snapshot_date) FROM raw_app_page
+       WHERE app_id IN (SELECT value FROM json_each(?)) AND title IS NOT NULL ${langFilter} GROUP BY app_id`;
+  for (const c of all(d, cardSql(''), JSON.stringify(ids))) cards[c.app_id] = [c.title, iconOf.get(c.app_id) || null, c.developer || null];
+  for (const c of all(d, cardSql("AND hl='en'"), JSON.stringify(ids))) cards[c.app_id][0] = c.title;
 
   const from = raw.map((r) => r.observed_from).filter(Boolean).sort()[0] || null;
   const to = raw.map((r) => r.observed_to).filter(Boolean).sort().pop() || null;
