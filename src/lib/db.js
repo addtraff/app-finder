@@ -289,6 +289,29 @@ CREATE TABLE IF NOT EXISTS metrics_niche_geo (
   PRIMARY KEY (niche_id, geo, snapshot_date)
 );
 
+-- Исходы ниш: кто вошёл в топ-10 и что с ним стало. Отдельная таблица, а не колонки в
+-- metrics_niche_geo, потому что строка тут не на нишу и не на снимок, а на событие входа:
+-- она пишется один раз и потом только дописывается исходом. Снимочные таблицы переписывают
+-- себя целиком каждый день, и история входов в них не пережила бы первую же пересборку.
+CREATE TABLE IF NOT EXISTS niche_entries (
+  geo TEXT, niche_id TEXT, app_id TEXT,
+  entry_date TEXT,        -- день, когда приложение впервые увидели в топ-10 ниши
+  first_seen_serp TEXT,   -- первый день в топ-50 по ядровым ключам: откуда оно шло
+  days_to_top10 INTEGER,  -- сколько дней поднималось снизу; NULL - вошло сразу, снизу не видели
+  installs_at_entry INTEGER, installs_now INTEGER,
+  entry_position INTEGER, best_position INTEGER,
+  -- days_in_top10 отделяет въехавших от мелькнувших: приложение на границе десятого места
+  -- скачет туда-сюда, и без этого счётчика один такой скачок неотличим от настоящего входа.
+  -- observed_after - сколько дней после входа мы вообще снимали эту нишу. Без него
+  -- days_in_top10 нечитаем: «простоял 9 дней» - это девять из девяти или девять из
+  -- восемнадцати, разница между «держится» и «выпал».
+  days_in_top10 INTEGER, observed_after INTEGER, days_since_entry INTEGER, days_held INTEGER, still_in INTEGER,
+  observed_from TEXT, observed_to TEXT, observed_days INTEGER,
+  updated_at TEXT,
+  PRIMARY KEY (geo, niche_id, app_id, entry_date)
+);
+CREATE INDEX IF NOT EXISTS ix_nentries_date ON niche_entries(geo, entry_date);
+
 CREATE TABLE IF NOT EXISTS metrics_geo_arbitrage (
   niche_id TEXT, geo TEXT, snapshot_date TEXT,
   wall_ratio REAL, door_ratio REAL, demand_ratio REAL, money_ratio REAL, geo_arbitrage REAL,

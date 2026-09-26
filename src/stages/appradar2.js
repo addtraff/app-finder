@@ -25,6 +25,84 @@ const flat = (b, p) => {
 };
 const parse = (s, def = null) => { try { return s == null ? def : JSON.parse(s); } catch { return def; } };
 
+// Исходы ниш: события входа в топ-10, посчитанные стадией niche-entries. Отчёт их не
+// пересчитывает — он подтягивает к каждому входу название, иконку и сегодняшние метрики
+// ниши. Смысл именно в соседстве: вход «с 500 установок» сам по себе ничего не говорит,
+// а вход с 500 установок в нишу, которой мы насчитали дверь в 50 000, говорит, что дверь
+// меряет не то, что мы думали, — или что войти можно не только через неё.
+//
+// Отдаётся три куска. Сводка по нишам считается по ВСЕМ событиям и потому честная. Список
+// самих событий обрезан: 28 тысяч строк с иконками весят больше, чем весь остальной отчёт.
+// Карточки приложений вынесены в отдельную карту — одно приложение входит в среднем в
+// несколько ниш, и повторять название с иконкой в каждой строке незачем.
+function collectEntries(d, nicheRows, iconOf) {
+  const empty = { rows: [], stats: [], cards: {}, meta: { from: null, to: null, total: 0, shown: 0 } };
+  const raw = all(d, `SELECT * FROM niche_entries`);
+  if (!raw.length) return empty;
+  const nicheBy = new Map(nicheRows.map((n) => [n.geo + '|' + n.niche_id, n]));
+
+  // Сводка по нише — по всем событиям, включая те, что не попадут в список.
+  const agg = new Map();
+  const events = [];
+  for (const r of raw) {
+    const n = nicheBy.get(r.geo + '|' + r.niche_id);
+    // Ниши, выпавшей из отчёта (нет метрик за последний снимок), в таблице быть не должно:
+    // строке без двери и спроса не с чем сравниваться.
+    if (!n) continue;
+    const judgeable = r.observed_after >= 2;   // вошедший в последний снятый день ещё ничего не показал
+    const k = r.geo + '|' + r.niche_id;
+    let a = agg.get(k);
+    if (!a) agg.set(k, a = { geo: r.geo, niche_id: r.niche_id, n: 0, held: 0, flick: 0, judged: 0, below: 0, at: [], last: null, fast: [] });
+    a.n++;
+    if (judgeable) { a.judged++; if (r.still_in) a.held++; if (r.days_in_top10 === 1) a.flick++; }
+    if (r.installs_at_entry != null) {
+      a.at.push(r.installs_at_entry);
+      if (n.door != null && r.installs_at_entry < n.door) a.below++;
+    }
+    if (r.days_to_top10 != null) a.fast.push(r.days_to_top10);
+    if (!a.last || r.entry_date > a.last) a.last = r.entry_date;
+    events.push([r, n, judgeable]);
+  }
+
+  const med = (xs) => { if (!xs.length) return null; const s = xs.slice().sort((x, y) => x - y); return s[s.length >> 1]; };
+  const stats = [...agg.values()].map((a) => ({
+    geo: a.geo, niche_id: a.niche_id, n: a.n, judged: a.judged, held: a.held, flick: a.flick,
+    below: a.below, at_med: med(a.at), at_min: a.at.length ? Math.min(...a.at) : null,
+    fast_med: med(a.fast), last: a.last,
+  }));
+
+  // Список событий: сначала те, по которым уже есть исход, новые сверху. Обрезка — по гео,
+  // как у приложений; в полной версии (RADAR_REPORT_FULL=1) её нет.
+  const cap = process.env.RADAR_REPORT_FULL ? Infinity : 300;
+  const perGeo = new Map();
+  events.sort((x, y) => (y[2] - x[2]) || y[0].entry_date.localeCompare(x[0].entry_date) || (y[0].still_in - x[0].still_in));
+  const rows = [];
+  for (const [r, n, judgeable] of events) {
+    const c = (perGeo.get(r.geo) || 0); if (c >= cap) continue;
+    perGeo.set(r.geo, c + 1);
+    rows.push({
+      geo: r.geo, niche_id: r.niche_id, app_id: r.app_id,
+      concept: n.concept, quadrant: n.quadrant, freedom: n.freedom,
+      door: n.door, door5: n.door5, dem: n.dem, dem_est: n.dem_est,
+      entry_date: r.entry_date, pos: r.entry_position, best_pos: r.best_position,
+      from_below: r.days_to_top10, inst_at: r.installs_at_entry, inst_now: r.installs_now,
+      days_in: r.days_in_top10, obs_after: r.observed_after, since: r.days_since_entry,
+      still: r.still_in, judged: judgeable ? 1 : 0,
+    });
+  }
+
+  const ids = [...new Set(rows.map((r) => r.app_id))];
+  const cards = {};
+  for (const c of all(d,
+    `SELECT app_id, title, developer, MAX(snapshot_date) FROM raw_app_page
+       WHERE app_id IN (SELECT value FROM json_each(?)) AND title IS NOT NULL GROUP BY app_id`,
+    JSON.stringify(ids))) cards[c.app_id] = [c.title, iconOf.get(c.app_id) || null, c.developer || null];
+
+  const from = raw.map((r) => r.observed_from).filter(Boolean).sort()[0] || null;
+  const to = raw.map((r) => r.observed_to).filter(Boolean).sort().pop() || null;
+  return { rows, stats, cards, meta: { from, to, total: events.length, shown: rows.length, capped: cap === Infinity ? 0 : cap } };
+}
+
 function geoQ(d, geo, date, metric, level) {
   const row = one(d, `SELECT ${level} v FROM niche_quantiles WHERE scope='geo' AND scope_id=? AND metric=? AND snapshot_date=?`, `${geo}:v2`, metric, date);
   return row ? row.v : null;
@@ -525,6 +603,7 @@ export function collect(d) {
     });
   }
 
+  const entries = collectEntries(d, nicheRows, iconOf);
   const timeline = all(d, `SELECT snapshot_date AS date, geo, COUNT(DISTINCT app_id) AS cards FROM raw_app_page GROUP BY snapshot_date, geo ORDER BY snapshot_date`);
   const extra = collectExtra(d, appRows, leaderIds);
   const lastDate = geos.map((g) => g.date).filter(Boolean).sort().pop() || null;
@@ -544,6 +623,7 @@ export function collect(d) {
     nicheGrowth: [...nicheGrowthByKey.values()].map((n) => ({
       geo: n.geo, niche_id: n.niche_id, easy: n.easy, easy5: n.easy5, ...flat(n.a, ''), ...flat(n.p, 'p_'),
     })),
+    entries: entries.rows, entryStats: entries.stats, entryCards: entries.cards, entriesMeta: entries.meta,
     quotes: extra.quotes, appEvents: extra.appEvents, ref: extra.ref,
     collection: collectCollection(d, lastDate),
   };

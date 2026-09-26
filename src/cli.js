@@ -18,6 +18,7 @@ import * as enrichPermissions from './stages/enrich-permissions.js';
 import * as similarGraph from './stages/similar-graph.js';
 import * as screen from './stages/screen.js';
 import * as nicheDoors from './stages/niche-doors.js';
+import * as nicheEntries from './stages/niche-entries.js';
 import * as analyzePain from './stages/analyze-pain.js';
 import * as quantiles from './stages/quantiles.js';
 import * as score from './stages/score.js';
@@ -46,6 +47,7 @@ const STAGES = {
   'similar-graph': similarGraph,
   'screen': screen,
   'niche-doors': nicheDoors,
+  'niche-entries': nicheEntries,
   'analyze-pain': analyzePain,
   'quantiles': quantiles,
   'score': score,
@@ -115,6 +117,7 @@ const DISCOVERY = [
   // Третий score — после check-ads: иначе находки K7 и Meta попадают в ads_found только
   // на следующие сутки, и отчёт этого дня показывает их как unchecked.
   ['score', {}],
+  ['niche-entries', {}],
   ['radar-v2', {}],
   // Отчёты: только AppRadar 2 (решение заказчика 22.09). Play Market Radar, Методика и
   // AppRadar заморожены — стадии dashboard, methodology, appradar запускаются лишь вручную.
@@ -165,6 +168,7 @@ const DAILY = [
   // Третий score — после check-ads: иначе находки K7 и Meta попадают в ads_found только
   // на следующие сутки, и отчёт этого дня показывает их как unchecked.
   ['score', {}],
+  ['niche-entries', {}],
   ['radar-v2', {}],
   // Отчёты: только AppRadar 2 (решение заказчика 22.09). Play Market Radar, Методика и
   // AppRadar заморожены — стадии dashboard, methodology, appradar запускаются лишь вручную.
