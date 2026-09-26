@@ -881,8 +881,13 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     const both = known.filter((k) => !isNav(ext.get(k.kw)) && extPrev.has(k.kw));
     r.demandPrev = both.length ? both.reduce((a, k) => a + extPrev.get(k.kw), 0) : null;
     r.demandNow = both.length ? both.reduce((a, k) => a + ext.get(k.kw).imp, 0) : null;
-    r.demandTrend = r.demandPrev > 0 && r.demandNow != null ? r.demandNow / r.demandPrev - 1 : null;
-    r.demandTrendKeys = both.length || null;
+    // Если между снимками не сдвинулся НИ ОДИН ключ, это не «спрос стабилен», а «источник
+    // не пересчитался». Проверено на США: выгрузки 24.09 и 26.09 совпали по всем 959
+    // измеренным ключам до единицы. Показать в такой ситуации ровный тренд значит выдать
+    // свойство сервиса за свойство рынка, поэтому тренда просто нет.
+    const moved = both.filter((k) => ext.get(k.kw).imp !== extPrev.get(k.kw)).length;
+    r.demandTrend = moved && r.demandPrev > 0 && r.demandNow != null ? r.demandNow / r.demandPrev - 1 : null;
+    r.demandTrendKeys = moved ? both.length : null;
     r.demandTrendDays = r.demandTrend != null ? trendDays : null;
   }
   // Гео без своих замеров: оценка по США тем же концептом. Это именно оценка — размер
