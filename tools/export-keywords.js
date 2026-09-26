@@ -43,7 +43,13 @@ const csvCell = (v) => {
   const s = v == null ? '' : String(v);
   return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 };
-const HEAD = ['geo', 'keyword', 'tier', 'source', 'concept', 'our_score', 'volume', 'competition'];
+// have_* — то, что уже лежит у нас от прошлой выгрузки. Это не для сервиса, а чтобы по
+// списку было сразу видно, где числа нет: «сервис не посчитал» означает calculating в
+// выгрузке Asodesk, и такие слова стоит добрать в другом месте, а не гонять через тот же.
+const HEAD = ['geo', 'keyword', 'tier', 'source', 'concept', 'our_score',
+  'have_impressions', 'have_difficulty', 'have_status', 'volume', 'competition'];
+const CELLS = (r) => [r.geo, r.keyword, r.tier, r.source, r.concept, r.our_score,
+  r.have_imp, r.have_dif, r.have_st, '', ''];
 const all = [];
 const summary = [];
 
@@ -61,6 +67,9 @@ for (const geo of geos) {
       .all(geo, mdate).map((r) => [r.keyword, r.s])
     : []);
 
+  const ext = new Map(d.prepare(
+    `SELECT keyword, daily_impressions di, competition_index df, imp_status st FROM raw_external_keyword_planner WHERE geo=?`
+  ).all(geo).map((r) => [r.keyword, r]));
   const src = new Map(d.prepare(`SELECT keyword, source FROM disc_keywords WHERE geo=? AND active=1`).all(geo)
     .map((r) => [r.keyword, r.source]));
   const rows = new Map();
@@ -83,19 +92,28 @@ for (const geo of geos) {
   if (!rows.size) { log(`  ${geo}: ключей нет, пропускаю`); continue; }
 
   const list = [...rows.entries()]
-    .map(([keyword, v]) => ({ geo, keyword, tier: v.tier, source: v.source, concept: concept.get(v.niche) || '', our_score: score.get(keyword) ?? '' }))
+    .map(([keyword, v]) => {
+      const e = ext.get(keyword);
+      return { geo, keyword, tier: v.tier, source: v.source, concept: concept.get(v.niche) || '',
+        our_score: score.get(keyword) ?? '',
+        have_imp: e && e.st === 'measured' && e.di != null ? e.di : '',
+        have_dif: e && e.df != null ? e.df : '',
+        have_st: e ? (e.st === 'measured' ? 'есть' : 'сервис не посчитал') : 'нет данных' };
+    })
     .sort((a, b) => a.tier - b.tier || (Number(b.our_score) || 0) - (Number(a.our_score) || 0) || a.keyword.localeCompare(b.keyword));
 
   fs.writeFileSync(path.join(outDir, `${geo}.csv`),
-    [HEAD.join(','), ...list.map((r) => [r.geo, r.keyword, r.tier, r.source, r.concept, r.our_score, '', ''].map(csvCell).join(','))].join('\n') + '\n');
+    [HEAD.join(','), ...list.map((r) => CELLS(r).map(csvCell).join(','))].join('\n') + '\n');
   fs.writeFileSync(path.join(outDir, `${geo}.txt`), list.map((r) => r.keyword).join('\n') + '\n');
   all.push(...list);
   const by = (n) => list.filter((r) => r.tier === n).length;
-  summary.push({ geo, всего: list.length, головных: by(1), ядро: by(2), прочих: by(3), шаблонных: by(4) });
+  summary.push({ geo, всего: list.length, головных: by(1), ядро: by(2), прочих: by(3), шаблонных: by(4),
+    'есть объём': list.filter((r) => r.have_st === 'есть').length,
+    'без объёма': list.filter((r) => r.have_st !== 'есть').length });
 }
 
 fs.writeFileSync(path.join(outDir, 'all.csv'),
-  [HEAD.join(','), ...all.map((r) => [r.geo, r.keyword, r.tier, r.source, r.concept, r.our_score, '', ''].map(csvCell).join(','))].join('\n') + '\n');
+  [HEAD.join(','), ...all.map((r) => CELLS(r).map(csvCell).join(','))].join('\n') + '\n');
 
 console.table(summary);
 log(`выгружено ${all.length} пар «ключ × гео» по ${summary.length} гео в out/keywords/`);
