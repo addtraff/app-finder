@@ -195,10 +195,16 @@ __UNPACK_JS__
   // Дверь в топ-3: та же величина, но по местам 1–3. По США вход в тройку дороже входа в
   // десятку в среднем в двенадцать раз, а у каждой восьмой ниши разницы почти нет — именно
   // такие и интересны: попасть внутрь и сразу оказаться высоко.
+  function doorRatio(a, b) {
+    if (!isNum(a) || !isNum(b) || b <= 0) return '';
+    var r = a / b;
+    if (r >= 1000) return '×' + short(Math.round(r)) + ' — в десятке стоит приложение почти без установок';
+    return '×' + (r >= 100 ? Math.round(r) : fix(r, 1));
+  }
   function door3Line(n) {
     if (!isNum(n.door3)) return '<div class="muted small">топ-3 не посчитан</div>';
     var mult = isNum(n.door) && n.door > 0 ? n.door3 / n.door : null;
-    return '<div class="muted small">топ-3: ' + short(n.door3) + (mult ? ' (×' + fix(mult, 1) + ')' : '') + '</div>';
+    return '<div class="muted small">топ-3: ' + short(n.door3) + (mult ? ' (' + doorRatio(n.door3, n.door) + ')' : '') + '</div>';
   }
   function demandHtml(n) {
     if (!isNum(n.dem)) return dash('внешних объёмов по этой нише нет');
@@ -429,7 +435,7 @@ __UNPACK_JS__
         '<td class="num">' + esc(n.geo) + '</td>' +
         '<td class="r"><div class="num strong">' + short(n.door) + '</div>' +
           (isNum(n.door_flow) ? '<div class="muted small">поток ' + short(n.door_flow) + '/дн.</div>' : '') + '</td>' +
-        '<td class="r">' + (isNum(n.door3) ? '<div class="num strong">' + short(n.door3) + '</div>' + (isNum(n.door) && n.door > 0 ? '<div class="muted small">×' + fix(n.door3 / n.door, 1) + ' к десятке</div>' : '') : dash('в топ-3 меньше двух приложений с известными установками')) + '</td>' +
+        '<td class="r">' + (isNum(n.door3) ? '<div class="num strong">' + short(n.door3) + '</div>' + (isNum(n.door) && n.door > 0 ? '<div class="muted small">' + doorRatio(n.door3, n.door) + ' к десятке</div>' : '') : dash('в топ-3 меньше двух приложений с известными установками')) + '</td>' +
         '<td class="r">' + demandHtml(n) + (isNum(n.dif) ? '<div class="muted small">сложность ' + fix(n.dif, 0) + '</div>' : '') + '</td>' +
         '<td class="r"><div class="num strong">' + fix(n.freedom, 0) + '</div>' +
           (isNum(n.fmargin) ? '<div class="small" style="color:' + (edge ? 'var(--orange)' : 'var(--muted)') + '">до границы ' + (n.fmargin > 0 ? '+' : '') + fix(n.fmargin, 0) + (edge ? ' — на краю' : '') + '</div>' : '') + '</td>' +

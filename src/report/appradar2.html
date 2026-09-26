@@ -768,10 +768,16 @@
   // верхних мест — по кривой CTR они забирают вчетверо больше трафика, чем места 6–10.
   // Пусто там, где в тройке меньше двух приложений с известными установками: требование
   // строже, чем у десятки, и по редким ключам дверь в топ-3 не считается.
+  function doorRatio(a, b) {
+    if (!isNum(a) || !isNum(b) || b <= 0) return '';
+    var r = a / b;
+    if (r >= 1000) return '×' + short(Math.round(r)) + ' — в десятке стоит приложение почти без установок';
+    return '×' + (r >= 100 ? Math.round(r) : fix(r, 1));
+  }
   function door3Html(n) {
     if (!n || !isNum(n.door3)) return dash('в топ-3 меньше двух приложений с известными установками');
     var mult = isNum(n.door) && n.door > 0 ? n.door3 / n.door : null;
-    var note = isNum(n.door_flow3) ? 'поток ' + short(n.door_flow3) + '/дн.' : (mult ? '×' + fix(mult, 1) + ' к десятке' : '');
+    var note = isNum(n.door_flow3) ? 'поток ' + short(n.door_flow3) + '/дн.' : (mult ? doorRatio(n.door3, n.door) + ' к десятке' : '');
     return '<span class="num strong" data-tip="nc.door3" data-tip-val="' + esc('вход в тройку против входа в десятку: ' + short(n.door) + ' → ' + short(n.door3)
       + (isNum(n.door_flow3) ? '\nпоток у третьего: ' + short(n.door_flow3) + '/дн.' : '')) + '">' + short(n.door3) + '</span>'
       + (note ? '<div class="muted small">' + note + '</div>' : '') + geoNote(n);
