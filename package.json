@@ -10,7 +10,9 @@
   "scripts": {
     "radar": "node src/cli.js",
     "kw": "node src/kw.js",
-    "kw:selftest": "node tools/selftest-kw.js"
+    "kw:selftest": "node tools/selftest-kw.js",
+    "test": "node --test \"test/**/*.test.js\"",
+    "health": "node tools/health.js"
   },
   "dependencies": {
     "better-sqlite3": "^12.2.0",

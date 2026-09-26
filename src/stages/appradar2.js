@@ -9,8 +9,9 @@ import { db, ROOT, DB_PATH } from '../lib/db.js';
 import { config, referenceGeo } from '../lib/config.js';
 import { quantile, norm, log } from '../lib/util.js';
 import { packRows, UNPACK_JS } from '../lib/pack.js';
+import { fillTemplate } from '../lib/report-common.js';
 import { qv, clearQCache } from './quantiles.js';
-import { collectCollection } from './dashboard.js';
+import { collectCollection } from '../lib/collection.js';
 
 const one = (d, sql, ...p) => d.prepare(sql).get(...p);
 const all = (d, sql, ...p) => d.prepare(sql).all(...p);
@@ -637,7 +638,7 @@ export async function run() {
   const data = collect(d);
   const tpl = fs.readFileSync(path.join(ROOT, 'src', 'report', 'appradar2.html'), 'utf8');
   const json = JSON.stringify(packRows(data)).replace(/</g, '\\u003c');
-  const fragment = tpl.replace('__RADAR_DATA__', () => json).replace('__UNPACK_JS__', () => UNPACK_JS);
+  const fragment = fillTemplate(tpl, { json, unpackJs: UNPACK_JS });
   // RADAR_REPORT_FULL=1 — полная версия без отсечки строк, в out/full: для просмотра локально
   // (http://localhost:8777/full/…), в артефакт такой файл не помещается.
   const outDir = path.join(ROOT, 'out', process.env.RADAR_REPORT_FULL ? 'full' : '');

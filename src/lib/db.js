@@ -294,6 +294,32 @@ CREATE TABLE IF NOT EXISTS metrics_niche_geo (
 -- metrics_niche_geo, потому что строка тут не на нишу и не на снимок, а на событие входа:
 -- она пишется один раз и потом только дописывается исходом. Снимочные таблицы переписывают
 -- себя целиком каждый день, и история входов в них не пережила бы первую же пересборку.
+-- Обход целиком: строка на проход одного гео. Существует ради одного вопроса, на который
+-- до 27.09 нельзя было ответить: «прошёл ли ночной обход до конца». Строка закрывается
+-- явно; если процесс умер, она остаётся открытой и помечается прерванной при следующем
+-- старте. Код возврата задачи Windows для этого не годится: 26.09 обход оборвался, задача
+-- отчиталась кодом прерывания, и ни одна цифра в базе об этом не знала.
+CREATE TABLE IF NOT EXISTS cycles (
+  run_id TEXT, cycle TEXT, geo TEXT, snapshot_date TEXT,
+  started_at TEXT, finished_at TEXT,
+  status TEXT,            -- running | ok | failed | interrupted
+  stages_total INTEGER, stages_ok INTEGER, stages_failed INTEGER,
+  pid INTEGER, host TEXT,
+  code_version TEXT,      -- HEAD на момент старта: висящий обход мог работать старым кодом
+  notes TEXT,
+  PRIMARY KEY (run_id, geo)
+);
+CREATE INDEX IF NOT EXISTS ix_cycles_status ON cycles(status, started_at);
+
+-- Блокировка гео. Дневной обход и ручной пересчёт 26.09 работали по одному гео разом, и
+-- обход дважды затёр результат — своим, более старым кодом. Держатель опознаётся по pid:
+-- блокировка мёртвого процесса снимается сразу, а не по таймауту.
+CREATE TABLE IF NOT EXISTS locks (
+  name TEXT PRIMARY KEY,
+  run_id TEXT, cycle TEXT, pid INTEGER, host TEXT,
+  acquired_at TEXT, heartbeat_at TEXT
+);
+
 CREATE TABLE IF NOT EXISTS niche_entries (
   geo TEXT, niche_id TEXT, app_id TEXT,
   entry_date TEXT,        -- день, когда приложение впервые увидели в топ-10 ниши

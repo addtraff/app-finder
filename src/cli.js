@@ -7,6 +7,7 @@ import { syncRegistry, activeGeos, config } from './lib/config.js';
 import { setRpm, stats, CaptchaStop } from './lib/play.js';
 import { todayUTC, md5, log, warn } from './lib/util.js';
 import { planForDays, dueToday, maturity, pendingWork } from './lib/schedule.js';
+import { startCycle, finishCycle, reapDead, reapOrphanRuns, acquireLock, releaseLock, beat, holderText } from './lib/cycles.js';
 
 import * as collectCharts from './stages/collect-charts.js';
 import * as harvestKeywords from './stages/harvest-keywords.js';
@@ -22,14 +23,11 @@ import * as nicheEntries from './stages/niche-entries.js';
 import * as analyzePain from './stages/analyze-pain.js';
 import * as quantiles from './stages/quantiles.js';
 import * as score from './stages/score.js';
-import * as dashboard from './stages/dashboard.js';
 import * as exportSheets from './stages/export.js';
 import * as checkAds from './stages/check-ads.js';
 import * as alerts from './stages/alerts.js';
 import * as analyzeApk from './stages/analyze-apk.js';
 import * as analyzeTracking from './stages/analyze-tracking.js';
-import * as methodologyReport from './stages/methodology-report.js';
-import * as appradar from './stages/appradar.js';
 import * as radarV2 from './stages/radar-v2.js';
 import * as appradar2 from './stages/appradar2.js';
 import * as appradar3 from './stages/appradar3.js';
@@ -51,14 +49,11 @@ const STAGES = {
   'analyze-pain': analyzePain,
   'quantiles': quantiles,
   'score': score,
-  'dashboard': dashboard,
   'export': exportSheets,
   'check-ads': checkAds,
   'alerts': alerts,
   'analyze-apk': analyzeApk,           // ручной путь: реальный разбор скачанного APK
   'analyze-tracking': analyzeTracking, // автоматический: то же самое по тексту, без скачивания
-  'methodology': methodologyReport,     // второй отчёт: разрез по слоям методики, вкладками
-  'appradar': appradar,                 // третий отчёт: те же данные в оформлении AppRadar
   'radar-v2': radarV2,                  // методика v2.0: свобода, ёмкость, чистота, семь проверок
   'appradar2': appradar2,               // отчёт AppRadar 2 по методике v2.0 (все гео сразу)
   'appradar3': appradar3,               // отчёт AppRadar 3: «стоит ли повторять» (docs/tz-appradar-3.md)
@@ -119,8 +114,9 @@ const DISCOVERY = [
   ['score', {}],
   ['niche-entries', {}],
   ['radar-v2', {}],
-  // Отчёты: только AppRadar 2 (решение заказчика 22.09). Play Market Radar, Методика и
-  // AppRadar заморожены — стадии dashboard, methodology, appradar запускаются лишь вручную.
+  // Отчёты: только AppRadar 2 (решение заказчика 22.09). Play Market Radar, «Методика» и
+  // AppRadar v1 удалены 27.09 вместе со своими шаблонами — они были заморожены с 22.09, а
+  // читать их при каждой правке общих частей приходилось.
   ['appradar2', {}],
   ['export', {}],
   ['alerts', {}],
@@ -170,8 +166,9 @@ const DAILY = [
   ['score', {}],
   ['niche-entries', {}],
   ['radar-v2', {}],
-  // Отчёты: только AppRadar 2 (решение заказчика 22.09). Play Market Radar, Методика и
-  // AppRadar заморожены — стадии dashboard, methodology, appradar запускаются лишь вручную.
+  // Отчёты: только AppRadar 2 (решение заказчика 22.09). Play Market Radar, «Методика» и
+  // AppRadar v1 удалены 27.09 вместе со своими шаблонами — они были заморожены с 22.09, а
+  // читать их при каждой правке общих частей приходилось.
   ['appradar2', {}],
   ['export', {}],
   ['alerts', {}],
@@ -179,23 +176,46 @@ const DAILY = [
 
 async function runPipeline(plan, { geo, date, cycle, only = null, force = false }) {
   const runId = `${date}-${geo}-${cycle}-${md5(String(Date.now())).slice(0, 6)}`;
+  const lock = `geo:${geo}`;
+  // Блокировка гео: два прохода по одной стране одновременно затирают результаты друг
+  // друга, причём выигрывает не последний по времени, а тот, кто позже запишет.
+  const got = acquireLock(lock, { runId, cycle, force });
+  if (!got.ok) {
+    warn(`гео ${geo} занято: ${holderText(got.holder)}. Пропускаю; чтобы всё равно запустить — --force`);
+    return null;
+  }
+  const steps = plan.filter(([name]) => !only || name === only);
+  startCycle({ runId, cycle, geo, date, stagesTotal: steps.length });
   log(`=== ${cycle} ${geo} ${date}${force ? ' --force' : ''} (run ${runId}) ===`);
-  for (const [name, opts] of plan) {
-    if (only && name !== only) continue;
-    const stage = STAGES[name];
-    if (!stage) { warn(`нет стадии ${name}`); continue; }
-    log(`-> ${name}`);
-    try {
-      await stage.run({ geo, date, runId, cycle, force, ...opts });
-    } catch (e) {
-      if (e instanceof CaptchaStop) {
-        logEvent('captcha_stop', { date, geo, detail: e.message });
-        warn(`СТОП: ${e.message}`);
-        break;
+  let ok = 0, failed = 0, stopped = null;
+  try {
+    for (const [name, opts] of steps) {
+      const stage = STAGES[name];
+      if (!stage) { warn(`нет стадии ${name}`); failed++; continue; }
+      log(`-> ${name}`);
+      try {
+        await stage.run({ geo, date, runId, cycle, force, ...opts });
+        ok++;
+      } catch (e) {
+        if (e instanceof CaptchaStop) {
+          logEvent('captcha_stop', { date, geo, detail: e.message });
+          warn(`СТОП: ${e.message}`);
+          stopped = e.message;
+          break;
+        }
+        failed++;
+        warn(`стадия ${name} упала: ${e.message}`);
+        if (process.env.RADAR_DEBUG) console.error(e);
       }
-      warn(`стадия ${name} упала: ${e.message}`);
-      if (process.env.RADAR_DEBUG) console.error(e);
+      beat(lock);
     }
+    // Обход считается пройденным, только если дошёл до конца и ни одна стадия не упала.
+    // «Почти прошёл» — это не прошёл: именно на такой формулировке 26.09 оборванный обход
+    // выглядел успешным.
+    const status = stopped ? 'interrupted' : failed ? 'failed' : 'ok';
+    finishCycle({ runId, geo, status, stagesOk: ok, stagesFailed: failed, notes: stopped });
+  } finally {
+    releaseLock(lock);
   }
   log(`=== запросов: ${JSON.stringify(stats())}`);
   return runId;
@@ -208,6 +228,9 @@ async function main() {
   db();
   syncRegistry();
   applyRpm();
+  // Чиним учёт за предыдущий запуск: строки процессов, которых больше нет.
+  reapDead();
+  reapOrphanRuns();
 
   const geos = args.geo ? String(args.geo).split(',') : activeGeos().map((g) => g.geo);
 
@@ -239,7 +262,14 @@ async function main() {
       if (!STAGES[name]) { warn(`неизвестная стадия: ${name}. Есть: ${Object.keys(STAGES).join(', ')}`); process.exit(1); }
       const runId = `${date}-manual-${md5(String(Date.now())).slice(0, 6)}`;
       for (const geo of geos) {
+        // Ручной запуск берёт то же гео под ту же блокировку, что и обход. 26.09 без этого
+        // дневной обход дважды затёр ручной пересчёт — и затёр более старым кодом, потому
+        // что его процесс стартовал до правки.
+        const lock = `geo:${geo}`;
+        const got = acquireLock(lock, { runId, cycle: `manual:${name}`, force: !!args.force });
+        if (!got.ok) { warn(`гео ${geo} занято: ${holderText(got.holder)}. Пропускаю; чтобы всё равно запустить — --force`); continue; }
         log(`-> ${name} (${geo})`);
+        try {
         await STAGES[name].run({
           geo, date, runId, cycle: args.cycle || 'discovery',
           scope: args.scope, limit: args.limit ? Number(args.limit) : null,
@@ -252,6 +282,7 @@ async function main() {
           skipGoogle: args['skip-google'] === true || args['skip-google'] === 'yes',
           calibrateOnly: args.calibrate === true || args.calibrate === 'yes',
         });
+        } finally { releaseLock(lock); }
       }
       break;
     }

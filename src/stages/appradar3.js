@@ -19,6 +19,7 @@ import { db, ROOT } from '../lib/db.js';
 import { config } from '../lib/config.js';
 import { log } from '../lib/util.js';
 import { packRows, UNPACK_JS } from '../lib/pack.js';
+import { fillTemplate } from '../lib/report-common.js';
 import { parsePerms, permsLang, copyability } from '../lib/permissions.js';
 
 const one = (d, sql, ...p) => d.prepare(sql).get(...p);
@@ -327,7 +328,7 @@ export async function run({ geo, date }) {
 
   const tpl = fs.readFileSync(path.join(ROOT, 'src', 'report', 'appradar3.html'), 'utf8');
   const json = JSON.stringify(packRows(data)).replace(/</g, '\\u003c');
-  const html = tpl.replace('__RADAR_DATA__', () => json).replace('__UNPACK_JS__', () => UNPACK_JS);
+  const html = fillTemplate(tpl, { json, unpackJs: UNPACK_JS });
   const out = path.join(ROOT, 'out', 'appradar3.html');
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, html);

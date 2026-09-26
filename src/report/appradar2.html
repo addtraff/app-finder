@@ -548,26 +548,9 @@
 
   // ---------------- утилиты ----------------
   function $(id) { return document.getElementById(id); }
-  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
-  function isNum(n) { return typeof n === 'number' && isFinite(n); }
-  function short(n) {
-    if (!isNum(n)) return '—';
-    var a = Math.abs(n), s = n < 0 ? '-' : '';
-    if (a >= 1e9) return s + (a / 1e9).toFixed(a >= 1e10 ? 0 : 1).replace('.0', '') + 'B';
-    if (a >= 1e6) return s + (a / 1e6).toFixed(a >= 1e7 ? 0 : 1).replace('.0', '') + 'M';
-    if (a >= 1e3) return s + (a / 1e3).toFixed(a >= 1e4 ? 0 : 1).replace('.0', '') + 'K';
-    return s + String(Math.round(a));
-  }
-  function int(n) { return isNum(n) ? Math.round(n).toLocaleString('ru-RU') : '—'; }
-  function fix(n, d) { return isNum(n) ? n.toFixed(d == null ? 1 : d) : '—'; }
-  function pct(n, d) { return isNum(n) ? (n * 100).toFixed(d == null ? 0 : d) + '%' : '—'; }
-  function dash(title) { return '<span class="muted" title="' + esc(title || '') + '">—</span>'; }
-  function median(arr) { var a = arr.filter(isNum).sort(function (x, y) { return x - y; }); if (!a.length) return null; var m = Math.floor(a.length / 2); return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; }
-  function dmy(s) { return s ? s.slice(8, 10) + '.' + s.slice(5, 7) + '.' + s.slice(0, 4) : '—'; }
-  function addDays(s, n) { var d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+__COMMON_JS__
   function genre(id) { if (!id) return '—'; if (id.indexOf('GAME') === 0) return 'Игры'; return GENRES[id] || id.toLowerCase().replace(/_/g, ' '); }
   function geoName(g) { return g === WW ? 'Ворлдвайд' : (GEO_NAMES[g] || g); }
-  function hash(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); }
   var ICON_BG = [['#3d5afe', '#7a5cf0'], ['#1faa72', '#0f766e'], ['#e8890c', '#d9482b'], ['#7a5cf0', '#b3479f'], ['#0ea5e9', '#3d5afe'], ['#e0484c', '#9d2f5e'], ['#14b8a6', '#1f7a4d'], ['#f59e0b', '#c2410c']];
   function icon(a) {
     var words = String(a.title || a.app_id || '?').replace(/[^\p{L}\p{N}\s]/gu, ' ').trim().split(/\s+/);
@@ -576,8 +559,6 @@
     return '<div class="app-icon" style="background:linear-gradient(135deg,' + c[0] + ',' + c[1] + ')" aria-hidden="true">' + esc(ini)
       + (a && a.icon ? '<img class="app-icon-img" src="' + esc(a.icon) + '" alt="" loading="lazy" referrerpolicy="no-referrer">' : '') + '</div>';
   }
-  function load(key, def) { try { var v = localStorage.getItem(key); return v == null ? def : JSON.parse(v); } catch (e) { return def; } }
-  function save(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* хранилище недоступно */ } }
 
   // ---------------- индексы ----------------
   var GEO = {}; D.geos.forEach(function (g) { GEO[g.geo] = g; });
@@ -768,12 +749,6 @@
   // верхних мест — по кривой CTR они забирают вчетверо больше трафика, чем места 6–10.
   // Пусто там, где в тройке меньше двух приложений с известными установками: требование
   // строже, чем у десятки, и по редким ключам дверь в топ-3 не считается.
-  function doorRatio(a, b) {
-    if (!isNum(a) || !isNum(b) || b <= 0) return '';
-    var r = a / b;
-    if (r >= 1000) return '×' + short(Math.round(r)) + ' — в десятке стоит приложение почти без установок';
-    return '×' + (r >= 100 ? Math.round(r) : fix(r, 1));
-  }
   function door3Html(n) {
     if (!n || !isNum(n.door3)) return dash('в топ-3 меньше двух приложений с известными установками');
     var mult = isNum(n.door) && n.door > 0 ? n.door3 / n.door : null;
