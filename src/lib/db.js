@@ -467,6 +467,7 @@ const MIGRATIONS = [
   ['niches', 'concept', 'TEXT'],
   ['metrics_niche_geo', 'concept', 'TEXT'],
   // Дополнение к ТЗ v2.1
+  ['raw_app_page', 'icon', 'TEXT'],
   ['raw_app_page', 'title_hash', 'TEXT'],              // A1
   ['raw_app_page', 'short_desc_hash', 'TEXT'],         // A1
   ['metrics_app_geo', 'localized_geo_count', 'INTEGER'],

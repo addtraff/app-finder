@@ -123,14 +123,14 @@ export async function run({ geo, date, runId, cycle = 'discovery', limit = null,
     size_text, size_mb, android_version, released, updated_ts, version, genre, genre_id, content_rating, badges,
     screenshots_count, video_present, developer, developer_id, developer_email, developer_website,
     developer_address, developer_legal_name, privacy_policy, permissions, similar,
-    listing_hash, title_hash, short_desc_hash, raw_json)
+    listing_hash, title_hash, short_desc_hash, raw_json, icon)
     VALUES (@app_id,@geo,@hl,@snapshot_date,@run_id,@cycle,@title,@summary,@description,@description_len,
     @max_installs,@min_installs,@installs_text,@installs_country,@score,@ratings_count,@reviews_count,@histogram,
     @price,@currency,@free,@available,@offers_iap,@iap_range,@iap_min_usd,@iap_max_usd,@contains_ads,
     @size_text,@size_mb,@android_version,@released,@updated_ts,@version,@genre,@genre_id,@content_rating,@badges,
     @screenshots_count,@video_present,@developer,@developer_id,@developer_email,@developer_website,
     @developer_address,@developer_legal_name,@privacy_policy,@permissions,@similar,
-    @listing_hash,@title_hash,@short_desc_hash,@raw_json)`);
+    @listing_hash,@title_hash,@short_desc_hash,@raw_json,@icon)`);
 
   const prevStmt = d.prepare(
     `SELECT max_installs, installs_country, listing_hash, available, snapshot_date
@@ -189,6 +189,10 @@ export async function run({ geo, date, runId, cycle = 'discovery', limit = null,
         privacy_policy: a.privacyPolicy ?? null,
         permissions: null, similar: null,
         listing_hash: hash,
+        // Иконка приложения. Play отдаёт её в той же карточке, а мы до сих пор выбрасывали:
+        // в отчётах вместо значка стояли две буквы из названия. Хранится ссылка, не файл —
+        // сто байт на строку против сорока килобайт картинки.
+        icon: a.icon || null,
         // A1: локализация определяется расхождением заголовка или краткого описания
         // с версией hl=en, gl=US. Хеши считаются здесь, сравниваются в расчётном слое.
         title_hash: md5(String(a.title || '').trim().toLowerCase()),
