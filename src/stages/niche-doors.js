@@ -340,8 +340,8 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
       wall_installs, wall_ratings, demand_installs, weak_share, new_share_18m, leader_share,
       exact_in_title, jaccard_top5_median, relevance_gap_pct, generic_demand_share, suggest_score_sum,
       top10_turnover_30d, index_gap_leader, top_apps, concept,
-      top10_turnover_7d, top10_turnover_14d, partial_window, door_flow, door5, door_flow5)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+      top10_turnover_7d, top10_turnover_14d, partial_window, door_flow, door5, door_flow5, door3, door_flow3)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
   const upAppNiche = d.prepare(`UPDATE apps SET niche_id=? WHERE app_id=?`);
 
   const coreVersion = `${date}:${md5(keywords.sort().join('|')).slice(0, 8)}`;
@@ -393,24 +393,33 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
     // Порог знания тот же по сути: не меньше трёх приложений с известными установками, но
     // из пяти строк, а не из десяти, — то есть требование строже, и по редким ключам дверь
     // в топ-5 останется пустой там, где обычная посчиталась.
-    const perKwMin = [], perKwFlow = [], perKwMin5 = [], perKwFlow5 = [];
+    const perKwMin = [], perKwFlow = [], perKwMin5 = [], perKwFlow5 = [], perKwMin3 = [], perKwFlow3 = [];
     for (const kw of core) {
       const raw = top10raw.get(kw);
       const raw5 = raw.slice(0, 5);
+      const raw3 = raw.slice(0, 3);
       const vals = raw.map(installsForDoor).filter((v) => v != null);
       if (vals.length >= 3) perKwMin.push(Math.min(...vals));
       const vals5 = raw5.map(installsForDoor).filter((v) => v != null);
       if (vals5.length >= 3) perKwMin5.push(Math.min(...vals5));
+      // Порог здесь два из трёх, а не три из трёх: та же доля, что у пятёрки, иначе по
+      // редким ключам дверь в тройку пустовала бы там, где обе остальные посчитались.
+      const vals3 = raw3.map(installsForDoor).filter((v) => v != null);
+      if (vals3.length >= 2) perKwMin3.push(Math.min(...vals3));
       // Тот же расчёт, но в потоке: сколько установок в день у самого слабого из топ-10.
       const flows = raw.map(flowOf).filter((v) => v != null);
       if (flows.length >= 3) perKwFlow.push(Math.min(...flows));
       const flows5 = raw5.map(flowOf).filter((v) => v != null);
       if (flows5.length >= 3) perKwFlow5.push(Math.min(...flows5));
+      const flows3 = raw3.map(flowOf).filter((v) => v != null);
+      if (flows3.length >= 2) perKwFlow3.push(Math.min(...flows3));
     }
     const doorFlow = perKwFlow.length ? Math.round(median(perKwFlow)) : null;
     const door = perKwMin.length ? Math.round(median(perKwMin)) : null;
     const doorFlow5 = perKwFlow5.length ? Math.round(median(perKwFlow5)) : null;
     const door5 = perKwMin5.length ? Math.round(median(perKwMin5)) : null;
+    const doorFlow3 = perKwFlow3.length ? Math.round(median(perKwFlow3)) : null;
+    const door3 = perKwMin3.length ? Math.round(median(perKwMin3)) : null;
 
     const headTop10 = top10.get(head) || [];
     const headApps = headTop10.map((id) => cardOf(id)).filter(Boolean);
@@ -504,7 +513,7 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
       insMetric.run(nicheId, geo, date, head, head, core.length, allApps.size, door, bestDoor,
         wall, wallRatings, demandInstalls, weakShare, newShare, leaderShare, exactInTitle, jac5,
         relevanceGap, genericShare, sugSum, turnover, indexGapLeader, topAppsJson, concept,
-        turnover7, turnover14, partialWindow, doorFlow, door5, doorFlow5);
+        turnover7, turnover14, partialWindow, doorFlow, door5, doorFlow5, door3, doorFlow3);
       // Приложение относится к нише, где у него лучшая позиция.
       for (const id of allApps) {
         const cur = d.prepare(`SELECT niche_id FROM apps WHERE app_id=?`).get(id);

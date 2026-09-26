@@ -286,6 +286,7 @@ CREATE TABLE IF NOT EXISTS metrics_niche_geo (
   generic_demand_share REAL, suggest_score_sum REAL, top10_turnover_30d REAL,
   index_gap_leader REAL, top_apps TEXT, concept TEXT,
   top10_turnover_7d REAL, top10_turnover_14d REAL, partial_window INTEGER,
+  door3 INTEGER, door_flow3 INTEGER,
   PRIMARY KEY (niche_id, geo, snapshot_date)
 );
 
@@ -487,6 +488,12 @@ const MIGRATIONS = [
   ['metrics_niche_geo', 'door5', 'INTEGER'],
   ['metrics_niche_geo', 'door_flow5', 'INTEGER'],
   ['metrics_niche_v2', 'door5', 'INTEGER'],
+  // Дверь и поток по первой тройке: по кривой CTR третье место даёт 12% кликов ниши,
+  // десятое — 3,2%. Порог входа за них и отличается в десятки раз.
+  ['metrics_niche_geo', 'door3', 'INTEGER'],
+  ['metrics_niche_geo', 'door_flow3', 'INTEGER'],
+  ['metrics_niche_v2', 'door3', 'INTEGER'],
+  ['metrics_niche_v2', 'door_flow3', 'INTEGER'],
   ['metrics_niche_v2', 'door_flow5', 'INTEGER'],
   ['seed_keywords', 'concept', 'TEXT'],
   ['disc_keywords', 'concept', 'TEXT'],

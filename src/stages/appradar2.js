@@ -85,7 +85,7 @@ function collectEntries(d, nicheRows, iconOf) {
     rows.push({
       geo: r.geo, niche_id: r.niche_id, app_id: r.app_id,
       concept: n.concept, quadrant: n.quadrant, freedom: n.freedom,
-      door: n.door, door5: n.door5, dem: n.dem, dem_est: n.dem_est,
+      door: n.door, door3: n.door3, dem: n.dem, dem_est: n.dem_est,
       entry_date: r.entry_date, pos: r.entry_position, best_pos: r.best_position,
       from_below: r.days_to_top10, inst_at: r.installs_at_entry, inst_now: r.installs_now,
       days_in: r.days_in_top10, obs_after: r.observed_after, since: r.days_since_entry,
@@ -319,7 +319,7 @@ export function collect(d) {
         n_free_keys: r.free_keys_count, n_quad: r.quadrant,
         // Спрос и обе двери — из того же гео, что и остальные цифры ниши в этой строке.
         n_dem: r4(r.demand_ext), n_dem_cov: r4(r.demand_cov), n_dem_est: r.demand_est ?? 0,
-        n_door: r.door, n_door5: r.door5 };
+        n_door: r.door, n_door3: r.door3 };
       const row = { app_id: r.app_id, title: r.title, dev: r.developer, concept: r.concept, geo: g.geo, installs: r.installs,
         official: official ? 1 : 0, w, interp: measured ? r4(official ? r.installs_delta_30d : r.delta_preview) : null,
         flat: r.delta_flat === 1 ? 1 : 0, rest: r4(r.installs_est_ratings), rw: r.ratings_delta_w,
@@ -379,7 +379,7 @@ export function collect(d) {
               a.title, a.developer, a.genre_id, a.first_seen,
               n.concept, n.head_keyword AS niche_head, n.freedom_pct AS niche_freedom, n.quadrant AS niche_quadrant,
               n.door AS niche_door, n.organic_capacity AS niche_capacity, n.ubt_flag AS niche_ubt_flag,
-              n.door5 AS niche_door5, n.demand_ext AS niche_dem, n.demand_cov AS niche_dem_cov, n.demand_est AS niche_dem_est
+              n.door3 AS niche_door3, n.demand_ext AS niche_dem, n.demand_cov AS niche_dem_cov, n.demand_est AS niche_dem_est
          FROM metrics_app_v2 v
          JOIN metrics_app_geo m ON m.app_id=v.app_id AND m.geo=v.geo AND m.snapshot_date=v.snapshot_date
          JOIN apps a ON a.app_id=v.app_id
@@ -417,7 +417,7 @@ export function collect(d) {
         niche_quadrant: a.niche_quadrant, niche_door: a.niche_door, niche_capacity: r4(a.niche_capacity),
         // Спрос и дверь в топ-5 берутся у ниши приложения: в списке приложений видно не
         // только само приложение, но и рынок, на котором оно стоит.
-        niche_door5: a.niche_door5, niche_dem: r4(a.niche_dem), niche_dem_cov: r4(a.niche_dem_cov), niche_dem_est: a.niche_dem_est ?? 0,
+        niche_door3: a.niche_door3, niche_dem: r4(a.niche_dem), niche_dem_cov: r4(a.niche_dem_cov), niche_dem_est: a.niche_dem_est ?? 0,
         prescore: r4(a.prescore), installs: a.installs, score: r4(a.score), ratings_count: a.ratings_count,
         age_months: r4(a.age_months), released: a.released, young: a.young,
         delta30: r4(a.installs_delta_30d), delta_w: a.delta_window_days, delta_partial: a.delta_partial,
@@ -463,7 +463,7 @@ export function collect(d) {
       nicheRows.push({
         geo: g.geo, niche_id: n.niche_id, concept: n.concept, head: n.head_keyword, keywords_count: n.keywords_count,
         door: n.door, door_flow: n.door_flow, door_head: n.door_head, door_tail: n.door_tail, door_velocity: r4(n.door_velocity), wall: n.wall_installs,
-        door5: n.door5, door_flow5: n.door_flow5,
+        door3: n.door3, door_flow3: n.door_flow3,
         free_keys: n.free_keys_count, fds: r4(n.free_demand_share), demand_per_app: r4(n.demand_per_app),
         // Внешний спрос: показов в день по ядровым ключам, без навигационных. dem_est=1 —
         // это оценка по США, а не замер страны; в отчёте такие числа подписаны отдельно.
@@ -576,7 +576,7 @@ export function collect(d) {
       dem: us ? us.dem : null, dif: us ? us.dif : null, dem_cov: us ? us.dem_cov : null, dem_est: us ? us.dem_est : 0,
       dem_tr: us ? us.dem_tr : null, dem_tr_days: us ? us.dem_tr_days : null,
       cheapest_geo: cheapest ? cheapest.geo : null, cheapest_door: cheapest ? cheapest.door : null,
-      cheapest_door5: cheapest ? cheapest.door5 : null,
+      cheapest_door3: cheapest ? cheapest.door3 : null,
       young_unique: young.size, us_niche_id: us ? us.niche_id : null,
       rec_geo: (rows.filter((r) => r.rec_pct != null).sort(recOrder)[0] || {}).geo || null,
       rec_niche_id: (rows.filter((r) => r.rec_pct != null).sort(recOrder)[0] || {}).niche_id || null,
@@ -596,7 +596,7 @@ export function collect(d) {
     worldNiches.push({
       concept: null, geo: n.geo, niche_id: n.niche_id, geos_count: 1, no_concept: 1,
       dem: n.dem, dif: n.dif, dem_cov: n.dem_cov, dem_est: n.dem_est, dem_tr: n.dem_tr, dem_tr_days: n.dem_tr_days,
-      cheapest_door5: n.door5,
+      cheapest_door3: n.door3,
       target_geos: n.quadrant === 'target' ? 1 : 0,
       cheapest_geo: n.door != null ? n.geo : null, cheapest_door: n.door ?? null,
       young_unique: (n.young_apps || []).length, us_niche_id: n.geo === ref ? n.niche_id : null,

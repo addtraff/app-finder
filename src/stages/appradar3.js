@@ -153,7 +153,7 @@ export async function run({ geo, date }) {
               m.pain_money, m.pain_ads, m.pain_broken, m.pain_missing, m.pain_trust,
               m.reviews_labeled, m.monetization_type mtype, m.contains_ads has_ads,
               m.iap_min_usd iap_lo, m.iap_max_usd iap_hi,
-              n.concept, n.head_keyword head, n.door, n.door_flow, n.door5, n.door_flow5, n.freedom_pct freedom,
+              n.concept, n.head_keyword head, n.door, n.door_flow, n.door3, n.door_flow3, n.freedom_pct freedom,
               n.organic_purity purity, n.free_keys_count free_keys, n.time_to_organic tto,
               n.demand_ext, n.demand_cov, n.difficulty_ext, n.demand_est, n.demand_trend, n.demand_trend_days,
               COALESCE(n.quadrant_smooth, n.quadrant) quad, n.quadrant_days qdays, n.quadrant_seen qseen,
@@ -177,7 +177,7 @@ export async function run({ geo, date }) {
         geo: g.geo, app_id: c.app_id, title: c.title, dev: c.developer,
         concept: c.concept, head: c.head, installs: c.installs, age: r4(c.age), young: c.young,
         // рынок
-        door: c.door, door_flow: c.door_flow, door5: c.door5, door_flow5: c.door_flow5,
+        door: c.door, door_flow: c.door_flow, door3: c.door3, door_flow3: c.door_flow3,
         freedom: r4(c.freedom), purity: r4(c.purity),
         free_keys: c.free_keys, tto: r4(c.tto), quad: c.quad, qdays: c.qdays, qseen: c.qseen,
         dem: r4(c.demand_ext), dem_cov: r4(c.demand_cov), dif: r4(c.difficulty_ext), dem_est: c.demand_est ?? 0,
@@ -251,7 +251,7 @@ export async function run({ geo, date }) {
               a.title, a.developer, s.reject_reason reason,
               m.ratings_count reviews, m.pain_broken, m.pain_missing, m.pain_ads, m.pain_dominant pain,
               p.score rating,
-              n.concept, n.head_keyword head, n.door, n.door_flow, n.door5, n.door_flow5, n.freedom_pct freedom, n.organic_purity purity
+              n.concept, n.head_keyword head, n.door, n.door_flow, n.door3, n.door_flow3, n.freedom_pct freedom, n.organic_purity purity
          FROM metrics_app_v2 v
          JOIN apps a ON a.app_id=v.app_id
          JOIN screen_result s ON s.app_id=v.app_id AND s.geo=v.geo AND s.snapshot_date=?
@@ -268,7 +268,7 @@ export async function run({ geo, date }) {
         concept: c.concept, head: c.head, installs: c.installs, age: r4(c.age),
         rating: r4(c.rating), reviews: c.reviews, pain: c.pain,
         pain_broken: r4(c.pain_broken), pain_missing: r4(c.pain_missing), pain_ads: r4(c.pain_ads),
-        door: c.door, door_flow: c.door_flow, door5: c.door5, door_flow5: c.door_flow5,
+        door: c.door, door_flow: c.door_flow, door3: c.door3, door_flow3: c.door_flow3,
         freedom: r4(c.freedom), purity: r4(c.purity),
         k50: c.k50, k50p: c.k50p, est: r4(c.est), prev: r4(c.prev),
         lvl: c.lvl, pscore: r4(c.oscore == null ? null : 1 - c.oscore), ocov: r4(c.ocov),
@@ -278,7 +278,7 @@ export async function run({ geo, date }) {
     }
 
     for (const n of all(d,
-      `SELECT niche_id, concept, head_keyword head, door, door_flow, door5, door_flow5, freedom_pct freedom, organic_purity purity,
+      `SELECT niche_id, concept, head_keyword head, door, door_flow, door3, door_flow3, freedom_pct freedom, organic_purity purity,
               free_keys_count free_keys, demand_ext, demand_cov, difficulty_ext, demand_est, demand_trend, demand_trend_days,
               COALESCE(quadrant_smooth, quadrant) quad, quadrant_days qdays,
               quadrant_seen qseen, freedom_margin fmargin, young_organic_count nyoung, time_to_organic tto,
@@ -288,7 +288,7 @@ export async function run({ geo, date }) {
       const ww = weak.get(n.niche_id) || null;
       niches.push({
         geo: g.geo, niche_id: n.niche_id, concept: n.concept, head: n.head,
-        door: n.door, door_flow: n.door_flow, door5: n.door5, door_flow5: n.door_flow5,
+        door: n.door, door_flow: n.door_flow, door3: n.door3, door_flow3: n.door_flow3,
         freedom: r4(n.freedom), purity: r4(n.purity),
         free_keys: n.free_keys, quad: n.quad, qdays: n.qdays, qseen: n.qseen, fmargin: r4(n.fmargin),
         dem: r4(n.demand_ext), dem_cov: r4(n.demand_cov), dif: r4(n.difficulty_ext), dem_est: n.demand_est ?? 0,
