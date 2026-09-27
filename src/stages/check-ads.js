@@ -143,18 +143,36 @@ export function buildDomainQueue(d, geo, date, { domains = null, apps = null } =
     `SELECT MAX(snapshot_date) m FROM metrics_app_geo WHERE geo=? AND snapshot_date<=?`
   ).get(geo, date)?.m || date;
 
-  const done = new Set(d.prepare(
-    `SELECT DISTINCT developer_domain FROM raw_ads_google WHERE status='ok'`
-  ).all().map((r) => r.developer_domain));
+  // Успешная проверка держится ровно до recheck_after_days, а не вечно. Раньше домен со
+  // status=ok уходил в done навсегда, при том что улика по нему живёт evidence_ttl_days
+  // (30). Через месяц после старта вся проверка рекламы протухла бы разом и не обновилась
+  // никогда: очередь бы считала, что работы нет. Теперь домен, проверенный давно, снова
+  // попадает в очередь — но после тех, кого не проверяли ни разу.
+  const recheckAfter = c.recheck_after_days ?? 21;
+  const checkedAt = new Map(d.prepare(
+    `SELECT developer_domain, MAX(checked_at) at FROM raw_ads_google WHERE status='ok' GROUP BY developer_domain`
+  ).all().map((r) => [r.developer_domain, r.at]));
+  const ageDays = (at) => (at ? (Date.now() - Date.parse(at)) / 864e5 : null);
+  const done = new Set([...checkedAt].filter(([, at]) => (ageDays(at) ?? 1e9) <= recheckAfter).map(([dm]) => dm));
 
   const named = new Set((apps || '').split(',').map((s) => s.trim()).filter(Boolean));
   const namedDomains = new Set((domains || '').split(',').map((s) => hostOf(s.trim())).filter(Boolean));
+
+  // Квадрант ниши каждого приложения: домен, у которого хоть одно приложение стоит в нише
+  // квадранта «Цель», проверяется раньше остальных. Решение по таким нишам принимается в
+  // первую очередь, и именно там «признаков закупки не нашли» должно опираться на свежую
+  // улику, а не на трёхнедельную.
+  const targetNiches = new Set(d.prepare(
+    `SELECT niche_id FROM metrics_niche_v2
+      WHERE geo=? AND snapshot_date=(SELECT MAX(snapshot_date) FROM metrics_niche_v2 WHERE geo=?)
+        AND COALESCE(quadrant_smooth, quadrant)='target'`
+  ).all(geo, geo).map((r) => r.niche_id));
 
   // Приложение -> домен, с ценностью решения и признаками для приоритета.
   const byDomain = new Map();
   let noDomain = 0, blacklisted = 0, alreadyDone = 0;
   for (const r of d.prepare(
-    `SELECT m.app_id, a.title, a.watch_level, m.installs, m.prescore, m.installs_growth_1d,
+    `SELECT m.app_id, a.title, a.watch_level, m.installs, m.prescore, m.installs_growth_1d, m.niche_id,
             s.reject_reason,
             (SELECT p.developer_website FROM raw_app_page p
               WHERE p.app_id=m.app_id AND p.geo=m.geo ORDER BY p.snapshot_date DESC LIMIT 1) AS site,
@@ -177,6 +195,7 @@ export function buildDomainQueue(d, geo, date, { domains = null, apps = null } =
       byDomain.set(host, {
         domain: host, apps: [], developer: r.developer,
         best_prescore: null, max_installs: 0, passed: 0, watched: 0, named: 0,
+        target: 0, refresh: ageDays(checkedAt.get(host)),
       });
     }
     const rec = byDomain.get(host);
@@ -186,23 +205,34 @@ export function buildDomainQueue(d, geo, date, { domains = null, apps = null } =
     if (!r.reject_reason) rec.passed = 1;
     if (['A', 'B'].includes(r.watch_level)) rec.watched = 1;
     if (named.has(r.app_id) || namedDomains.has(host)) rec.named = 1;
+    if (r.niche_id && targetNiches.has(r.niche_id)) rec.target = 1;
   }
 
   const tier = (r) => {
     if (r.named) return 0;                                   // именной список
-    if (r.passed && r.best_prescore != null) return 1;        // кандидаты, прошедшие воронку
-    if (r.watched) return 2;                                  // ниши под наблюдением
-    if (r.max_installs >= c.min_installs_tail) return 3;      // хвост по установкам
-    return 4;
+    if (r.target) return 1;                                   // ниши квадранта «Цель»
+    if (r.passed && r.best_prescore != null) return 2;        // кандидаты, прошедшие воронку
+    if (r.watched) return 3;                                  // ниши под наблюдением
+    if (r.max_installs >= c.min_installs_tail) return 4;      // хвост по установкам
+    return 5;
   };
 
   const queue = [...byDomain.values()]
     .map((r) => ({ ...r, tier: tier(r) }))
-    .filter((r) => r.tier <= 3)
+    .filter((r) => r.tier <= 4)
     .sort((a, b) => (a.tier - b.tier)
+      // Внутри слоя сначала те, кого не проверяли ни разу: неизвестность дороже устаревшего.
+      || ((a.refresh == null ? 0 : 1) - (b.refresh == null ? 0 : 1))
+      // Среди повторных — те, у кого улика старее.
+      || ((b.refresh ?? 0) - (a.refresh ?? 0))
       || ((b.best_prescore ?? -1) - (a.best_prescore ?? -1))
       || (b.max_installs - a.max_installs));
   queue.skipped = { noDomain, blacklisted, alreadyDone };
+  queue.stats = {
+    target: queue.filter((r) => r.target).length,
+    fresh: queue.filter((r) => r.refresh == null).length,
+    recheck: queue.filter((r) => r.refresh != null).length,
+  };
   return queue;
 }
 

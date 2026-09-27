@@ -85,7 +85,24 @@ for (const g of geos) {
 if (dateMismatch.length) problems.push(`метрики ниш не попали в строку, которую читает radar-v2: ${dateMismatch.join('; ')}`);
 else ok.push(`даты стадий согласованы по всем ${geos.length} гео`);
 
-// ---------- 5. Отчёты ----------
+// ---------- 5. Улики по рекламе: когда протухнут ----------
+// Улика живёт evidence_ttl_days (30). Домен перепроверяется через recheck_after_days (21).
+// Если очередь не успевает, улики начнут истекать раньше, чем обновляться, и колонка
+// «признаки закупки» тихо превратится в «не проверяли» по всей базе разом.
+{
+  const ttl = 30, recheck = 21;
+  const ages = d.prepare(`SELECT developer_domain dm, MAX(checked_at) at FROM raw_ads_google WHERE status='ok' GROUP BY 1`).all();
+  const age = (at) => (Date.now() - Date.parse(at)) / 864e5;
+  const soon = ages.filter((r) => { const a = age(r.at); return a > recheck - 7 && a <= ttl; }).length;
+  const expired = ages.filter((r) => age(r.at) > ttl).length;
+  const due = ages.filter((r) => age(r.at) > recheck).length;
+  if (expired) problems.push(`улик просрочено (старше ${ttl} дней): ${expired} доменов — очередь не успевает обновлять`);
+  if (due) warnings.push(`доменов пора перепроверить (старше ${recheck} дней): ${due}`);
+  if (soon) warnings.push(`подойдут к перепроверке на неделе: ${soon} доменов`);
+  if (!expired && !due) ok.push(`улики по рекламе в сроке: ${ages.length} доменов, просроченных нет`);
+}
+
+// ---------- 6. Отчёты ----------
 const LIMIT_MB = 16;
 for (const [f, limited] of [['out/appradar2-artifact.html', true], ['out/appradar2.html', false], ['out/appradar3.html', false]]) {
   const p = path.join(ROOT, f);
