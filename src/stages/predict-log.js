@@ -173,11 +173,16 @@ function writeLog(d, date, modelSet = MODEL_SET) {
 // ---------- заполнение исходов ----------
 // Исход ищется на ближайшем снимке к T0+H с допуском: снимки бывают не каждый день, и
 // требовать точную дату означало бы терять строки на ровном месте.
-const TOLERANCE = 5;
+// Допуск по дате: снимки делаются не каждый день, и точное попадание в T0+N редкость.
+// Для тридцати дней пять суток в сторону — это шесть процентов горизонта, терпимо. Для семи
+// те же пять суток означали бы разброс от двух до двенадцати дней, то есть «семидневный
+// исход» перестал бы быть семидневным. Поэтому допуск пропорционален горизонту.
+const tolerance = (horizon) => Math.max(1, Math.min(5, Math.round(horizon / 4)));
 
 function fillOutcomes(d, today, horizon) {
-  const col = horizon === 30 ? 'outcome_30' : 'outcome_90';
-  const colAt = horizon === 30 ? 'outcome_30_at' : 'outcome_90_at';
+  const col = `outcome_${horizon}`;
+  const colAt = `outcome_${horizon}_at`;
+  const TOLERANCE = tolerance(horizon);
   const due = d.prepare(
     `SELECT pred_date, geo, kind, object_id, features FROM predictions
       WHERE ${col} IS NULL AND date(pred_date, '+${horizon} days') <= date(?)`
@@ -284,11 +289,17 @@ export async function run({ geo, date, runId, cycle = 'daily', scope = null }) {
     res = writeLog(d, date);
     log(`  журнал предсказаний: ${res.apps} приложений, ${res.niches} ниш, гео ${res.geosDone}`);
   }
+  // Порядок от короткого к длинному: семидневный исход наступает первым и первым же
+  // даёт сигнал, тридцатидневный остаётся главным.
+  const o7 = fillOutcomes(d, today, 7);
+  const o14 = fillOutcomes(d, today, 14);
   const o30 = fillOutcomes(d, today, 30);
   const o90 = fillOutcomes(d, today, 90);
-  if (o30.filled || o30.missed || o90.filled || o90.missed) {
-    log(`  исходы: 30 дн. — записано ${o30.filled}, выпало из наблюдения ${o30.missed}; 90 дн. — ${o90.filled} / ${o90.missed}`);
+  const anyFilled = [o7, o14, o30, o90].some((x) => x.filled || x.missed);
+  if (anyFilled) {
+    log('  исходы: ' + [o7, o14, o30, o90].filter((x) => x.filled || x.missed)
+      .map((x) => `${x.horizon} дн. — записано ${x.filled}, выпало из наблюдения ${x.missed}`).join('; '));
   }
   finishRun(runId, 'predict-log', geo || 'ALL', { notes: `${res.apps} приложений, ${res.niches} ниш` });
-  return { ...res, o30, o90 };
+  return { ...res, o7, o14, o30, o90 };
 }
