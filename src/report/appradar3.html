@@ -261,7 +261,8 @@ __COMMON_JS__
       mom: function (a, b) { return (momentum(b) || 0) - (momentum(a) || 0); },
       evid: function (a, b) { return (a.pscore == null ? 1 : a.pscore) - (b.pscore == null ? 1 : b.pscore); },
       growth: function (a, b) { return (growth(b) || 0) - (growth(a) || 0); },
-      door: function (a, b) { return (a.door_flow == null ? Infinity : a.door_flow) - (b.door_flow == null ? Infinity : b.door_flow); },
+      flow: function (a, b) { return (a.door_flow == null ? Infinity : a.door_flow) - (b.door_flow == null ? Infinity : b.door_flow); },
+      door10: function (a, b) { return (a.door == null ? Infinity : a.door) - (b.door == null ? Infinity : b.door); },
       spread: function (a, b) { return ((b.geos_n || 0) - (b.geos_prev || 0)) - ((a.geos_n || 0) - (a.geos_prev || 0)) || (b.geos_n || 0) - (a.geos_n || 0); },
       door3: function (a, b) { return (a.door3 == null ? Infinity : a.door3) - (b.door3 == null ? Infinity : b.door3); },
       dem: function (a, b) { return (b.dem == null ? -1 : b.dem) - (a.dem == null ? -1 : a.dem); }
@@ -338,7 +339,7 @@ __COMMON_JS__
           sel('cpy', 'Повторить', state.cpy, [['all', 'любая цена'], ['easy', 'дёшево'], ['medium', 'средне'], ['hard', 'дорого'], ['checked', 'разрешения сняты']]) +
           sel('dem', 'Спрос от', state.dem, [[0, 'любой'], [100, '100/дн.'], [500, '500/дн.'], [2000, '2 тыс./дн.'], [10000, '10 тыс./дн.']]) +
           sel('door3', 'Дверь в топ-3 до', state.door3, [[0, 'любая'], [10000, '10 тыс.'], [50000, '50 тыс.'], [200000, '200 тыс.'], [1000000, '1 млн']]) +
-          '<div style="margin-left:auto">' + sel('sort', 'Сортировка', state.sort, [['risk', 'Меньше риска'], ['door3', 'Дешевле вход в топ-3'], ['dem', 'Больше спрос'], ['mom', 'Импульс ключей'], ['spread', 'Расширение по странам'], ['growth', 'Рост'], ['evid', 'Меньше признаков закупки'], ['door', 'Дешевле вход']]) + '</div>' +
+          '<div style="margin-left:auto">' + sel('sort', 'Сортировка', state.sort, [['risk', 'Меньше риска'], ['door3', 'Дешевле вход в топ-3'], ['dem', 'Больше спрос'], ['mom', 'Импульс ключей'], ['spread', 'Расширение по странам'], ['growth', 'Рост'], ['evid', 'Меньше признаков закупки'], ['door10', 'Дешевле вход в топ-10'], ['flow', 'Дешевле поток']]) + '</div>' +
         '</div>' +
         (slice.length ? '<div class="tbl"><table><thead><tr>' +
           ['#', 'Приложение', 'Тема', 'Гео', 'Дверь', 'Спрос', 'Импульс ключей', 'Страны', 'Рост в месяц', 'Признаки закупки', 'Риск']
@@ -449,7 +450,7 @@ __COMMON_JS__
           sel('nDevs', 'Разработчиков от', state.nDevs, [[0, 'любое'], [3, '3'], [10, '10'], [25, '25']]) +
           sel('nYoung', 'Молодых органиков от', state.nYoung, [[0, 'любое'], [1, '1'], [3, '3']]) +
           sel('nRating', 'Рейтинг крупных до', state.nRating, [[0, 'любой'], [450, '4,50'], [420, '4,20'], [400, '4,00'], [350, '3,50']]) +
-          '<div style="margin-left:auto">' + sel('nSort', 'Сортировка', state.nSort, [['door3', 'Дешевле вход в топ-3'], ['dem', 'Больше спрос'], ['freedom', 'Свобода'], ['flow', 'Дешевле поток'], ['door', 'Дешевле запас'], ['purity', 'Чистота'], ['keys', 'Свободные ключи'], ['devs', 'Разработчиков'], ['young', 'Молодых органиков'], ['weak', 'Слабее соперник'], ['stab', 'Устойчивее метка']]) + '</div>' +
+          '<div style="margin-left:auto">' + sel('nSort', 'Сортировка', state.nSort, [['door3', 'Дешевле вход в топ-3'], ['dem', 'Больше спрос'], ['freedom', 'Свобода'], ['flow', 'Дешевле поток'], ['door', 'Дешевле вход в топ-10'], ['purity', 'Чистота'], ['keys', 'Свободные ключи'], ['devs', 'Разработчиков'], ['young', 'Молодых органиков'], ['weak', 'Слабее соперник'], ['stab', 'Устойчивее метка']]) + '</div>' +
         '</div>' +
         (slice.length ? '<div class="tbl"><table><thead><tr>' +
           ['#', 'Тема', 'Гео', 'Дверь', 'Дверь в топ-3', 'Спрос', 'Свобода', 'Чистота', 'Разработчиков', 'Рейтинг крупных']

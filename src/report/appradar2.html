@@ -499,7 +499,7 @@
     'n.purity': { t: 'Чистота', what: 'Доля спроса ядра, уходящая приложениям без закупки.', how: 'По каждому ключу — доля трафика топ-10 по кривой CTR у закупающих; усредняется с весом спроса ключа. Пусто, если реклама проверена меньше чем у ' + Math.round((M.purity_min || 0.6) * 100) + ' % трафика.', opts: [['≥ p50 гео', 'не ниже медианы ниш гео']] },
     'n.channel': { t: 'Канал роста ниши', what: 'Какой трафик доступен в нише: поиск без закупки, соцсети и видео или оба.', how: 'Органика — чистота не ниже p50 гео. УБТ-ниша — доля приложений топ-20 и кандидатов с признаком УБТ не ниже p75 ниш гео (при ' + M.ubt_niche_min_apps + '+ приложениях с разметкой). ' + UBT_HOW, why: 'Выбрать нишу под свою стратегию: ASO, ролики или оба.',
       opts: [['Органика (поиск)', 'чистота ≥ p50, не УБТ-ниша'], ['Органика + УБТ', 'чистота ≥ p50 и УБТ-ниша'], ['УБТ', 'УБТ-ниша, независимо от чистоты']] },
-    'n.sort': { t: 'Сортировка', opts: [['Ранг', 'свобода × чистота × ёмкость, процентиль'], ['Рекомендуемый скор', 'процентиль рекомендуемого скора'], ['Свобода', 'процентиль свободы'], ['Ёмкость', 'установок в месяц за свободными ключами'], ['Чистота', 'доля спроса без закупки'], ['Срок', 'месяцев до входа'], ['Молодые органики', 'число'], ['door', 'порог входа, по возрастанию']] },
+    'n.sort': { t: 'Сортировка', opts: [['Ранг', 'свобода × чистота × ёмкость, процентиль'], ['Рекомендуемый скор', 'процентиль рекомендуемого скора'], ['Свобода', 'процентиль свободы'], ['Ёмкость', 'установок в месяц за свободными ключами'], ['Чистота', 'доля спроса без закупки'], ['Срок', 'месяцев до входа'], ['Молодые органики', 'число'], ['Дешевле вход в топ-10', 'установки самого слабого в десятке, по возрастанию']] },
     'nc.niche': { t: 'Ниша', what: 'Концепт каталога и головной ключ; в ворлдвайд — и головной ключ в US.', why: 'Клик открывает карточку ниши.' },
     'nc.quad': { t: 'Квадрант', what: 'Положение на матрице «свобода × чистота» и пометки полноты.', opts: QUAD_OPTS },
     'nc.geo': { t: 'Гео', what: 'Лучшее гео ниши, «+N» — в скольких гео она есть; ниже — в скольких гео она в «Цели» и где door ниже всего.' },
@@ -592,8 +592,8 @@ __COMMON_JS__
   // ---------------- состояние ----------------
   var state = {
     view: 'apps', geo: WW, q: '', page: 1,
-    af: { cat: 'all', level: 'all', channel: 'all', traffic: 'all', minPassed: 0, quad: 'all', age: 'all', monet: 'all', sort: 'checks', niche: null, rec: false, dem: 0, door3: 0 },
-    nf: { cat: 'all', quad: 'all', freedom: 'all', purity: 'all', channel: 'all', young: false, cand: false, full: false, sort: 'rank', rec: false, grain: 'themes', dem: 0, door3: 0 },
+    af: { cat: 'all', level: 'all', channel: 'all', traffic: 'all', minPassed: 0, quad: 'all', age: 'all', monet: 'all', sort: 'checks', niche: null, rec: false, dem: 0, door3: 0, door10: 0 },
+    nf: { cat: 'all', quad: 'all', freedom: 'all', purity: 'all', channel: 'all', young: false, cand: false, full: false, sort: 'rank', rec: false, grain: 'themes', dem: 0, door3: 0, door10: 0 },
     hidePaid: !!load('appradar2-hide-paid', false), showDisq: false,
     favs: load('appradar2-favs', []), nfavs: load('appradar2-nfavs', []), cTab: 'collect', newDays: 3,
     of: { out: 'all', src: 'all', cheap: false, sort: 'gap', nsort: 'n', tab: 'events' },
@@ -836,9 +836,10 @@ __COMMON_JS__
       if (f.traffic !== 'all' && (f.traffic === 'none' ? a.traffic : a.traffic !== f.traffic)) return false;
       if (a.passed < f.minPassed) return false;
       if (f.quad !== 'all' && (a.niche_quadrant || 'undetermined') !== f.quad) return false;
-      var aDem = Number(f.dem) || 0, aDoor3 = Number(f.door3) || 0;
+      var aDem = Number(f.dem) || 0, aDoor3 = Number(f.door3) || 0, aDoor10 = Number(f.door10) || 0;
       if (aDem && !(isNum(a.niche_dem) && a.niche_dem >= aDem)) return false;
       if (aDoor3 && !(isNum(a.niche_door3) && a.niche_door3 <= aDoor3)) return false;
+      if (aDoor10 && !(isNum(a.niche_door) && a.niche_door <= aDoor10)) return false;
       if (f.age !== 'all' && !(isNum(a.age_months) && a.age_months < Number(f.age))) return false;
       if (f.monet !== 'all' && a.monetization_type !== f.monet) return false;
       return matchesQ([a.title, a.app_id, a.developer, a.concept, a.niche_head]);
@@ -853,6 +854,7 @@ __COMMON_JS__
     freedom: function (a, b) { return (b.niche_freedom ?? -1) - (a.niche_freedom ?? -1); },
     breadth: function (a, b) { return (b.geos_count - a.geos_count) || ((b.prescore ?? -1) - (a.prescore ?? -1)); },
     door3: function (a, b) { return (a.niche_door3 ?? Infinity) - (b.niche_door3 ?? Infinity) || ((b.prescore ?? -1) - (a.prescore ?? -1)); },
+    door10: function (a, b) { return (a.niche_door ?? Infinity) - (b.niche_door ?? Infinity) || ((b.prescore ?? -1) - (a.prescore ?? -1)); },
     dem: function (a, b) { return (b.niche_dem ?? -1) - (a.niche_dem ?? -1) || ((b.prescore ?? -1) - (a.prescore ?? -1)); }
   };
   // Выпадающий список с подсказкой: у вариантов в <select> свои всплывающие подсказки браузер
@@ -956,6 +958,7 @@ __COMMON_JS__
       rows.sort(function (x, y) { return gap(x) - gap(y) || (isNum(y.door) ? y.door : 0) - (isNum(x.door) ? x.door : 0) || y.entry_date.localeCompare(x.entry_date); });
     }
     else if (f.sort === 'door3') rows.sort(function (x, y) { return (isNum(x.door3) ? x.door3 : big) - (isNum(y.door3) ? y.door3 : big); });
+    else if (f.sort === 'door10') rows.sort(function (x, y) { return (isNum(x.door) ? x.door : big) - (isNum(y.door) ? y.door : big); });
     else if (f.sort === 'dem') rows.sort(function (x, y) { return (isNum(y.dem) ? y.dem : -1) - (isNum(x.dem) ? x.dem : -1); });
     else if (f.sort === 'inst') rows.sort(function (x, y) { return (isNum(x.inst_at) ? x.inst_at : big) - (isNum(y.inst_at) ? y.inst_at : big); });
     else if (f.sort === 'hold') rows.sort(function (x, y) { return (y.days_in / Math.max(1, y.obs_after)) - (x.days_in / Math.max(1, x.obs_after)) || y.obs_after - x.obs_after; });
@@ -972,6 +975,7 @@ __COMMON_JS__
       held: function (x, y) { return (y.judged ? y.held / y.judged : -1) - (x.judged ? x.held / x.judged : -1) || y.judged - x.judged; },
       fresh: function (x, y) { return (y.fresh || 0) - (x.fresh || 0); },
       door3: function (x, y) { var a = nn(x).door3, b = nn(y).door3; return (isNum(a) ? a : Infinity) - (isNum(b) ? b : Infinity); },
+      door10: function (x, y) { var a = nn(x).door, b = nn(y).door; return (isNum(a) ? a : Infinity) - (isNum(b) ? b : Infinity); },
       dem: function (x, y) { var a = nn(x).dem, b = nn(y).dem; return (isNum(b) ? b : -1) - (isNum(a) ? a : -1); }
     };
     return rows.slice().sort(by[state.of.nsort] || by.n);
@@ -1025,10 +1029,10 @@ __COMMON_JS__
         '<button class="pill" data-act="of-tab" data-tab="events" aria-pressed="' + (tab === 'events') + '">События</button>' +
         '<button class="pill" data-act="of-tab" data-tab="niches" aria-pressed="' + (tab === 'niches') + '">По нишам</button>' +
       '</div>' +
-      (tab === 'niches' ? selectField('of-', 'of', 'nsort', 'Сортировка', state.of.nsort, [['n', 'больше входов'], ['held', 'выше доля удержавшихся'], ['fresh', 'больше новичков'], ['door3', 'дешевле вход в топ-3'], ['dem', 'больше спрос']], 'nc.door3') : '') +
+      (tab === 'niches' ? selectField('of-', 'of', 'nsort', 'Сортировка', state.of.nsort, [['n', 'больше входов'], ['held', 'выше доля удержавшихся'], ['fresh', 'больше новичков'], ['door3', 'дешевле вход в топ-3'], ['door10', 'дешевле вход в топ-10'], ['dem', 'больше спрос']], 'nc.door3') : '') +
       (tab === 'events' ? selectField('of-', 'of', 'out', 'Исход', state.of.out, [['all', 'любой'], ['held', 'держится'], ['gone', 'выпал'], ['flick', 'мелькнул один день'], ['early', 'рано судить']], 'e.held') +
         selectField('of-', 'of', 'src', 'Откуда пришёл', state.of.src, [['all', 'неважно'], ['fresh', 'новички ниши'], ['old', 'были в выдаче с начала'], ['below', 'поднимались снизу'], ['sudden', 'появились сразу']], 'e.fresh') +
-        selectField('of-', 'of', 'sort', 'Сортировка', state.of.sort, [['gap', 'сначала вошедшие дешевле двери'], ['door3', 'дешевле вход в топ-3'], ['dem', 'больше спрос ниши'], ['date', 'по дате входа'], ['inst', 'по установкам на входе'], ['hold', 'по доле дней в топе'], ['grow', 'по приросту после входа']], 'e.below') +
+        selectField('of-', 'of', 'sort', 'Сортировка', state.of.sort, [['gap', 'сначала вошедшие дешевле двери'], ['door3', 'дешевле вход в топ-3'], ['door10', 'дешевле вход в топ-10'], ['dem', 'больше спрос ниши'], ['date', 'по дате входа'], ['inst', 'по установкам на входе'], ['hold', 'по доле дней в топе'], ['grow', 'по приросту после входа']], 'e.below') +
         '<button class="rec-toggle" data-act="of-cheap" aria-pressed="' + !!state.of.cheap + '">Только дешевле двери</button>' + tipIcon('e.below')
         : '') +
       '</div></div>';
@@ -1229,8 +1233,9 @@ __COMMON_JS__
           sel('age', 'Возраст', f.age, [['all', 'любой'], ['12', '< 12 мес'], ['24', '< 24 мес']], 'f.age') +
           sel('dem', 'Спрос ниши от', f.dem, [[0, 'любой'], [100, '100/дн.'], [500, '500/дн.'], [2000, '2 тыс./дн.'], [10000, '10 тыс./дн.']], 'c.demand') +
           sel('door3', 'Дверь в топ-3 до', f.door3, [[0, 'любая'], [10000, '10 тыс.'], [50000, '50 тыс.'], [200000, '200 тыс.'], [1000000, '1 млн']], 'c.door3') +
+          sel('door10', 'Дверь в топ-10 до', f.door10, [[0, 'любая'], [10000, '10 тыс.'], [50000, '50 тыс.'], [200000, '200 тыс.'], [1000000, '1 млн']], 'c.door3') +
           sel('monet', 'Монетизация', f.monet, [['all', 'все']].concat(Object.keys(monets).map(function (k) { return [k, MONET[k] || k]; })), 'f.monet') +
-          (f.rec ? '' : '<div class="toolbar-right">' + sel('sort', 'Сортировка', f.sort, [['checks', 'Пройдено проверок'], ['rec', 'Рекомендуемый скор'], ['door3', 'Дешевле вход в топ-3'], ['dem', 'Больше спрос ниши'], ['prescore', 'Индекс копируемости'], ['delta', 'Прирост за 30 дней'], ['young', 'Сначала молодые'], ['freedom', 'Свобода ниши'], ['breadth', 'Широта по гео']], 'f.sort') + '</div>') +
+          (f.rec ? '' : '<div class="toolbar-right">' + sel('sort', 'Сортировка', f.sort, [['checks', 'Пройдено проверок'], ['rec', 'Рекомендуемый скор'], ['door3', 'Дешевле вход в топ-3'], ['door10', 'Дешевле вход в топ-10'], ['dem', 'Больше спрос ниши'], ['prescore', 'Индекс копируемости'], ['delta', 'Прирост за 30 дней'], ['young', 'Сначала молодые'], ['freedom', 'Свобода ниши'], ['breadth', 'Широта по гео']], 'f.sort') + '</div>') +
         '</div>' +
         tableHtml(cols, slice, { minWidth: state.geo === WW ? 1640 : 1580, empty: f.rec ? 'Под фильтры не попал ни один рекомендуемый' : 'Под фильтры ничего не попало' }) +
         pager(rows.length, state.page, APP_PAGE) +
@@ -1334,9 +1339,10 @@ __COMMON_JS__
       if (f.cat !== 'all' && n._genre !== f.cat) return false;
       if (f.freedom !== 'all' && !(isNum(n.freedom) && n.freedom >= Number(f.freedom))) return false;
       if (f.purity === 'p50') { var g = GEO[n.geo]; if (!(isNum(n.purity) && isNum(g.purityP50) && n.purity >= g.purityP50)) return false; }
-      var nDem = Number(f.dem) || 0, nDoor3 = Number(f.door3) || 0;
+      var nDem = Number(f.dem) || 0, nDoor3 = Number(f.door3) || 0, nDoor10 = Number(f.door10) || 0;
       if (nDem && !(isNum(n.dem) && n.dem >= nDem)) return false;
       if (nDoor3 && !(isNum(n.door3) && n.door3 <= nDoor3)) return false;
+      if (nDoor10 && !(isNum(n.door) && n.door <= nDoor10)) return false;
       if (!nicheChannelOk(n, f.channel)) return false;
       if (f.young && !(n.young >= 1)) return false;
       if (f.cand && !(n.cand_organic >= 1)) return false;
@@ -1464,7 +1470,8 @@ __COMMON_JS__
           sel('purity', 'Чистота', f.purity, [['all', 'любая'], ['p50', '≥ p50 гео']], 'n.purity') +
           selectField('n-', 'nf', 'dem', 'Спрос от', f.dem, [[0, 'любой'], [100, '100/дн.'], [500, '500/дн.'], [2000, '2 тыс./дн.'], [10000, '10 тыс./дн.']], 'n.demand') +
           selectField('n-', 'nf', 'door3', 'Дверь в топ-3 до', f.door3, [[0, 'любая'], [10000, '10 тыс.'], [50000, '50 тыс.'], [200000, '200 тыс.'], [1000000, '1 млн']], 'nc.door3') +
-          (f.rec ? '' : '<div class="toolbar-right">' + sel('sort', 'Сортировка', f.sort, [['rank', 'Ранг'], ['rec', 'Рекомендуемый скор'], ['door3', 'Дешевле вход в топ-3'], ['dem', 'Больше спрос'], ['freedom', 'Свобода'], ['capacity', 'Ёмкость'], ['purity', 'Чистота'], ['tto', 'Срок'], ['young', 'Молодые органики'], ['door', 'door']], 'n.sort') + '</div>') +
+          selectField('n-', 'nf', 'door10', 'Дверь в топ-10 до', f.door10, [[0, 'любая'], [10000, '10 тыс.'], [50000, '50 тыс.'], [200000, '200 тыс.'], [1000000, '1 млн']], 'nc.door') +
+          (f.rec ? '' : '<div class="toolbar-right">' + sel('sort', 'Сортировка', f.sort, [['rank', 'Ранг'], ['rec', 'Рекомендуемый скор'], ['door3', 'Дешевле вход в топ-3'], ['dem', 'Больше спрос'], ['freedom', 'Свобода'], ['capacity', 'Ёмкость'], ['purity', 'Чистота'], ['tto', 'Срок'], ['young', 'Молодые органики'], ['door', 'Дешевле вход в топ-10']], 'n.sort') + '</div>') +
         '</div>' +
         tableHtml(cols, slice, { minWidth: state.geo === WW ? 1640 : 1560, empty: f.rec ? 'Под фильтры не попала ни одна рекомендуемая ниша' : 'Под фильтры ничего не попало' }) +
         pager(rows.length, state.page) +
@@ -2075,6 +2082,7 @@ __COMMON_JS__
     installs: function (a, b) { return (b.installs || 0) - (a.installs || 0); },
     young: function (a, b) { return (a.age == null ? 999 : a.age) - (b.age == null ? 999 : b.age); },
     door3: function (a, b) { return (a.n_door3 == null ? Infinity : a.n_door3) - (b.n_door3 == null ? Infinity : b.n_door3); },
+    door10: function (a, b) { return (a.n_door == null ? Infinity : a.n_door) - (b.n_door == null ? Infinity : b.n_door); },
     dem: function (a, b) { return (b.n_dem == null ? -1 : b.n_dem) - (a.n_dem == null ? -1 : a.n_dem); }
   };
   var NICHE_SORT = {
@@ -2207,7 +2215,7 @@ __COMMON_JS__
         selectField('g-', 'gf', 'meas', 'Рост', f.meas, [['all', 'измеренный и оценка'], ['1', 'только измеренный']], 'g.flat') +
         selectField('g-', 'gf', 'osc', 'Вес улик', f.osc, [['all', 'любой'], ['0.75', 'от 0,75'], ['0.85', 'от 0,85'], ['0.9', 'от 0,90']], 'g.oscore') +
         easyCheck(f) +
-        '<div class="toolbar-right">' + selectField('g-', 'gf', 'sort', 'Сортировка', f.sort, [['interp', 'Прирост'], ['door3', 'Дешевле вход в топ-3'], ['dem', 'Больше спрос ниши'], ['rest', 'Скорость по оценкам'], ['rel', 'Рост, %'], ['installs', 'Установки'], ['young', 'Сначала молодые']]) + '</div>' +
+        '<div class="toolbar-right">' + selectField('g-', 'gf', 'sort', 'Сортировка', f.sort, [['interp', 'Прирост'], ['door3', 'Дешевле вход в топ-3'], ['door10', 'Дешевле вход в топ-10'], ['dem', 'Больше спрос ниши'], ['rest', 'Скорость по оценкам'], ['rel', 'Рост, %'], ['installs', 'Установки'], ['young', 'Сначала молодые']]) + '</div>' +
       '</div>' + tableHtml(cols, slice, { minWidth: 1280 }) + pager(rows.length, state.page, APP_PAGE) + '</div>' +
     '</section>';
   }
@@ -2278,7 +2286,7 @@ __COMMON_JS__
         winField(f, true) + instFields(f, true) +
         selectField('g-', 'gf', 'passed', 'Воронка', f.passed, [['1', 'только прошедшие'], ['0', 'вся органика']], 'g.nfunnel') +
         easyCheck(f) +
-        '<div class="toolbar-right">' + selectField('g-', 'gf', 'sort', 'Сортировка', f.sort, [['interp', 'Прирост'], ['door3', 'Дешевле вход в топ-3'], ['dem', 'Больше спрос'], ['rel', 'Рост, %'], ['apps', 'Приложений'], ['door', 'Дверь ниже'], ['young', 'Молодых органиков']]) + '</div>' +
+        '<div class="toolbar-right">' + selectField('g-', 'gf', 'sort', 'Сортировка', f.sort, [['interp', 'Прирост'], ['door3', 'Дешевле вход в топ-3'], ['dem', 'Больше спрос'], ['rel', 'Рост, %'], ['apps', 'Приложений'], ['door', 'Дешевле вход в топ-10'], ['young', 'Молодых органиков']]) + '</div>' +
       '</div>' + tableHtml(cols, slice, { minWidth: 1280 }) + pager(rows.length, state.page, PAGE) + '</div>' +
     '</section>';
   }
