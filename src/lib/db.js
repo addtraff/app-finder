@@ -529,6 +529,12 @@ const MIGRATIONS = [
   // входами: запас ошибается в 25 раз, поток в 6, и ни один не предсказывает удержание.
   // Здесь ничего не моделируется, это медиана наблюдённых событий; рядом обязательно
   // хранится их число, потому что медиана по трём входам и по тридцати — разные вещи.
+  // Доступный спрос: показов в день за ключами, куда реально войти. Порогом служит не
+  // дверь (она сверку входами не прошла), а цена входа по факту.
+  ['metrics_niche_v2', 'demand_acc_10k', 'REAL'],
+  ['metrics_niche_v2', 'demand_acc_100k', 'REAL'],
+  ['metrics_niche_v2', 'demand_acc_1m', 'REAL'],
+  ['metrics_niche_v2', 'demand_acc_cov', 'REAL'],
   ['metrics_niche_v2', 'entry_price_med', 'INTEGER'],
   ['metrics_niche_v2', 'entry_price_p25', 'INTEGER'],
   ['metrics_niche_v2', 'entry_price_p75', 'INTEGER'],

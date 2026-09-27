@@ -466,6 +466,7 @@ export function collect(d) {
         geo: g.geo, niche_id: n.niche_id, concept: n.concept, head: n.head_keyword, keywords_count: n.keywords_count,
         door: n.door, door_flow: n.door_flow, door_head: n.door_head, door_tail: n.door_tail, door_velocity: r4(n.door_velocity), wall: n.wall_installs,
         door3: n.door3, door_flow3: n.door_flow3,
+        acc10k: n.demand_acc_10k, acc100k: n.demand_acc_100k, acc1m: n.demand_acc_1m, acc_cov: r4(n.demand_acc_cov),
         ep: n.entry_price_med, ep_p25: n.entry_price_p25, ep_p75: n.entry_price_p75,
         ep_min: n.entry_price_min, ep_n: n.entry_price_n, ep_days: n.entry_price_days,
         free_keys: n.free_keys_count, fds: r4(n.free_demand_share), demand_per_app: r4(n.demand_per_app),

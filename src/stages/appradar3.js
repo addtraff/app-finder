@@ -279,7 +279,10 @@ export async function run({ geo, date }) {
     }
 
     for (const n of all(d,
-      `SELECT niche_id, concept, head_keyword head, door, door_flow, door3, door_flow3, freedom_pct freedom, organic_purity purity,
+      `SELECT niche_id, concept, head_keyword head, door, door_flow, door3, door_flow3,
+              entry_price_med ep, entry_price_n ep_n, entry_price_min ep_min,
+              demand_acc_100k acc, demand_acc_cov acc_cov,
+              freedom_pct freedom, organic_purity purity,
               free_keys_count free_keys, demand_ext, demand_cov, difficulty_ext, demand_est, demand_trend, demand_trend_days,
               COALESCE(quadrant_smooth, quadrant) quad, quadrant_days qdays,
               quadrant_seen qseen, freedom_margin fmargin, young_organic_count nyoung, time_to_organic tto,
@@ -290,6 +293,7 @@ export async function run({ geo, date }) {
       niches.push({
         geo: g.geo, niche_id: n.niche_id, concept: n.concept, head: n.head,
         door: n.door, door_flow: n.door_flow, door3: n.door3, door_flow3: n.door_flow3,
+        ep: n.ep, ep_n: n.ep_n, ep_min: n.ep_min, acc: n.acc, acc_cov: r4(n.acc_cov),
         freedom: r4(n.freedom), purity: r4(n.purity),
         free_keys: n.free_keys, quad: n.quad, qdays: n.qdays, qseen: n.qseen, fmargin: r4(n.fmargin),
         dem: r4(n.demand_ext), dem_cov: r4(n.demand_cov), dif: r4(n.difficulty_ext), dem_est: n.demand_est ?? 0,
