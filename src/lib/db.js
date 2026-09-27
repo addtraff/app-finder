@@ -524,6 +524,17 @@ const MIGRATIONS = [
   ['predictions', 'outcome_7_at', 'TEXT'],
   ['predictions', 'outcome_14', 'TEXT'],
   ['predictions', 'outcome_14_at', 'TEXT'],
+  // Цена входа по факту: с какими установками в эту нишу реально входили в топ-10.
+  // Появилась 28.09 после того, как обе двери — и запас, и поток — не прошли сверку с
+  // входами: запас ошибается в 25 раз, поток в 6, и ни один не предсказывает удержание.
+  // Здесь ничего не моделируется, это медиана наблюдённых событий; рядом обязательно
+  // хранится их число, потому что медиана по трём входам и по тридцати — разные вещи.
+  ['metrics_niche_v2', 'entry_price_med', 'INTEGER'],
+  ['metrics_niche_v2', 'entry_price_p25', 'INTEGER'],
+  ['metrics_niche_v2', 'entry_price_p75', 'INTEGER'],
+  ['metrics_niche_v2', 'entry_price_min', 'INTEGER'],
+  ['metrics_niche_v2', 'entry_price_n', 'INTEGER'],
+  ['metrics_niche_v2', 'entry_price_days', 'INTEGER'],
   ['metrics_niche_geo', 'door3', 'INTEGER'],
   ['metrics_niche_geo', 'door_flow3', 'INTEGER'],
   ['metrics_niche_v2', 'door3', 'INTEGER'],

@@ -1171,7 +1171,40 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     'freedom_margin', 'purity_margin', 'tail_clean', 'incomplete', 'partial_window',
     'ubt_share', 'ubt_apps', 'ubt_flag', 'rec_score', 'rec_pct', 'rec_parts',
     'demand_ext', 'demand_nav', 'demand_cov', 'difficulty_ext', 'demand_src', 'demand_est',
-    'demand_trend', 'demand_trend_keys', 'demand_trend_days', 'door5', 'door_flow5', 'door3', 'door_flow3'];
+    'demand_trend', 'demand_trend_keys', 'demand_trend_days', 'door5', 'door_flow5', 'door3', 'door_flow3',
+    'entry_price_med', 'entry_price_p25', 'entry_price_p75', 'entry_price_min', 'entry_price_n', 'entry_price_days'];
+  // ---------- цена входа по факту ----------
+  // Не модель, а наблюдение: медиана установок тех, кто действительно вошёл в топ-10 этой
+  // ниши. Сверка 27–28.09 показала, что обе двери как абсолютный порог не работают — запас
+  // занижает в 25 раз, поток в 6, — а это число не занижает ничего, потому что не выводится,
+  // а измеряется. Цена: оно есть не у всех ниш и опирается на короткое окно наблюдения.
+  //
+  // Заимствования из соседних ниш нет намеренно. Подставить сюда медиану по корзине дверей
+  // значило бы выдать чужое число за здешнее — ровно то, чем оказался коэффициент спроса по
+  // гео, завышавший втрое. Меньше трёх входов — пусто и причина.
+  const ENTRY_PRICE_MIN_N = 3;
+  const entryPrice = new Map();
+  {
+    const byNiche = new Map();
+    for (const r of d.prepare(
+      `SELECT niche_id, installs_at_entry v, observed_days FROM niche_entries
+        WHERE geo=? AND installs_at_entry IS NOT NULL`
+    ).all(geo)) {
+      if (!byNiche.has(r.niche_id)) byNiche.set(r.niche_id, { v: [], days: r.observed_days });
+      byNiche.get(r.niche_id).v.push(r.v);
+    }
+    const qn = (s, p) => s[Math.min(s.length - 1, Math.floor(s.length * p))];
+    for (const [nid, e] of byNiche) {
+      if (e.v.length < ENTRY_PRICE_MIN_N) continue;
+      const s = e.v.sort((a, b) => a - b);
+      const m = s.length >> 1;
+      entryPrice.set(nid, {
+        med: s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2),
+        p25: qn(s, 0.25), p75: qn(s, 0.75), min: s[0], n: s.length, days: e.days ?? null,
+      });
+    }
+  }
+
   const insNiche = d.prepare(`INSERT OR REPLACE INTO metrics_niche_v2 (${nicheCols.join(',')}) VALUES (${nicheCols.map((c) => '@' + c).join(',')})`);
   const appCols = Object.keys(appOut[0] || { app_id: 1 });
   const insApp = appOut.length ? d.prepare(`INSERT OR REPLACE INTO metrics_app_v2 (geo, snapshot_date, ${appCols.join(',')})
@@ -1196,6 +1229,12 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
         keywords_count: r.core.length, door: r.n.door ?? null, door_flow: r.n.door_flow ?? null, wall_installs: r.n.wall_installs ?? null,
         door5: r.n.door5 ?? null, door_flow5: r.n.door_flow5 ?? null,
         door3: r.n.door3 ?? null, door_flow3: r.n.door_flow3 ?? null,
+        entry_price_med: entryPrice.get(r.n.niche_id)?.med ?? null,
+        entry_price_p25: entryPrice.get(r.n.niche_id)?.p25 ?? null,
+        entry_price_p75: entryPrice.get(r.n.niche_id)?.p75 ?? null,
+        entry_price_min: entryPrice.get(r.n.niche_id)?.min ?? null,
+        entry_price_n: entryPrice.get(r.n.niche_id)?.n ?? null,
+        entry_price_days: entryPrice.get(r.n.niche_id)?.days ?? null,
         free_keys_count: r.freeKeysCount, free_demand_share: round(r.freeDemandShare), door_head: r.doorHead == null ? null : Math.round(r.doorHead),
         door_tail: r.doorTail == null ? null : Math.round(r.doorTail), door_velocity: round(r.doorVelocity), demand_per_app: round(r.demandPerApp),
         aso_saturation: round(r.asoSaturation), relevance_gap_pct: round(r.n.relevance_gap_pct),
