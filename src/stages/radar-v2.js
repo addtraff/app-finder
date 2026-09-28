@@ -877,21 +877,30 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
   const entryPrice = new Map();
   {
     const byNiche = new Map();
+    // Берутся ВСЕ события входа, а не только те, где известны установки: счётчик входов и
+    // доля удержавшихся считаются по всем, а медиана цены — по тем, где есть с чем считать.
+    // Иначе «входов 4» означало бы «входов, у которых мы знаем установки, 4», и ниша с
+    // тридцатью входами и четырьмя известными карточками выглядела бы тихой.
     for (const r of d.prepare(
-      `SELECT niche_id, installs_at_entry v, observed_days FROM niche_entries
-        WHERE geo=? AND installs_at_entry IS NOT NULL`
+      `SELECT niche_id, installs_at_entry v, observed_days, observed_after, still_in FROM niche_entries WHERE geo=?`
     ).all(geo)) {
-      if (!byNiche.has(r.niche_id)) byNiche.set(r.niche_id, { v: [], days: r.observed_days });
-      byNiche.get(r.niche_id).v.push(r.v);
+      if (!byNiche.has(r.niche_id)) byNiche.set(r.niche_id, { v: [], days: r.observed_days, n: 0, judged: 0, held: 0 });
+      const e = byNiche.get(r.niche_id);
+      e.n++;
+      // Вошедший в последний снятый день ещё ничего не показал — он не в знаменателе.
+      if (r.observed_after >= 2) { e.judged++; if (r.still_in) e.held++; }
+      if (r.v != null) e.v.push(r.v);
     }
     const qn = (s, p) => s[Math.min(s.length - 1, Math.floor(s.length * p))];
     for (const [nid, e] of byNiche) {
-      if (e.v.length < ENTRY_PRICE_MIN_N) continue;
       const s = e.v.sort((a, b) => a - b);
       const m = s.length >> 1;
+      const priced = s.length >= ENTRY_PRICE_MIN_N;
       entryPrice.set(nid, {
-        med: s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2),
-        p25: qn(s, 0.25), p75: qn(s, 0.75), min: s[0], n: s.length, days: e.days ?? null,
+        med: priced ? (s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2)) : null,
+        p25: priced ? qn(s, 0.25) : null, p75: priced ? qn(s, 0.75) : null,
+        min: priced ? s[0] : null, n: priced ? s.length : null, days: e.days ?? null,
+        entriesN: e.n, entriesJudged: e.judged, entriesHeld: e.held,
       });
     }
   }
@@ -1224,7 +1233,8 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     'demand_ext', 'demand_nav', 'demand_cov', 'difficulty_ext', 'demand_src', 'demand_est',
     'demand_trend', 'demand_trend_keys', 'demand_trend_days', 'door5', 'door_flow5', 'door3', 'door_flow3',
     'entry_price_med', 'entry_price_p25', 'entry_price_p75', 'entry_price_min', 'entry_price_n', 'entry_price_days',
-    'demand_acc_10k', 'demand_acc_100k', 'demand_acc_1m', 'demand_acc_cov'];
+    'demand_acc_10k', 'demand_acc_100k', 'demand_acc_1m', 'demand_acc_cov',
+    'entries_n', 'entries_judged', 'entries_held'];
   const insNiche = d.prepare(`INSERT OR REPLACE INTO metrics_niche_v2 (${nicheCols.join(',')}) VALUES (${nicheCols.map((c) => '@' + c).join(',')})`);
   const appCols = Object.keys(appOut[0] || { app_id: 1 });
   const insApp = appOut.length ? d.prepare(`INSERT OR REPLACE INTO metrics_app_v2 (geo, snapshot_date, ${appCols.join(',')})
@@ -1259,6 +1269,9 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
         demand_acc_100k: r.demandAcc100k == null ? null : Math.round(r.demandAcc100k),
         demand_acc_1m: r.demandAcc1m == null ? null : Math.round(r.demandAcc1m),
         demand_acc_cov: round(r.demandAccCov),
+        entries_n: entryPrice.get(r.n.niche_id)?.entriesN ?? null,
+        entries_judged: entryPrice.get(r.n.niche_id)?.entriesJudged ?? null,
+        entries_held: entryPrice.get(r.n.niche_id)?.entriesHeld ?? null,
         free_keys_count: r.freeKeysCount, free_demand_share: round(r.freeDemandShare), door_head: r.doorHead == null ? null : Math.round(r.doorHead),
         door_tail: r.doorTail == null ? null : Math.round(r.doorTail), door_velocity: round(r.doorVelocity), demand_per_app: round(r.demandPerApp),
         aso_saturation: round(r.asoSaturation), relevance_gap_pct: round(r.n.relevance_gap_pct),

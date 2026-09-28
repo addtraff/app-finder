@@ -27,10 +27,10 @@
     {"geo":"ES","hl":["es"],"review_langs":["es"],"currency":"EUR","tier":1,"active":true,"start_hour_utc":22,"proxy_required_search":null,"proxy_required_suggest":null,"ecpm_rel_us":0.36,"arpu_rel_us":0.50,"demand_rel_us":0.059},
     {"geo":"SA","hl":["ar"],"review_langs":["ar"],"currency":"SAR","tier":1,"active":true,"start_hour_utc":23,"proxy_required_search":null,"proxy_required_suggest":null,"ecpm_rel_us":0.35,"arpu_rel_us":0.55,"demand_rel_us":0.036},
     {"geo":"PT","hl":["pt-PT"],"review_langs":["pt"],"currency":"EUR","tier":2,"active":true,"start_hour_utc":1,"proxy_required_search":null,"proxy_required_suggest":null,"ecpm_rel_us":0.28,"arpu_rel_us":0.38,"demand_rel_us":0.017},
-    {"geo":"BR","hl":["pt-BR"],"review_langs":["pt"],"currency":"BRL","tier":2,"active":true,"start_hour_utc":2,"proxy_required_search":null,"proxy_required_suggest":null,"ecpm_rel_us":0.14,"arpu_rel_us":0.18,"demand_rel_us":0.264},
-    {"geo":"TW","hl":["zh-TW"],"review_langs":["zh"],"currency":"TWD","tier":1,"active":true,"start_hour_utc":3,"proxy_required_search":null,"proxy_required_suggest":null,"ecpm_rel_us":0.32,"arpu_rel_us":0.45,"demand_rel_us":0.023},
-    {"geo":"PL","hl":["pl"],"review_langs":["pl"],"currency":"PLN","tier":2,"active":true,"start_hour_utc":4,"proxy_required_search":null,"proxy_required_suggest":null,"ecpm_rel_us":0.24,"arpu_rel_us":0.32,"demand_rel_us":0.046},
-    {"geo":"MX","hl":["es-MX"],"review_langs":["es"],"currency":"MXN","tier":2,"active":true,"start_hour_utc":5,"proxy_required_search":null,"proxy_required_suggest":null,"ecpm_rel_us":0.15,"arpu_rel_us":0.20,"demand_rel_us":0.149},
-    {"geo":"TR","hl":["tr"],"review_langs":["tr"],"currency":"TRY","tier":2,"active":true,"start_hour_utc":6,"proxy_required_search":null,"proxy_required_suggest":null,"ecpm_rel_us":0.10,"arpu_rel_us":0.14,"demand_rel_us":0.099}
+    {"geo":"BR","hl":["pt-BR"],"review_langs":["pt"],"currency":"BRL","tier":2,"active":true,"start_hour_utc":2,"proxy_required_search":null,"proxy_required_suggest":null,"ecpm_rel_us":0.14,"arpu_rel_us":0.18,"demand_rel_us":0.27},
+    {"geo":"TW","hl":["zh-TW"],"review_langs":["zh"],"currency":"TWD","tier":1,"active":true,"start_hour_utc":3,"proxy_required_search":null,"proxy_required_suggest":null,"ecpm_rel_us":0.32,"arpu_rel_us":0.45,"demand_rel_us":0.03},
+    {"geo":"PL","hl":["pl"],"review_langs":["pl"],"currency":"PLN","tier":2,"active":true,"start_hour_utc":4,"proxy_required_search":null,"proxy_required_suggest":null,"ecpm_rel_us":0.24,"arpu_rel_us":0.32,"demand_rel_us":0.02},
+    {"geo":"MX","hl":["es-MX"],"review_langs":["es"],"currency":"MXN","tier":2,"active":true,"start_hour_utc":5,"proxy_required_search":null,"proxy_required_suggest":null,"ecpm_rel_us":0.15,"arpu_rel_us":0.20,"demand_rel_us":0.11},
+    {"geo":"TR","hl":["tr"],"review_langs":["tr"],"currency":"TRY","tier":2,"active":true,"start_hour_utc":6,"proxy_required_search":null,"proxy_required_suggest":null,"ecpm_rel_us":0.10,"arpu_rel_us":0.14,"demand_rel_us":0.05}
   ]
 }

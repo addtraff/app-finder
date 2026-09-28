@@ -158,7 +158,7 @@ __UNPACK_JS__
   var PAGE = 50;
   var state = { view: 'cand', geo: WW, page: 1, q: '', risk: 'all', paid: 'all', mom: 'all', sort: 'risk',
     inst: 0, instMax: 0, age: 'all', flow: 0, freedom: 0, quad: 'all', concept: 'all', meas: 'all', ubt: 'all',
-    spread: 'all', cpy: 'all', dem: 0, door3: 0, nDem: 0, nDoor3: 0, nDoor: 0, nFlow: 0, nFreedom: 0, nPurity: 0, nKeys: 0, nQuad: 'all', nStab: 0, nDevs: 0, nYoung: 0, nRating: 0, nSort: 'freedom' };
+    spread: 'all', cpy: 'all', dem: 0, door3: 0, nDem: 0, nDoor3: 0, nDoor: 0, nFlow: 0, nFreedom: 0, nPurity: 0, nKeys: 0, nQuad: 'all', nStab: 0, nDevs: 0, nYoung: 0, nRating: 0, nSort: 'freedom', oSort: 'acc', oPrice: 0 };
 
 __COMMON_JS__
 
@@ -209,6 +209,7 @@ __COMMON_JS__
   function growth(r) { return r.interp != null ? r.interp : (r.est || null); }
 
   var SECTIONS = [
+    { id: 'opp', title: 'Возможности', count: function () { return oppRows(true).length; } },
     { id: 'cand', title: 'Кандидаты', count: function () { return D.rows.length; } },
     { id: 'niches', title: 'Ниши', count: function () { return D.niches.length; } },
     { id: 'rejected', title: 'Отсеянные', count: function () { return (D.rejected || []).length; } },
@@ -388,6 +389,93 @@ __COMMON_JS__
     acc: function (a, b) { return (b.acc == null ? -1 : b.acc) - (a.acc == null ? -1 : a.acc); },
     dem: function (a, b) { return (b.dem == null ? -1 : b.dem) - (a.dem == null ? -1 : a.dem); }
   };
+  // Возможность — ниша, по которой есть ВСЕ четыре числа, нужные для решения: замеренный
+  // спрос (а не оценка по США), доступный спрос, цена входа по факту и наблюдённые входы.
+  // Ниша без любого из них не «плохая» — про неё просто нечего сказать, и показывать её
+  // здесь значило бы делать вид, что ответ есть.
+  function oppRows(countOnly) {
+    var rows = D.niches.filter(function (n) {
+      if (state.geo !== WW && n.geo !== state.geo) return false;
+      return n.dem_est === 0 && isNum(n.dem) && n.dem > 0
+        && isNum(n.acc) && n.acc > 0 && isNum(n.ep) && isNum(n.en) && n.en > 0;
+    });
+    if (countOnly) return rows;
+    if (state.oPrice) rows = rows.filter(function (n) { return n.ep <= state.oPrice; });
+    if (state.q) rows = rows.filter(function (n) { return matches(n); });
+    var by = {
+      acc: function (a, b) { return b.acc - a.acc; },
+      price: function (a, b) { return a.ep - b.ep; },
+      share: function (a, b) { return (b.acc / b.dem) - (a.acc / a.dem); },
+      held: function (a, b) { return (b.ej ? b.eh / b.ej : -1) - (a.ej ? a.eh / a.ej : -1); },
+    };
+    return rows.slice().sort(by[state.oSort] || by.acc);
+  }
+
+  // Строка «почему» собирается из тех же чисел, что в колонках, — не из скора. Если её
+  // нельзя собрать честно, она не пишется: фразы вроде «сильный кандидат» без опоры на
+  // величину тут не появятся никогда.
+  function oppWhy(n) {
+    var w = [];
+    var share = n.acc / n.dem;
+    w.push(share >= 0.9 ? 'весь спрос за слабой выдачей'
+      : share >= 0.4 ? Math.round(share * 100) + '% спроса за слабой выдачей'
+      : 'за слабой выдачей лишь ' + Math.round(share * 100) + '% спроса');
+    w.push('входили с ' + short(n.ep) + (isNum(n.ep_min) ? ', самый дешёвый ' + short(n.ep_min) : ''));
+    if (n.ej >= 3) w.push('держатся ' + Math.round(100 * n.eh / n.ej) + '% из ' + n.ej);
+    if (isNum(n.door) && isNum(n.door3) && n.door > 0 && n.door3 <= n.door * 1.5) w.push('тройка стоит почти как десятка');
+    if (isNum(n.purity) && n.purity >= 0.8) w.push('выдача чистая');
+    return w.join(' · ');
+  }
+
+  function renderOpp() {
+    var all = oppRows(true), rows = oppRows(false);
+    var total = D.niches.filter(function (n) { return state.geo === WW || n.geo === state.geo; });
+    var noDem = total.filter(function (n) { return !(n.dem_est === 0 && isNum(n.dem) && n.dem > 0); }).length;
+    var noEp = total.filter(function (n) { return n.dem_est === 0 && isNum(n.dem) && n.dem > 0 && !isNum(n.ep); }).length;
+
+    var pages = Math.max(1, Math.ceil(rows.length / PAGE));
+    if (state.page > pages) state.page = pages;
+    var slice = rows.slice((state.page - 1) * PAGE, state.page * PAGE);
+
+    $('view').innerHTML = '<section class="page">'
+      + '<div class="page-head"><h1>Возможности</h1><p class="lead">Ниши, по которым есть все четыре числа, нужные для решения: сколько ищут, какая часть спроса стоит за слабой выдачей, с чем туда реально входили и удержались ли вошедшие. Ни одно из них не выведено из модели — все измерены.</p></div>'
+      + '<div class="card block manual" style="margin-bottom:14px">'
+        + '<p class="sub"><b>Показано ' + int(all.length) + ' ниш из ' + int(total.length) + ', и это главное, что нужно знать об этой странице.</b> '
+        + 'У ' + int(noDem) + ' нет замеренного спроса — они в странах без своей выгрузки, и спрос там прикинут по США коэффициентом, который сам проверен только на пяти гео. '
+        + 'Ещё у ' + int(noEp) + ' спрос есть, но входов в топ-10 мы не наблюдали, а значит цену входа взять неоткуда. '
+        + 'Такие ниши не хуже показанных — про них просто нечего сказать, и притворяться, что ответ есть, мы не будем.</p>'
+        + '<p class="sub">Окно наблюдения короткое: история выдачи ведётся с 07.09. Цена входа опирается на события этого окна, и число наблюдений стоит в колонке рядом не для красоты — медиана по трём входам и по тридцати разные по надёжности. И она описывает тех, кто вошёл, а не тех, кто пытался и не смог: неудачных попыток мы не видим.</p>'
+      + '</div>'
+      + '<div class="card" style="margin-bottom:12px"><div class="toolbar">'
+        + sel('oSort', 'Сортировка', state.oSort, [['acc', 'Больше доступного спроса'], ['price', 'Дешевле вход по факту'], ['share', 'Выше доля доступного'], ['held', 'Выше удержание']])
+        + sel('oPrice', 'Цена входа до', state.oPrice, [[0, 'любая'], [10000, '10 тыс.'], [50000, '50 тыс.'], [200000, '200 тыс.'], [1000000, '1 млн']])
+      + '</div></div>'
+      + (slice.length ? '<div class="tbl"><table><thead><tr>'
+        + ['#', 'Тема', 'Гео', 'Спрос', 'Доступный спрос', 'Цена входа по факту', 'Входы и удержание', 'Свобода', 'Чистота', 'Почему']
+          .map(function (h, i) { return '<th' + (i >= 3 && i <= 8 ? ' class="r"' : '') + '>' + h + '</th>'; }).join('')
+        + '</tr></thead><tbody>'
+        + slice.map(function (n, i) {
+          return '<tr>'
+            + '<td class="num muted">' + ((state.page - 1) * PAGE + i + 1) + '</td>'
+            + '<td><div class="strong">' + esc(n.concept || n.head) + '</div><div class="muted small">' + esc(n.head) + '</div></td>'
+            + '<td>' + esc(n.geo) + '</td>'
+            + '<td class="r"><div class="num strong">' + short(n.dem) + '</div><div class="muted small">в день</div></td>'
+            + '<td class="r"><div class="num strong">' + short(n.acc) + '</div><div class="muted small">' + pct(n.acc / n.dem) + ' спроса</div></td>'
+            + '<td class="r"><div class="num strong">' + short(n.ep) + '</div><div class="muted small">от ' + short(n.ep_min) + ' · ' + n.ep_n + ' набл.</div></td>'
+            + '<td class="r"><div class="num strong">' + n.en + '</div><div class="muted small">'
+              // Знаменатель меньше числа входов намеренно: вошедший в последний снятый
+              // день ещё ничего не показал и в долю удержавшихся не идёт.
+              + (n.ej ? 'держатся ' + pct(n.eh / n.ej) + ' из ' + n.ej : 'исхода ещё нет') + '</div></td>'
+            + '<td class="r">' + (isNum(n.freedom) ? '<span class="num">' + fix(n.freedom, 0) + '</span>' : dash('свобода не посчитана')) + '</td>'
+            + '<td class="r">' + (isNum(n.purity) ? '<span class="num">' + pct(n.purity) + '</span>' : dash('чистота не посчитана')) + '</td>'
+            + '<td class="muted small">' + esc(oppWhy(n)) + '</td>'
+            + '</tr>';
+        }).join('')
+        + '</tbody></table></div>' + pager(rows.length, pages)
+        : '<div class="empty">По этому гео нет ниш, у которых есть все четыре числа</div>')
+    + '</section>';
+  }
+
   function renderNiches() {
     var rows = D.niches.filter(function (n) {
       if (state.geo !== WW && n.geo !== state.geo) return false;
@@ -678,7 +766,8 @@ __COMMON_JS__
   // ---------------- события ----------------
   function render() {
     renderNav(); renderHead();
-    if (state.view === 'niches') renderNiches();
+    if (state.view === 'opp') renderOpp();
+    else if (state.view === 'niches') renderNiches();
     else if (state.view === 'rejected') renderRejected();
     else if (state.view === 'how') renderHow();
     else renderCand();
@@ -703,7 +792,7 @@ __COMMON_JS__
     var k = e.target.getAttribute('data-key');
     if (k) {
       var numeric = ['inst', 'instMax', 'flow', 'freedom', 'nDoor', 'nFlow', 'nFreedom', 'nPurity', 'nKeys', 'nStab', 'nDevs', 'nYoung', 'nRating',
-        'dem', 'nDem', 'door3', 'nDoor3'];
+        'dem', 'nDem', 'door3', 'nDoor3', 'oPrice'];
       state[k] = numeric.indexOf(k) >= 0 ? Number(e.target.value) : e.target.value;
       state.page = 1; render();
     }

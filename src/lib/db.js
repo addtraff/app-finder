@@ -531,6 +531,10 @@ const MIGRATIONS = [
   // хранится их число, потому что медиана по трём входам и по тридцати — разные вещи.
   // Доступный спрос: показов в день за ключами, куда реально войти. Порогом служит не
   // дверь (она сверку входами не прошла), а цена входа по факту.
+  // Входы и удержание: единственный наблюдаемый исход, какой у нас есть.
+  ['metrics_niche_v2', 'entries_n', 'INTEGER'],
+  ['metrics_niche_v2', 'entries_judged', 'INTEGER'],
+  ['metrics_niche_v2', 'entries_held', 'INTEGER'],
   ['metrics_niche_v2', 'demand_acc_10k', 'REAL'],
   ['metrics_niche_v2', 'demand_acc_100k', 'REAL'],
   ['metrics_niche_v2', 'demand_acc_1m', 'REAL'],
