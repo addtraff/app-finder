@@ -295,7 +295,7 @@ export async function run({ geo, date }) {
       const ww = weak.get(n.niche_id) || null;
       niches.push({
         geo: g.geo, niche_id: n.niche_id, concept: n.concept, head: n.head,
-        door: n.door, door_flow: n.door_flow, door3: n.door3, door_flow3: n.door_flow3,
+        door: n.door, door_w_cov: n.door_w_cov, door_flow: n.door_flow, door3: n.door3, door_flow3: n.door_flow3,
         ep: n.ep, ep_n: n.ep_n, ep_min: n.ep_min, acc: n.acc, acc_cov: r4(n.acc_cov),
         en: n.en, ej: n.ej, eh: n.eh,
         rp_devs: n.rp_devs, rp_young: n.rp_young, rp_big: n.rp_big,

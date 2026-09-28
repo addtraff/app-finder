@@ -734,7 +734,12 @@ __COMMON_JS__
   }
   function doorHtml(n) {
     if (!n || !isNum(n.door)) return dash('door не посчитан: мало карточек в топ-10');
-    return '<span class="num strong" title="голова ' + short(n.door_head) + ' · хвост ' + short(n.door_tail) + '">' + short(n.door) + '</span>' + geoNote(n);
+    // Подпись про вес обязательна: одно и то же число означает разное в зависимости от
+    // того, взвешено оно спросом или посчитано простой медианой по хвосту ниши.
+    var w = isNum(n.door_w_cov) && n.door_w_cov > 0
+      ? '<div class="muted small nowrap" title="доля ключей ядра с замеренным спросом — именно они задают вес">взвешено ' + pct(n.door_w_cov) + ' ключей</div>'
+      : '<div class="muted small nowrap" title="ключей с замеренным спросом меньше трёх — дверь посчитана простой медианой, как до 28.09">без веса</div>';
+    return '<span class="num strong" title="голова ' + short(n.door_head) + ' · хвост ' + short(n.door_tail) + '">' + short(n.door) + '</span>' + w + geoNote(n);
   }
   // Подпись «по нише в XX» у строки-темы. В ворлдвайде тема схлопывается в одну строку по
   // стране с лучшим рангом, и все её числа — двери, спрос, чистота — относятся именно к этой

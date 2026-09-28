@@ -464,7 +464,7 @@ export function collect(d) {
       const b = baseById.get(n.niche_id) || {};
       nicheRows.push({
         geo: g.geo, niche_id: n.niche_id, concept: n.concept, head: n.head_keyword, keywords_count: n.keywords_count,
-        door: n.door, door_flow: n.door_flow, door_head: n.door_head, door_tail: n.door_tail, door_velocity: r4(n.door_velocity), wall: n.wall_installs,
+        door: n.door, door_w_cov: r4(n.door_w_cov), door_flow: n.door_flow, door_head: n.door_head, door_tail: n.door_tail, door_velocity: r4(n.door_velocity), wall: n.wall_installs,
         door3: n.door3, door_flow3: n.door_flow3,
         acc10k: n.demand_acc_10k, acc100k: n.demand_acc_100k, acc1m: n.demand_acc_1m, acc_cov: r4(n.demand_acc_cov),
         rp_devs: n.repl_devs, rp_young: n.repl_young, rp_big: n.repl_big,
