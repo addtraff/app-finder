@@ -174,6 +174,14 @@ const DAILY = [
   ['alerts', {}],
 ];
 
+// Стадии, которые не принадлежат одному гео: они читают все страны и пишут общие файлы.
+// Держать их под замком гео неправильно — сборка отчёта не конкурент сбору по одной
+// стране, а ждать она из-за этого может часами: 28.09 keyword-serp по США шёл больше часа
+// и всё это время отчёты собрать было нельзя. Свой замок у них всё равно нужен: двух
+// одновременных сборок одного файла быть не должно.
+const GLOBAL_STAGES = new Set(['appradar2', 'appradar3', 'export']);
+const lockFor = (stage, geo) => (GLOBAL_STAGES.has(stage) ? `report:${stage}` : `geo:${geo}`);
+
 async function runPipeline(plan, { geo, date, cycle, only = null, force = false }) {
   const runId = `${date}-${geo}-${cycle}-${md5(String(Date.now())).slice(0, 6)}`;
   const lock = `geo:${geo}`;
@@ -193,6 +201,10 @@ async function runPipeline(plan, { geo, date, cycle, only = null, force = false 
       const stage = STAGES[name];
       if (!stage) { warn(`нет стадии ${name}`); failed++; continue; }
       log(`-> ${name}`);
+      // Общий файл собирает кто-то один. Если собирает — эту стадию пропускаем, а не ждём:
+      // обход не должен стоять из-за отчёта, который всё равно соберут заново.
+      const gl = GLOBAL_STAGES.has(name) ? acquireLock(`report:${name}`, { runId, cycle, force }) : { ok: true };
+      if (!gl.ok) { warn(`${name} уже собирает ${holderText(gl.holder)} — пропускаю`); continue; }
       try {
         await stage.run({ geo, date, runId, cycle, force, ...opts });
         ok++;
@@ -206,6 +218,8 @@ async function runPipeline(plan, { geo, date, cycle, only = null, force = false 
         failed++;
         warn(`стадия ${name} упала: ${e.message}`);
         if (process.env.RADAR_DEBUG) console.error(e);
+      } finally {
+        if (GLOBAL_STAGES.has(name)) releaseLock(`report:${name}`);
       }
       beat(lock);
       progressCycle({ runId, geo, stagesOk: ok, stagesFailed: failed });
@@ -266,9 +280,9 @@ async function main() {
         // Ручной запуск берёт то же гео под ту же блокировку, что и обход. 26.09 без этого
         // дневной обход дважды затёр ручной пересчёт — и затёр более старым кодом, потому
         // что его процесс стартовал до правки.
-        const lock = `geo:${geo}`;
+        const lock = lockFor(name, geo);
         const got = acquireLock(lock, { runId, cycle: `manual:${name}`, force: !!args.force });
-        if (!got.ok) { warn(`гео ${geo} занято: ${holderText(got.holder)}. Пропускаю; чтобы всё равно запустить — --force`); continue; }
+        if (!got.ok) { warn(`${lock.startsWith('report:') ? 'сборка ' + name : 'гео ' + geo} занято: ${holderText(got.holder)}. Пропускаю; чтобы всё равно запустить — --force`); continue; }
         log(`-> ${name} (${geo})`);
         try {
         await STAGES[name].run({
