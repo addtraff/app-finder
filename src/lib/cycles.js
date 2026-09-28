@@ -52,6 +52,16 @@ export function startCycle({ runId, cycle, geo, date, stagesTotal }) {
   ).run(runId, cycle, geo, date, new Date().toISOString(), stagesTotal, process.pid, HOST, codeVersion()));
 }
 
+// Прогресс пишется по ходу, а не только в конце. Оборванный обход иначе показывает 0 из 20
+// независимо от того, успел он одну стадию или девятнадцать — 28.09 три гео так и выглядели
+// «ничего не сделали», хотя по журналу стадий доходили до середины.
+export function progressCycle({ runId, geo, stagesOk, stagesFailed }) {
+  try {
+    db().prepare(`UPDATE cycles SET stages_ok=?, stages_failed=? WHERE run_id=? AND geo=?`)
+      .run(stagesOk, stagesFailed, runId, geo);
+  } catch { /* учёт прогресса не критичен: итог всё равно запишется в finishCycle */ }
+}
+
 export function finishCycle({ runId, geo, status = 'ok', stagesOk = 0, stagesFailed = 0, notes = null }) {
   const d = db();
   retryBusy(() => d.prepare(

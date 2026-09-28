@@ -40,7 +40,13 @@ if (never.length === geos.length) {
 } else if (never.length) {
   warnings.push(`нет записи об обходе по гео: ${never.join(', ')}`);
 }
-if (failed.length) problems.push(`обход не дошёл до конца по гео: ${failed.map((r) => `${r.geo} (${r.status}, стадий упало ${r.stages_failed})`).join(', ')}`);
+if (failed.length) problems.push('обход не дошёл до конца по гео: ' + failed.map((r) => {
+  const done = r.stages_ok || 0, total = r.stages_total || 0;
+  const how = r.status === 'interrupted'
+    ? (done ? `прерван на ${done}-й стадии из ${total}` : `прерван, не начав работу`)
+    : `упало стадий ${r.stages_failed}`;
+  return `${r.geo} (${how})`;
+}).join(', '));
 if (stale.length) problems.push(`последний успешный обход старше 36 часов: ${stale.map((r) => `${r.geo} — ${fmtAge(hours(r.finished_at))} назад`).join(', ')}`);
 if (last.size && !failed.length && !stale.length) {
   const freshest = [...last.values()].sort((a, b) => (b.finished_at || '').localeCompare(a.finished_at || ''))[0];

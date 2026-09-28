@@ -7,7 +7,7 @@ import { syncRegistry, activeGeos, config } from './lib/config.js';
 import { setRpm, stats, CaptchaStop } from './lib/play.js';
 import { todayUTC, md5, log, warn } from './lib/util.js';
 import { planForDays, dueToday, maturity, pendingWork } from './lib/schedule.js';
-import { startCycle, finishCycle, reapDead, reapOrphanRuns, acquireLock, releaseLock, beat, holderText } from './lib/cycles.js';
+import { startCycle, finishCycle, progressCycle, reapDead, reapOrphanRuns, acquireLock, releaseLock, beat, holderText } from './lib/cycles.js';
 
 import * as collectCharts from './stages/collect-charts.js';
 import * as harvestKeywords from './stages/harvest-keywords.js';
@@ -208,6 +208,7 @@ async function runPipeline(plan, { geo, date, cycle, only = null, force = false 
         if (process.env.RADAR_DEBUG) console.error(e);
       }
       beat(lock);
+      progressCycle({ runId, geo, stagesOk: ok, stagesFailed: failed });
     }
     // Обход считается пройденным, только если дошёл до конца и ни одна стадия не упала.
     // «Почти прошёл» — это не прошёл: именно на такой формулировке 26.09 оборванный обход
