@@ -102,6 +102,39 @@ for (const file of TEMPLATES) {
   });
 }
 
+// Две переменные с одним именем в одной области видимости — молчаливая ошибка: вторая
+// затирает первую, и половина кода начинает работать с чужой таблицей. Именно так в
+// AppRadar 2 долго не сортировалась таблица ниш: ниже по файлу лежала вторая NICHE_SORT
+// для отчётов роста. Выбор в списке менялся, порядок строк — нет, ошибок в консоли ноль.
+for (const file of TEMPLATES) {
+  test(`${file}: нет двух объявлений с одним именем в общей области видимости`, () => {
+    // Проверяется шаблон БЕЗ вставленного общего слоя: у него свой отступ, и его локальные
+    // переменные внутри функций попали бы под ту же мерку. Имена самого общего слоя
+    // сверяются отдельно, ниже.
+    const own = read(file).match(/<script>([\s\S]*)<\/script>/)[1];
+    const seen = new Map();
+    const dup = [];
+    for (const m of own.matchAll(/^ {2}(?:var|function) ([A-Za-z_$][\w$]*)/gm)) {
+      const name = m[1];
+      const line = own.slice(0, m.index).split(String.fromCharCode(10)).length;
+      if (seen.has(name)) dup.push(`${name}: строки ${seen.get(name)} и ${line}`);
+      else seen.set(name, line);
+    }
+    assert.deepEqual(dup, [],
+      `объявлены дважды в одной области видимости: ${dup.join('; ')}. `
+      + 'Второе объявление затирает первое, и часть кода молча работает не с той величиной.');
+  });
+
+  test(`${file}: имена общего слоя не перекрыты в шаблоне`, () => {
+    const own = read(file).match(/<script>([\s\S]*)<\/script>/)[1];
+    const shared = [...COMMON_JS.matchAll(/^(?:var|function) ([A-Za-z_$][\w$]*)/gm)].map((m) => m[1]);
+    const clash = shared.filter((n) => new RegExp(`^ {2}(?:var|function) ${n}\b`, 'm').test(own));
+    assert.deepEqual(clash, [],
+      `шаблон объявляет заново то, что уже есть в общем слое: ${clash.join(', ')}. `
+      + 'Смысл общего слоя в том, что форматирование одинаково в обоих отчётах.');
+  });
+}
+
 test('общий слой одинаков для обоих отчётов и не дублируется в них', () => {
   for (const file of TEMPLATES) {
     const src = read(file);

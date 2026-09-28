@@ -409,7 +409,6 @@
     demand_per_app: 'спрос', entry_rate: 'входы', turnover_up_new: 'оборот', clone_density: 'клоны', organic_purity: 'чистота',
     organic_capacity: 'ёмкость', core_keywords: 'узкое ядро' };
   var MONET = { subscription: 'Подписка', iap: 'Покупки', ads: 'Реклама', hybrid: 'Гибрид', paid: 'Платное', free: 'Бесплатно', none: 'Нет' };
-  var PAIN = { money: 'Деньги', ads: 'Реклама', broken: 'Не работает', missing: 'Не хватает функции', trust: 'Доверие' };
   var CHANNEL = { organic: 'Органика (поиск)', organic_ubt: 'Органика + УБТ', ubt: 'УБТ', paid: 'Закупка найдена', unchecked: 'Не проверено' };
   var REC = M.rec || { top_n: 50 };
 
@@ -1359,6 +1358,9 @@ __COMMON_JS__
       return matchesQ([n.concept, n.head, usHead && usHead.head]);
     });
   }
+  // Сортировка тут долго не работала и это не замечалось: ниже по файлу лежала вторая
+  // переменная с тем же именем NICHE_SORT — для отчётов роста, — и она затирала эту. Выбор
+  // в списке менялся, порядок строк нет. Имена разведены 28.09.
   function renderNiches() {
     var base = nicheRowsBase(), f = state.nf;
     var forMatrix = applyNicheFilters(base, true);
@@ -2109,7 +2111,7 @@ __COMMON_JS__
     door10: function (a, b) { return (a.n_door == null ? Infinity : a.n_door) - (b.n_door == null ? Infinity : b.n_door); },
     dem: function (a, b) { return (b.n_dem == null ? -1 : b.n_dem) - (a.n_dem == null ? -1 : a.n_dem); }
   };
-  var NICHE_SORT = {
+  var GROWTH_NICHE_SORT = {   // отдельное имя: раньше называлось NICHE_SORT и затирало таблицу сортировок ниш
     interp: GROWTH_SORT.interp, rel: GROWTH_SORT.rel,
     apps: function (a, b) { return (b.apps || 0) - (a.apps || 0); },
     door: function (a, b) { return (a.door == null ? Infinity : a.door) - (b.door == null ? Infinity : b.door); },
@@ -2268,7 +2270,7 @@ __COMMON_JS__
       return matchesQ([r.concept, r.head, r.niche_id]);
     });
     var shortWin = all.filter(function (r) { return !(r.w >= f.win); }).length;
-    var rows = all.filter(function (r) { return r.w >= f.win; }).sort(NICHE_SORT[f.sort] || NICHE_SORT.interp);
+    var rows = all.filter(function (r) { return r.w >= f.win; }).sort(GROWTH_NICHE_SORT[f.sort] || GROWTH_NICHE_SORT.interp);
     var pages = Math.max(1, Math.ceil(rows.length / PAGE)); if (state.page > pages) state.page = pages;
     var slice = rows.slice((state.page - 1) * PAGE, state.page * PAGE);
     var rels = rows.filter(function (r) { return r.installs > 0; }).map(function (r) { return r.interp * k / r.installs; });
