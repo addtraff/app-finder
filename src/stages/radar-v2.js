@@ -864,6 +864,49 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
   const curDate = prevDate ? d.prepare(`SELECT MAX(snapshot_date) m FROM raw_external_keyword_hist WHERE geo=?`).get(geo)?.m : null;
   const trendDays = prevDate && curDate ? Math.round((Date.parse(curDate) - Date.parse(prevDate)) / 864e5) : null;
 
+  // ---------- повторяемость и слабость соперника ----------
+  //
+  // Две величины, которые до сих пор считались внутри AppRadar 3 и дальше него не уходили.
+  //
+  // Повторяемость. Сколько РАЗНЫХ разработчиков уже сделали приложение в этой теме, сколько
+  // из них сделали это за последний год и у скольких получилось (есть приложение от ста
+  // тысяч установок). Это не то же самое, что clone_density: та считает долю портфельных
+  // разработчиков и служит признаком фабрики клонов, то есть отрицательным. Здесь наоборот —
+  // десяток независимых команд, взявшихся за одну идею, и несколько доросших, означает, что
+  // идея повторяема не у одного счастливчика.
+  //
+  // Слабость соперника. Рейтинг тех, кто уже большой, и на что жалуются их пользователи.
+  // Низкий рейтинг у крупных при живом спросе — это не «плохая тема», а доказанный спрос,
+  // который хуже всего обслужен. Балла нет намеренно: он потребовал бы весов, которых взять
+  // неоткуда, а составляющие проверяемы по отдельности.
+  const replic = new Map();
+  for (const r of d.prepare(
+    `SELECT v.niche_id nid, a.developer_id dev, MIN(v.age_months) age, MAX(v.installs) inst
+       FROM metrics_app_v2 v JOIN apps a ON a.app_id=v.app_id
+      WHERE v.geo=? AND v.snapshot_date=? AND v.niche_id IS NOT NULL AND a.developer_id IS NOT NULL
+      GROUP BY v.niche_id, a.developer_id`
+  ).all(geo, D)) {
+    let e = replic.get(r.nid);
+    if (!e) replic.set(r.nid, e = { devs: 0, young: 0, big: 0 });
+    e.devs++;
+    if (r.age != null && r.age < 12) e.young++;
+    if (r.inst != null && r.inst >= 1e5) e.big++;
+  }
+
+  const incum = new Map();
+  for (const r of d.prepare(
+    `SELECT v.niche_id nid, m.score rating, m.pain_dominant pain
+       FROM metrics_app_v2 v
+       JOIN metrics_app_geo m ON m.app_id=v.app_id AND m.geo=v.geo AND m.snapshot_date=v.snapshot_date
+      WHERE v.geo=? AND v.snapshot_date=? AND v.niche_id IS NOT NULL AND v.installs >= 100000`
+  ).all(geo, D)) {
+    let e = incum.get(r.nid);
+    if (!e) incum.set(r.nid, e = { ratings: [], low: 0, pains: new Map(), n: 0 });
+    e.n++;
+    if (r.rating != null) { e.ratings.push(r.rating); if (r.rating < 4) e.low++; }
+    if (r.pain) e.pains.set(r.pain, (e.pains.get(r.pain) || 0) + 1);
+  }
+
   // ---------- цена входа по факту ----------
   // Не модель, а наблюдение: медиана установок тех, кто действительно вошёл в топ-10 этой
   // ниши. Сверка 27–28.09 показала, что обе двери как абсолютный порог не работают — запас
@@ -1234,7 +1277,8 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     'demand_trend', 'demand_trend_keys', 'demand_trend_days', 'door5', 'door_flow5', 'door3', 'door_flow3',
     'entry_price_med', 'entry_price_p25', 'entry_price_p75', 'entry_price_min', 'entry_price_n', 'entry_price_days',
     'demand_acc_10k', 'demand_acc_100k', 'demand_acc_1m', 'demand_acc_cov',
-    'entries_n', 'entries_judged', 'entries_held'];
+    'entries_n', 'entries_judged', 'entries_held',
+    'repl_devs', 'repl_young', 'repl_big', 'inc_rating', 'inc_rating_low', 'inc_pain_top', 'inc_n'];
   const insNiche = d.prepare(`INSERT OR REPLACE INTO metrics_niche_v2 (${nicheCols.join(',')}) VALUES (${nicheCols.map((c) => '@' + c).join(',')})`);
   const appCols = Object.keys(appOut[0] || { app_id: 1 });
   const insApp = appOut.length ? d.prepare(`INSERT OR REPLACE INTO metrics_app_v2 (geo, snapshot_date, ${appCols.join(',')})
@@ -1272,6 +1316,14 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
         entries_n: entryPrice.get(r.n.niche_id)?.entriesN ?? null,
         entries_judged: entryPrice.get(r.n.niche_id)?.entriesJudged ?? null,
         entries_held: entryPrice.get(r.n.niche_id)?.entriesHeld ?? null,
+        repl_devs: replic.get(r.n.niche_id)?.devs ?? null,
+        repl_young: replic.get(r.n.niche_id)?.young ?? null,
+        repl_big: replic.get(r.n.niche_id)?.big ?? null,
+        inc_rating: (() => { const e = incum.get(r.n.niche_id); return e && e.ratings.length ? round(median(e.ratings), 2) : null; })(),
+        inc_rating_low: (() => { const e = incum.get(r.n.niche_id); return e && e.ratings.length ? round(e.low / e.ratings.length) : null; })(),
+        // Самая частая жалоба у крупных — одна метка, а не смесь: смесь читается как «всё плохо».
+        inc_pain_top: (() => { const e = incum.get(r.n.niche_id); if (!e || !e.pains.size) return null; return [...e.pains].sort((a, b) => b[1] - a[1])[0][0]; })(),
+        inc_n: incum.get(r.n.niche_id)?.n ?? null,
         free_keys_count: r.freeKeysCount, free_demand_share: round(r.freeDemandShare), door_head: r.doorHead == null ? null : Math.round(r.doorHead),
         door_tail: r.doorTail == null ? null : Math.round(r.doorTail), door_velocity: round(r.doorVelocity), demand_per_app: round(r.demandPerApp),
         aso_saturation: round(r.asoSaturation), relevance_gap_pct: round(r.n.relevance_gap_pct),

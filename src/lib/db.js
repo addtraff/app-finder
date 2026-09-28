@@ -531,6 +531,16 @@ const MIGRATIONS = [
   // хранится их число, потому что медиана по трём входам и по тридцати — разные вещи.
   // Доступный спрос: показов в день за ключами, куда реально войти. Порогом служит не
   // дверь (она сверку входами не прошла), а цена входа по факту.
+  // Повторяемость идеи: сколько независимых разработчиков её брали и у скольких вышло.
+  // В отличие от clone_density это признак положительный — идея работает не у одного.
+  ['metrics_niche_v2', 'repl_devs', 'INTEGER'],
+  ['metrics_niche_v2', 'repl_young', 'INTEGER'],
+  ['metrics_niche_v2', 'repl_big', 'INTEGER'],
+  // Слабость соперника: рейтинг уже больших и на что жалуются их пользователи.
+  ['metrics_niche_v2', 'inc_rating', 'REAL'],
+  ['metrics_niche_v2', 'inc_rating_low', 'REAL'],
+  ['metrics_niche_v2', 'inc_pain_top', 'TEXT'],
+  ['metrics_niche_v2', 'inc_n', 'INTEGER'],
   // Входы и удержание: единственный наблюдаемый исход, какой у нас есть.
   ['metrics_niche_v2', 'entries_n', 'INTEGER'],
   ['metrics_niche_v2', 'entries_judged', 'INTEGER'],
