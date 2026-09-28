@@ -5,7 +5,7 @@ import { db, startRun, finishRun, logEvent } from '../lib/db.js';
 import { config, geoConf } from '../lib/config.js';
 import { qv } from './quantiles.js';
 import { setWatchLevel } from '../lib/registry.js';
-import { UnionFind, jaccard, median, md5, quantile, log } from '../lib/util.js';
+import { UnionFind, jaccard, median, weightedMedian, md5, quantile, log } from '../lib/util.js';
 import { ageMonthsAt } from '../lib/dates.js';
 
 const DAY_MS = 86400000;
@@ -19,6 +19,23 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
   startRun(runId, 'niche-doors', geo, cycle, date);
   const cl = config().scoring.clustering;
   const g = geoConf(geo);
+
+  // Вес ключа в двери — его дневные показы по замеру ASO-сервиса. До 28.09 дверь была
+  // простой медианой по ключам ядра: ключ на сто тысяч показов и ключ на десять тысяч
+  // влияли на неё одинаково, хотя первый и есть рынок ниши, а второй — её хвост.
+  //
+  // Навигационные ключи исключены той же проверкой, что и в спросе ниши (бренд держит
+  // запрос и сложность от порога): иначе один «instagram» перетянул бы на себя всю дверь
+  // темы, к которой он примешался. Ключи с нулём показов веса не получают вовсе — ноль у
+  // сервиса означает «ниже порога измерения», а не «спроса нет», и придумывать им вес
+  // значило бы выдумывать данные.
+  const navDif = config().scoring.navigational_difficulty ?? 90;
+  const kwWeight = new Map(d.prepare(
+    `SELECT keyword, daily_impressions imp, brand_app brand, competition_index dif
+       FROM raw_external_keyword_planner WHERE geo=? AND imp_status='measured' AND daily_impressions > 0`
+  ).all(geo)
+    .filter((r) => !(r.brand && r.dif != null && r.dif >= navDif))
+    .map((r) => [r.keyword, r.imp]));
 
   // 1. Самая свежая выдача по каждому ключу.
   const serp = d.prepare(
@@ -340,8 +357,8 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
       wall_installs, wall_ratings, demand_installs, weak_share, new_share_18m, leader_share,
       exact_in_title, jaccard_top5_median, relevance_gap_pct, generic_demand_share, suggest_score_sum,
       top10_turnover_30d, index_gap_leader, top_apps, concept,
-      top10_turnover_7d, top10_turnover_14d, partial_window, door_flow, door5, door_flow5, door3, door_flow3)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+      top10_turnover_7d, top10_turnover_14d, partial_window, door_flow, door5, door_flow5, door3, door_flow3, door_w_cov)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
   const upAppNiche = d.prepare(`UPDATE apps SET niche_id=? WHERE app_id=?`);
 
   const coreVersion = `${date}:${md5(keywords.sort().join('|')).slice(0, 8)}`;
@@ -393,33 +410,51 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
     // Порог знания тот же по сути: не меньше трёх приложений с известными установками, но
     // из пяти строк, а не из десяти, — то есть требование строже, и по редким ключам дверь
     // в топ-5 останется пустой там, где обычная посчиталась.
+    // Пары «значение, вес»: вес нужен на том же шаге, где берётся значение, иначе ключ
+    // потеряется — по редким ключам дверь не считается вовсе, и массивы разной длины.
     const perKwMin = [], perKwFlow = [], perKwMin5 = [], perKwFlow5 = [], perKwMin3 = [], perKwFlow3 = [];
     for (const kw of core) {
+      const w = kwWeight.get(kw) ?? 0;
       const raw = top10raw.get(kw);
       const raw5 = raw.slice(0, 5);
       const raw3 = raw.slice(0, 3);
       const vals = raw.map(installsForDoor).filter((v) => v != null);
-      if (vals.length >= 3) perKwMin.push(Math.min(...vals));
+      if (vals.length >= 3) perKwMin.push([Math.min(...vals), w]);
       const vals5 = raw5.map(installsForDoor).filter((v) => v != null);
-      if (vals5.length >= 3) perKwMin5.push(Math.min(...vals5));
+      if (vals5.length >= 3) perKwMin5.push([Math.min(...vals5), w]);
       // Порог здесь два из трёх, а не три из трёх: та же доля, что у пятёрки, иначе по
       // редким ключам дверь в тройку пустовала бы там, где обе остальные посчитались.
       const vals3 = raw3.map(installsForDoor).filter((v) => v != null);
-      if (vals3.length >= 2) perKwMin3.push(Math.min(...vals3));
+      if (vals3.length >= 2) perKwMin3.push([Math.min(...vals3), w]);
       // Тот же расчёт, но в потоке: сколько установок в день у самого слабого из топ-10.
       const flows = raw.map(flowOf).filter((v) => v != null);
-      if (flows.length >= 3) perKwFlow.push(Math.min(...flows));
+      if (flows.length >= 3) perKwFlow.push([Math.min(...flows), w]);
       const flows5 = raw5.map(flowOf).filter((v) => v != null);
-      if (flows5.length >= 3) perKwFlow5.push(Math.min(...flows5));
+      if (flows5.length >= 3) perKwFlow5.push([Math.min(...flows5), w]);
       const flows3 = raw3.map(flowOf).filter((v) => v != null);
-      if (flows3.length >= 2) perKwFlow3.push(Math.min(...flows3));
+      if (flows3.length >= 2) perKwFlow3.push([Math.min(...flows3), w]);
     }
-    const doorFlow = perKwFlow.length ? Math.round(median(perKwFlow)) : null;
-    const door = perKwMin.length ? Math.round(median(perKwMin)) : null;
-    const doorFlow5 = perKwFlow5.length ? Math.round(median(perKwFlow5)) : null;
-    const door5 = perKwMin5.length ? Math.round(median(perKwMin5)) : null;
-    const doorFlow3 = perKwFlow3.length ? Math.round(median(perKwFlow3)) : null;
-    const door3 = perKwMin3.length ? Math.round(median(perKwMin3)) : null;
+    // Взвешенная медиана, а при нехватке весов — прежняя простая. Порог в три ключа с
+    // ненулевым спросом взят не из осторожности: на одном-двух взвешенная медиана это уже
+    // не медиана, а просто самый крупный ключ, и такая дверь скакала бы от недели к неделе
+    // вместе с оценкой сервиса. Ниже порога честнее вернуться к прежнему счёту и прямо
+    // сказать покрытием, что взвесить было нечем.
+    const MIN_WEIGHTED = 3;
+    const doorOf = (pairs) => {
+      if (!pairs.length) return null;
+      const weighted = pairs.filter(([, w]) => w > 0);
+      const v = weighted.length >= MIN_WEIGHTED ? weightedMedian(pairs) : median(pairs.map(([x]) => x));
+      return v == null ? null : Math.round(v);
+    };
+    const doorFlow = doorOf(perKwFlow);
+    const door = doorOf(perKwMin);
+    const doorFlow5 = doorOf(perKwFlow5);
+    const door5 = doorOf(perKwMin5);
+    const doorFlow3 = doorOf(perKwFlow3);
+    const door3 = doorOf(perKwMin3);
+    // Доля ключей двери, чей вес подкреплён замером. Ноль значит «взвесить было нечем,
+    // дверь посчитана как раньше» — и в отчёте это подписано, а не скрыто.
+    const doorWCov = perKwMin.length ? perKwMin.filter(([, w]) => w > 0).length / perKwMin.length : null;
 
     const headTop10 = top10.get(head) || [];
     const headApps = headTop10.map((id) => cardOf(id)).filter(Boolean);
@@ -513,7 +548,7 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
       insMetric.run(nicheId, geo, date, head, head, core.length, allApps.size, door, bestDoor,
         wall, wallRatings, demandInstalls, weakShare, newShare, leaderShare, exactInTitle, jac5,
         relevanceGap, genericShare, sugSum, turnover, indexGapLeader, topAppsJson, concept,
-        turnover7, turnover14, partialWindow, doorFlow, door5, doorFlow5, door3, doorFlow3);
+        turnover7, turnover14, partialWindow, doorFlow, door5, doorFlow5, door3, doorFlow3, doorWCov);
       // Приложение относится к нише, где у него лучшая позиция.
       for (const id of allApps) {
         const cur = d.prepare(`SELECT niche_id FROM apps WHERE app_id=?`).get(id);
