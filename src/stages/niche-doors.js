@@ -440,10 +440,10 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
     // вместе с оценкой сервиса. Ниже порога честнее вернуться к прежнему счёту и прямо
     // сказать покрытием, что взвесить было нечем.
     const MIN_WEIGHTED = 3;
+    const usedWeights = (pairs) => pairs.filter(([, w]) => w > 0).length >= MIN_WEIGHTED;
     const doorOf = (pairs) => {
       if (!pairs.length) return null;
-      const weighted = pairs.filter(([, w]) => w > 0);
-      const v = weighted.length >= MIN_WEIGHTED ? weightedMedian(pairs) : median(pairs.map(([x]) => x));
+      const v = usedWeights(pairs) ? weightedMedian(pairs) : median(pairs.map(([x]) => x));
       return v == null ? null : Math.round(v);
     };
     const doorFlow = doorOf(perKwFlow);
@@ -452,9 +452,12 @@ export async function run({ geo, date, runId, cycle = 'discovery' }) {
     const door5 = doorOf(perKwMin5);
     const doorFlow3 = doorOf(perKwFlow3);
     const door3 = doorOf(perKwMin3);
-    // Доля ключей двери, чей вес подкреплён замером. Ноль значит «взвесить было нечем,
-    // дверь посчитана как раньше» — и в отчёте это подписано, а не скрыто.
-    const doorWCov = perKwMin.length ? perKwMin.filter(([, w]) => w > 0).length / perKwMin.length : null;
+    // Покрытие пишется ТОЛЬКО когда взвешивание действительно применилось. Иначе получалось
+    // бы, что «покрытие 20 %» стоит под дверью, посчитанной простой медианой: один ключ с
+    // весом из пяти порога в три не набирает, вес не применяется, а подпись в отчёте уже
+    // обещает взвешенное число. Ноль здесь означает ровно «дверь посчитана как раньше».
+    const doorWCov = perKwMin.length && usedWeights(perKwMin)
+      ? perKwMin.filter(([, w]) => w > 0).length / perKwMin.length : 0;
 
     const headTop10 = top10.get(head) || [];
     const headApps = headTop10.map((id) => cardOf(id)).filter(Boolean);
