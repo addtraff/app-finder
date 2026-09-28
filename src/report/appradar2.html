@@ -545,7 +545,6 @@
   COMP_KEYS.forEach(function (k) { GLOSS['comp.' + k] = { t: k === 'free_demand_share' ? 'Свободный спрос' : k === 'relevance_gap' ? 'Пустота выдачи' : k === 'aso_saturation' ? 'Незанятость ASO' : k === 'demand_per_app' ? 'Спрос на конкурента' : k === 'entry_rate' ? 'Входы в топ-10' : k === 'turnover_up_new' ? 'Оборот за счёт новых' : 'Мало клонов',
     what: { free_demand_share: 'Доля спроса ядра за ключами с дешёвой дверью (door ключа ≤ p25 гео).', relevance_gap: 'Доля нерелевантных приложений в топ-20: Play нечем заполнить выдачу.', aso_saturation: 'Обратная доле топ-10 головного ключа с ключом в заголовке: нишу ещё не отASOшили.', demand_per_app: 'Установки топа, делённые на число приложений ниши (log10).', entry_rate: 'Сколько приложений впервые вошли в топ-10 ядра за окно до 90 дней.', turnover_up_new: 'Доля смены топ-10 за счёт тех, кого 30 дней назад не было в топ-50.', clone_density: 'Обратная доле топ-50 от разработчиков с 3+ приложениями в нише или фабрик клонов.' }[k],
     how: 'Нормировка по p10–p90 ниш гео; вес в индексе свободы — ' + { free_demand_share: '25 %', relevance_gap: '15 %', aso_saturation: '15 %', demand_per_app: '15 %', entry_rate: '15 %', turnover_up_new: '10 %', clone_density: '5 %' }[k] + '.' }; });
-  function tipIcon(key) { return GLOSS[key] ? '<button type="button" class="tip-i" data-tip="' + key + '" aria-label="Подсказка: ' + esc(GLOSS[key].t) + '">?</button>' : ''; }
 
   // ---------------- утилиты ----------------
   function $(id) { return document.getElementById(id); }
@@ -640,11 +639,8 @@ __COMMON_JS__
     return '<button class="app-cell" data-act="open-app" data-app="' + esc(a.app_id) + '" data-geo="' + esc(a.geo) + '">' + icon(a) +
       '<div style="min-width:0"><div class="app-name">' + esc(a.title || a.app_id) + '</div><div class="app-pkg">' + esc(a.app_id) + (a.developer ? ' · ' + esc(a.developer) : '') + '</div></div></button>';
   }
-  function starBtn(kind, id) {
-    var list = kind === 'n' ? state.nfavs : state.favs, on = list.indexOf(id) >= 0;
-    return '<button class="star" data-act="fav" data-kind="' + kind + '" data-id="' + esc(id) + '" aria-pressed="' + on + '" aria-label="' + (on ? 'Убрать из избранного' : 'В избранное') + '">' +
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="' + (on ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l2.7 5.7 6.3.8-4.6 4.3 1.2 6.2L12 17l-5.6 3 1.2-6.2L3 9.5l6.3-.8z"/></svg></button>';
-  }
+  // Обёртка над общей кнопкой: списки избранного живут в состоянии отчёта.
+  function starBtn(kind, id) { return starBtnHtml(kind, id, (kind === 'n' ? state.nfavs : state.favs).indexOf(id) >= 0); }
   function levelBadge(a) {
     var l = LEVEL[a.level] || LEVEL.unchecked, tip = [];
     if (a.evidence_date) tip.push('улика ' + dmy(a.evidence_date) + ', ' + a.evidence_age + ' дн. из ' + M.ttl);
@@ -2394,45 +2390,7 @@ __COMMON_JS__
   // ---------------- всплывающие подсказки ----------------
   // Свои, а не title браузера: у вариантов выпадающих списков и у значков «?» стандартная
   // подсказка не показывается, а объяснение из трёх частей в неё не помещается.
-  var tipEl = document.createElement('div');
-  tipEl.className = 'tip-pop'; tipEl.hidden = true; tipEl.setAttribute('role', 'tooltip');
-  document.body.appendChild(tipEl);
-  var tipFor = null;
-  function tipHtml(el) {
-    var g = GLOSS[el.getAttribute('data-tip')], val = el.getAttribute('data-tip-val');
-    if (!g && !val) return '';
-    var h = '';
-    if (g) {
-      h += '<h4>' + esc(g.t) + '</h4>';
-      if (g.what) h += '<p><b>Что это</b>' + esc(g.what) + '</p>';
-      if (g.how) h += '<p><b>Как считается</b>' + esc(g.how) + '</p>';
-      if (g.why) h += '<p><b>Зачем</b>' + esc(g.why) + '</p>';
-      if (g.opts) h += '<p><b>Варианты</b></p><ul>' + g.opts.map(function (o) { return '<li><b style="display:inline;text-transform:none;letter-spacing:0;font-size:12.5px;color:var(--text)">' + esc(o[0]) + '</b> — ' + esc(o[1]) + '</li>'; }).join('') + '</ul>';
-    }
-    if (val) h += '<div class="tip-val">' + esc(val).replace(/\n/g, '<br>') + '</div>';
-    return h;
-  }
-  function showTip(el) {
-    var html = tipHtml(el);
-    if (!html) return;
-    tipFor = el; tipEl.innerHTML = html; tipEl.hidden = false;
-    var r = el.getBoundingClientRect(), w = tipEl.offsetWidth, h = tipEl.offsetHeight;
-    var left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), window.innerWidth - w - 8);
-    var top = r.bottom + 8;
-    if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 8);
-    tipEl.style.left = left + 'px'; tipEl.style.top = top + 'px';
-  }
-  function hideTip() { tipFor = null; tipEl.hidden = true; }
-  document.addEventListener('mouseover', function (e) {
-    var el = e.target.closest('[data-tip],[data-tip-val]');
-    if (el === tipFor) return;
-    if (el) showTip(el); else hideTip();
-  });
-  document.addEventListener('focusin', function (e) { var el = e.target.closest('[data-tip],[data-tip-val]'); if (el) showTip(el); });
-  document.addEventListener('focusout', hideTip);
-  window.addEventListener('scroll', hideTip, true);
-  // На сенсорных экранах наведения нет: значок «?» открывает подсказку касанием.
-  document.addEventListener('click', function (e) { var el = e.target.closest('.tip-i'); if (el) { e.preventDefault(); if (tipFor === el) hideTip(); else showTip(el); } });
+  installTips();
   // Иконка не загрузилась (нет сети, ссылка протухла) — убираем картинку, под ней остаются
   // буквы. Обработчик один на документ: инлайновых onerror в шаблоне нет и не будет.
   document.addEventListener('error', function (e) {

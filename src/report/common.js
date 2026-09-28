@@ -71,3 +71,80 @@ function doorRatio(a, b) {
 // возвращают значение по умолчанию вместо исключения.
 function load(key, def) { try { var v = localStorage.getItem(key); return v == null ? def : JSON.parse(v); } catch (e) { return def; } }
 function save(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* хранилище недоступно */ } }
+
+// ---------------- подсказки ----------------
+//
+// Движок один на оба отчёта, словарь у каждого свой: отчёт объявляет GLOSS, здесь только
+// показ. Подсказки — сильная сторона этих отчётов и единственное, что отличает их от
+// таблицы чисел: каждая величина объясняет, что она такое, как считается и зачем нужна.
+// Пока движок жил только в AppRadar 2, третий отчёт оставался без них.
+//
+// Формат записи словаря: { t: заголовок, what: что это, how: как считается, why: зачем,
+// opts: [[значение, пояснение], …] }. Ни одно поле, кроме t, не обязательно.
+function tipHtml(el) {
+  var dict = (typeof GLOSS === 'object' && GLOSS) || {};
+  var g = dict[el.getAttribute('data-tip')], val = el.getAttribute('data-tip-val');
+  if (!g && !val) return '';
+  var h = '';
+  if (g) {
+    h += '<h4>' + esc(g.t) + '</h4>';
+    if (g.what) h += '<p><b>Что это</b>' + esc(g.what) + '</p>';
+    if (g.how) h += '<p><b>Как считается</b>' + esc(g.how) + '</p>';
+    if (g.why) h += '<p><b>Зачем</b>' + esc(g.why) + '</p>';
+    if (g.opts) h += '<p><b>Варианты</b></p><ul>' + g.opts.map(function (o) {
+      return '<li><b style="display:inline;text-transform:none;letter-spacing:0;font-size:12.5px;color:var(--text)">' + esc(o[0]) + '</b> — ' + esc(o[1]) + '</li>';
+    }).join('') + '</ul>';
+  }
+  if (val) h += '<div class="tip-val">' + esc(val).split(String.fromCharCode(10)).join('<br>') + '</div>';
+  return h;
+}
+
+function tipIcon(key) {
+  var dict = (typeof GLOSS === 'object' && GLOSS) || {};
+  return dict[key] ? '<button type="button" class="tip-i" data-tip="' + key + '" aria-label="Подсказка: ' + esc(dict[key].t) + '">?</button>' : '';
+}
+
+var tipEl = null, tipFor = null;
+function showTip(el) {
+  var html = tipHtml(el);
+  if (!html) return;
+  tipFor = el; tipEl.innerHTML = html; tipEl.hidden = false;
+  var r = el.getBoundingClientRect(), w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+  var left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), window.innerWidth - w - 8);
+  var top = r.bottom + 8;
+  if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 8);
+  tipEl.style.left = left + 'px'; tipEl.style.top = top + 'px';
+}
+function hideTip() { tipFor = null; if (tipEl) tipEl.hidden = true; }
+
+// Вызывается один раз при старте отчёта. Слушатели вешаются на документ, поэтому
+// перерисовка таблиц их не теряет — иначе подсказки отваливались бы после первого фильтра.
+function installTips() {
+  if (tipEl) return;
+  tipEl = document.createElement('div');
+  tipEl.className = 'tip-pop'; tipEl.hidden = true; tipEl.setAttribute('role', 'tooltip');
+  document.body.appendChild(tipEl);
+  document.addEventListener('mouseover', function (e) {
+    var el = e.target.closest('[data-tip],[data-tip-val]');
+    if (el === tipFor) return;
+    if (el) showTip(el); else hideTip();
+  });
+  document.addEventListener('focusin', function (e) { var el = e.target.closest('[data-tip],[data-tip-val]'); if (el) showTip(el); });
+  document.addEventListener('focusout', hideTip);
+  window.addEventListener('scroll', hideTip, true);
+  // На сенсорных экранах наведения нет: значок «?» открывает подсказку касанием.
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest('.tip-i');
+    if (el) { e.preventDefault(); if (tipFor === el) hideTip(); else showTip(el); }
+  });
+}
+
+// ---------------- избранное ----------------
+// Список хранится в браузере и к данным отчёта не относится: пересборка его не трогает.
+// Отсюда и оговорка в самом отчёте — отмеченное у одного человека не видно другому.
+function starBtnHtml(kind, id, on) {
+  return '<button class="star" data-act="fav" data-kind="' + esc(kind) + '" data-id="' + esc(id) + '"'
+    + ' aria-pressed="' + !!on + '" aria-label="' + (on ? 'Убрать из избранного' : 'В избранное') + '">'
+    + '<svg width="14" height="14" viewBox="0 0 24 24" fill="' + (on ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="2" stroke-linejoin="round">'
+    + '<path d="M12 3l2.7 5.7 6.3.8-4.6 4.3 1.2 6.2L12 17l-5.6 3 1.2-6.2L3 9.5l6.3-.8z"/></svg></button>';
+}

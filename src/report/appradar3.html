@@ -77,6 +77,19 @@
   .kpi-label { color: var(--muted); font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
   .kpi-value { font-size: 23px; font-weight: 800; font-family: var(--f-num); letter-spacing: -1px; margin-top: 8px; }
   .kpi-hint { color: var(--muted); font-size: 11.5px; margin-top: 3px; }
+  .tip-i { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--border); color: var(--muted); font-size: 10.5px; font-weight: 800; cursor: help; background: var(--card); flex: 0 0 16px; line-height: 1; padding: 0; margin-left: 5px; }
+  .tip-i:hover, .tip-i:focus-visible { border-color: var(--accent); color: var(--accent); }
+  .tip-pop { position: fixed; z-index: 90; max-width: 360px; background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 12px 14px; font-size: 12.5px; line-height: 1.45; pointer-events: none; text-transform: none; letter-spacing: 0; font-weight: 500; }
+  .tip-pop h4 { margin: 0 0 6px; font-size: 13px; font-weight: 800; }
+  .tip-pop p { margin: 4px 0 0; text-wrap: pretty; }
+  .tip-pop p b { color: var(--muted); font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; display: block; }
+  .tip-pop ul { margin: 4px 0 0; padding-left: 18px; }
+  .tip-pop .tip-val { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); color: var(--muted); }
+  th[data-tip] { cursor: help; }
+  th[data-tip] > span { border-bottom: 1px dotted var(--muted); }
+  .star { cursor: pointer; background: none; border: 0; padding: 0; display: inline-flex; color: var(--muted); vertical-align: middle; }
+  .star[aria-pressed="true"] { color: var(--accent); }
+  .star:hover { color: var(--accent); }
   .toolbar { display: flex; align-items: center; gap: 10px; padding: 13px 16px; border-bottom: 1px solid var(--border); background: var(--head); flex-wrap: wrap; }
   .field { display: inline-flex; align-items: center; gap: 6px; }
   .field label { color: var(--muted); font-size: 11.5px; font-weight: 700; }
@@ -158,7 +171,17 @@ __UNPACK_JS__
   var PAGE = 50;
   var state = { view: 'cand', geo: WW, page: 1, q: '', risk: 'all', paid: 'all', mom: 'all', sort: 'risk',
     inst: 0, instMax: 0, age: 'all', flow: 0, freedom: 0, quad: 'all', concept: 'all', meas: 'all', ubt: 'all',
-    spread: 'all', cpy: 'all', dem: 0, door3: 0, nDem: 0, nDoor3: 0, nDoor: 0, nFlow: 0, nFreedom: 0, nPurity: 0, nKeys: 0, nQuad: 'all', nStab: 0, nDevs: 0, nYoung: 0, nRating: 0, nSort: 'freedom', oSort: 'acc', oPrice: 0 };
+    spread: 'all', cpy: 'all', dem: 0, door3: 0, nDem: 0, nDoor3: 0, nDoor: 0, nFlow: 0, nFreedom: 0, nPurity: 0, nKeys: 0, nQuad: 'all', nStab: 0, nDevs: 0, nYoung: 0, nRating: 0, nSort: 'freedom', oSort: 'acc', oPrice: 0,
+    favs: load('appradar3-favs', []), nfavs: load('appradar3-nfavs', []) };
+
+  // Звезда для приложения ('a') и для темы ('n'). Разметка общая с AppRadar 2.
+  function star(kind, id) { return starBtnHtml(kind, id, (kind === 'n' ? state.nfavs : state.favs).indexOf(id) >= 0); }
+  function toggleFav(kind, id) {
+    var list = kind === 'n' ? state.nfavs : state.favs;
+    var i = list.indexOf(id);
+    if (i >= 0) list.splice(i, 1); else list.push(id);
+    save(kind === 'n' ? 'appradar3-nfavs' : 'appradar3-favs', list);
+  }
 
 __COMMON_JS__
 
@@ -213,6 +236,7 @@ __COMMON_JS__
     { id: 'cand', title: 'Кандидаты', count: function () { return D.rows.length; } },
     { id: 'niches', title: 'Ниши', count: function () { return D.niches.length; } },
     { id: 'rejected', title: 'Отсеянные', count: function () { return (D.rejected || []).length; } },
+    { id: 'fav', title: 'Избранное', count: function () { return state.favs.length + state.nfavs.length; } },
     { id: 'how', title: 'Как читать', count: function () { return null; } }
   ];
   function renderNav() {
@@ -227,6 +251,42 @@ __COMMON_JS__
     var geos = [WW].concat(D.geos.filter(function (g) { return g.date; }).map(function (g) { return g.geo; }));
     $('geo').innerHTML = geos.map(function (g) { return '<option value="' + g + '"' + (state.geo === g ? ' selected' : '') + '>' + (g === WW ? 'все страны' : g) + '</option>'; }).join('');
   }
+  // Словарь подсказок. Формат общий с AppRadar 2: что это, как считается, зачем. Правило
+  // одно — в «как считается» пишется то, что действительно делает код, включая оговорки.
+  var GLOSS = {
+    'door': { t: 'Дверь', what: 'Установки самого слабого приложения в топ-10 по ключам ядра темы.', how: 'По каждому ядровому ключу берётся минимум установок среди первой десятки, затем медиана по ключам. Карточки, где оценок больше, чем установок, отбрасываются — так Play отдаёт приложения с ограниченным распространением, и одна такая обнуляла бы дверь.', why: 'Читать как порядковую величину: там, где дверь ниже, входят дешевле. Читать как «столько установок мне хватит» нельзя — сверка с реальными входами 27.09 показала, что медианный вошедший имел в 25 раз больше.' },
+    'door3': { t: 'Дверь в топ-3', what: 'То же самое, но по местам 1–3.', how: 'Минимум установок среди первой тройки по каждому ключу, медиана по ключам. Нужно не меньше двух приложений с известными установками из трёх.', why: 'По кривой CTR третье место даёт 12% кликов ниши, десятое — 3,2%. Десятка отвечает на вопрос «пустят ли на страницу», тройка — «пойдёт ли трафик».' },
+    'flow': { t: 'Поток', what: 'Сколько установок в день получает слабейший в топ-10 сейчас.', how: 'Прирост числа оценок за окно, переведённый в установки через «установок на оценку» у самого приложения. Это оценка, а не измерение.', why: 'Запас говорит, сколько накоплено за всю жизнь, поток — сколько приходится отбивать сегодня. Сверка с входами 28.09: поток ошибается в 6 раз против 25 у запаса, но удержание тоже не предсказывает.' },
+    'ep': { t: 'Цена входа по факту', what: 'Медиана установок тех, кто действительно вошёл в топ-10 этой темы.', how: 'Берутся события входа за окно наблюдения, у которых известны установки на день входа, и считается медиана. Рядом — самый дешёвый наблюдённый вход и число событий. Меньше трёх входов — прочерк; чужих чисел из похожих тем не подставляется.', why: 'Единственное число о пороге входа, которое измерено, а не выведено. Обе двери проверку входами не прошли, а это ни во сколько раз не ошибается: оно либо есть, либо его нет.' },
+    'dem': { t: 'Спрос', what: 'Сколько раз в день ищут то, из чего собрана тема.', how: 'Сумма дневных показов по ядровым ключам без навигационных. Источник — выгрузка Asodesk, то есть их модель, а не счётчик Google. Ноль у сервиса означает «ниже порога измерения», а не отсутствие спроса. По гео без своей выгрузки показана оценка по США со знаком «~».', why: 'Свободная тема без спроса — не возможность, а пустота. До внешних объёмов отличить одно от другого было нечем.' },
+    'acc': { t: 'Доступный спрос', what: 'Показов в день за ключами, где слабейший в топ-10 слабее 100 тыс. установок.', how: 'Складываются показы тех ядровых ключей, у которых дверь ключа ниже уровня; навигационные не считаются. Уровень общий для всех тем — иначе они несравнимы.', why: 'Спрос темы целиком мало что значит, если он весь стоит за ключами, которые держат гиганты. Это НЕ обещание «столько установок вам хватит»: дверь занижает порог входа медианно в 25 раз.' },
+    'entries': { t: 'Входы и удержание', what: 'Сколько приложений вошло в топ-10 темы за окно наблюдения и какая доля из них там осталась.', how: 'Соседние снятые дни сравниваются по ключам, снятым в оба дня: приложение, появившееся в десятке, — одно событие. В знаменатель доли не идут те, кто вошёл в последний снятый день: они ещё ничего не показали.', why: 'Единственный наблюдаемый исход, какой у нас есть. Тема, куда легко войти и невозможно удержаться, выглядит свободной и таковой не является.' },
+    'freedom': { t: 'Свобода', what: 'Сводная оценка незанятости темы, 0–100.', how: 'Взвешенная сумма семи составляющих: доля спроса за дешёвыми ключами, пустота выдачи, незанятость ASO, спрос на конкурента, входы в топ-10, оборот и мало клонов. Веса выставлены руками и на исходах не проверены.', why: 'Диагностическая величина, а не приговор. Полезна как ориентир рядом с измеренными числами, но опираться на неё одну не стоит.' },
+    'purity': { t: 'Чистота', what: 'Какая доля спроса темы достаётся приложениям без признаков закупки.', how: 'Доля топ-10 ядровых ключей, у которых проверки рекламы ничего не нашли, взвешенная по спросу ключа. Непроверенное считается неизвестным, а не чистым.', why: 'Тема может быть свободной и при этом целиком выкупленной. Тогда органического места в ней нет, сколько бы ни было спроса.' },
+    'devs': { t: 'Разработчиков', what: 'Сколько независимых разработчиков держат топ-10 темы.', how: 'Считаются разные владельцы приложений в первой десятке ядровых ключей.', why: 'Один разработчик на всю десятку — это либо фабрика клонов, либо монополия; и то и другое меняет смысл свободы.' },
+    'rating': { t: 'Рейтинг крупных', what: 'Средний рейтинг самых больших приложений темы.', how: 'Медиана рейтинга приложений верхнего квартиля по установкам.', why: 'Низкий рейтинг у крупных — признак, что пользователи недовольны, а заменить некем. Это и есть слабость действующего игрока.' },
+    'risk': { t: 'Риск', what: 'Сводка того, что может помешать повторить приложение.', how: 'Складывается из опасных разрешений, категории под усиленной модерацией и зависимости от внешнего потока данных. Балла нет намеренно — он потребовал бы весов, которых взять неоткуда.', why: 'Рынок и стоимость входа — разные вещи. Тема может быть отличной и при этом требовать лицензий, которых у вас не будет.' },
+    'mom': { t: 'Импульс ключей', what: 'Насколько выросло число запросов, по которым приложение стоит в топ-50, за неделю.', how: 'Считается только по ключам, которые снимались и тогда, и сейчас: наш список ключей растёт, и сравнение полных множеств показало бы рост охвата там, где вырос наш собственный список.', why: 'Опережающий признак: охват меняется раньше, чем счётчик установок, который Play обновляет пачками.' },
+    'spread': { t: 'Страны', what: 'В скольких странах приложение попадает в топ-50 и сколько их было неделю назад.', how: 'По нашим ключам, а списки ключей у стран разные: в США 1 357, в остальных по 260. Число честно сравнивать у одного приложения между датами, но не между приложениями из разных стран.', why: 'Концепция, выходящая за пределы одной страны, ведёт себя иначе, чем локальный всплеск, и расширение видно раньше накопленных установок.' },
+    'evid': { t: 'Признаки закупки', what: 'Что нашли проверки платного трафика — и только это.', how: 'Сверяются Google Ads Transparency и Meta Ad Library, плюс трекер атрибуции в тексте карточки. Вне их остаются TikTok, Unity, ironSource, AppLovin, инфлюенсеры и кросс-промо.', why: '«Признаков нет» значит «не нашли», а не «выросло органически». Ступень «органика подтверждена» требует разбора файла установки, которого мы не делаем.' },
+    'growth': { t: 'Рост в месяц', what: 'Сколько установок приложение набирает за тридцать дней.', how: 'Разница счётчика между снимками, приведённая к 30 дням. Play обновляет счётчик ступенями, поэтому у молодых приложений величина крайне грубая.', why: 'Текущая скорость важнее накопленного счётчика: пятилетнее приложение с миллионом установок и трёхмесячное со ста тысячами — разные соперники.' }
+  };
+
+  // Заголовок с подсказкой. Ключ словаря подбирается по подписи колонки: так подсказка не
+  // отвязывается от заголовка при перестановке колонок и не требует ручной разметки в
+  // четырёх местах. Колонка без записи в словаре просто остаётся без подсказки.
+  var TIP_BY_HEAD = {
+    'Дверь': 'door', 'Дверь в топ-3': 'door3', 'Цена входа по факту': 'ep', 'Спрос': 'dem',
+    'Доступный спрос': 'acc', 'Входы и удержание': 'entries', 'Свобода': 'freedom',
+    'Чистота': 'purity', 'Разработчиков': 'devs', 'Рейтинг крупных': 'rating', 'Риск': 'risk',
+    'Импульс ключей': 'mom', 'Страны': 'spread', 'Признаки закупки': 'evid', 'Рост в месяц': 'growth'
+  };
+  function thCell(h, right) {
+    var key = TIP_BY_HEAD[h];
+    return '<th' + (right ? ' class="r"' : '') + (key ? ' data-tip="' + key + '" tabindex="0"' : '') + '>'
+      + (key ? '<span>' + esc(h) + '</span>' : esc(h)) + '</th>';
+  }
+
   function matches(r) {
     if (!state.q) return true;
     var s = state.q.toLowerCase();
@@ -283,7 +343,7 @@ __COMMON_JS__
       var m = momentum(r);
       var g = growth(r);
       return '<tr>' +
-        '<td class="num muted">' + ((state.page - 1) * PAGE + i + 1) + '</td>' +
+        '<td class="num muted">' + ((state.page - 1) * PAGE + i + 1) + ' ' + star('a', r.geo + '|' + r.app_id) + '</td>' +
         '<td><button class="name" data-app="' + esc(r.app_id) + '" data-geo="' + esc(r.geo) + '">' + esc(r.title || r.app_id) + '</button>' +
           '<div class="pkg">' + esc(r.dev || r.app_id) + '</div></td>' +
         '<td>' + (r.concept ? '<div class="strong">' + esc(r.concept) + '</div>' : dash('вне каталога')) +
@@ -344,7 +404,7 @@ __COMMON_JS__
         '</div>' +
         (slice.length ? '<div class="tbl"><table><thead><tr>' +
           ['#', 'Приложение', 'Тема', 'Гео', 'Дверь', 'Спрос', 'Импульс ключей', 'Страны', 'Рост в месяц', 'Признаки закупки', 'Риск']
-            .map(function (h, i) { return '<th' + (i >= 4 && i <= 9 ? ' class="r"' : '') + '>' + h + '</th>'; }).join('') +
+            .map(function (h, i) { return thCell(h, i >= 4 && i <= 9); }).join('') +
           '</tr></thead><tbody>' + body + '</tbody></table></div>' + pager(rows.length, pages)
           : '<div class="empty">Ничего не нашлось — ослабьте фильтры</div>') +
       '</div>' +
@@ -427,6 +487,58 @@ __COMMON_JS__
     return w.join(' · ');
   }
 
+  // Избранное: отмеченные темы и кандидаты. Список лежит в браузере, к данным отчёта
+  // отношения не имеет и пересборку переживает. Если отмеченный объект выпал из выборки —
+  // об этом сказано прямо, а не показано пусто: молча потерянная отметка хуже, чем строка
+  // с объяснением.
+  function renderFav() {
+    var byNiche = {}; D.niches.forEach(function (n) { byNiche[n.geo + '|' + n.niche_id] = n; });
+    var byApp = {}; D.rows.forEach(function (r) { byApp[r.geo + '|' + r.app_id] = r; });
+    var nFound = state.nfavs.map(function (k) { return byNiche[k]; }).filter(Boolean);
+    var aFound = state.favs.map(function (k) { return byApp[k]; }).filter(Boolean);
+    var nLost = state.nfavs.length - nFound.length, aLost = state.favs.length - aFound.length;
+
+    var nBody = nFound.map(function (n, i) {
+      return '<tr><td class="num muted">' + (i + 1) + ' ' + star('n', n.geo + '|' + n.niche_id) + '</td>'
+        + '<td><div class="strong">' + esc(n.concept || n.head) + '</div><div class="muted small">' + esc(n.head) + '</div></td>'
+        + '<td>' + esc(n.geo) + '</td>'
+        + '<td class="r">' + (isNum(n.dem) ? '<span class="num">' + short(n.dem) + '</span>' : dash('спрос не измерен')) + '</td>'
+        + '<td class="r">' + (isNum(n.ep) ? '<span class="num">' + short(n.ep) + '</span>' : dash('входов с известными установками меньше трёх')) + '</td>'
+        + '<td class="r">' + (isNum(n.door) ? '<span class="num">' + short(n.door) + '</span>' : dash('дверь не посчитана')) + '</td>'
+        + '<td class="r">' + (isNum(n.freedom) ? '<span class="num">' + fix(n.freedom, 0) + '</span>' : dash('свобода не посчитана')) + '</td></tr>';
+    }).join('');
+
+    var aBody = aFound.map(function (r, i) {
+      return '<tr><td class="num muted">' + (i + 1) + ' ' + star('a', r.geo + '|' + r.app_id) + '</td>'
+        + '<td><button class="linklike" data-app="' + esc(r.app_id) + '" data-geo="' + esc(r.geo) + '"><div class="strong">' + esc(r.title || r.app_id) + '</div><div class="muted small">' + esc(r.app_id) + '</div></button></td>'
+        + '<td>' + esc(r.geo) + '</td>'
+        + '<td><div class="muted small">' + esc(r.concept || r.head || '') + '</div></td>'
+        + '<td class="r">' + (isNum(r.installs) ? '<span class="num">' + short(r.installs) + '</span>' : dash('установки неизвестны')) + '</td></tr>';
+    }).join('');
+
+    var note = function (lost, what) {
+      return lost ? '<p class="sub">' + lost + ' ' + what + ' отмечено, но в сегодняшней выборке их нет: объект мог выпасть из воронки или из ядра темы. Отметка сохранена и строка вернётся, когда объект появится снова.</p>' : '';
+    };
+
+    $('view').innerHTML = '<section class="page">'
+      + '<div class="page-head"><h1>Избранное</h1><p class="lead">Темы и приложения, отмеченные звездой. Список хранится в этом браузере: он переживает пересборку отчёта, но не виден другим людям и не уезжает вместе с файлом.</p></div>'
+      + '<div class="card block manual" style="margin-bottom:14px"><h3>Темы</h3>' + note(nLost, 'тем')
+        + (nFound.length ? '<div class="tbl"><table><thead><tr>'
+          + ['#', 'Тема', 'Гео', 'Спрос', 'Цена входа по факту', 'Дверь', 'Свобода']
+            .map(function (h, i) { return thCell(h, i >= 3); }).join('')
+          + '</tr></thead><tbody>' + nBody + '</tbody></table></div>'
+          : '<p class="sub">Ни одной темы не отмечено. Звезда стоит в первой колонке таблиц «Возможности» и «Ниши».</p>')
+      + '</div>'
+      + '<div class="card block manual"><h3>Приложения</h3>' + note(aLost, 'приложений')
+        + (aFound.length ? '<div class="tbl"><table><thead><tr>'
+          + ['#', 'Приложение', 'Гео', 'Тема', 'Установки']
+            .map(function (h, i) { return thCell(h, i >= 4); }).join('')
+          + '</tr></thead><tbody>' + aBody + '</tbody></table></div>'
+          : '<p class="sub">Ни одного приложения не отмечено. Звезда стоит в первой колонке таблицы «Кандидаты».</p>')
+      + '</div>'
+    + '</section>';
+  }
+
   function renderOpp() {
     var all = oppRows(true), rows = oppRows(false);
     var total = D.niches.filter(function (n) { return state.geo === WW || n.geo === state.geo; });
@@ -452,11 +564,11 @@ __COMMON_JS__
       + '</div></div>'
       + (slice.length ? '<div class="tbl"><table><thead><tr>'
         + ['#', 'Тема', 'Гео', 'Спрос', 'Доступный спрос', 'Цена входа по факту', 'Входы и удержание', 'Свобода', 'Чистота', 'Почему']
-          .map(function (h, i) { return '<th' + (i >= 3 && i <= 8 ? ' class="r"' : '') + '>' + h + '</th>'; }).join('')
+          .map(function (h, i) { return thCell(h, i >= 3 && i <= 8); }).join('')
         + '</tr></thead><tbody>'
         + slice.map(function (n, i) {
           return '<tr>'
-            + '<td class="num muted">' + ((state.page - 1) * PAGE + i + 1) + '</td>'
+            + '<td class="num muted">' + ((state.page - 1) * PAGE + i + 1) + ' ' + star('n', n.geo + '|' + n.niche_id) + '</td>'
             + '<td><div class="strong">' + esc(n.concept || n.head) + '</div><div class="muted small">' + esc(n.head) + '</div></td>'
             + '<td>' + esc(n.geo) + '</td>'
             + '<td class="r"><div class="num strong">' + short(n.dem) + '</div><div class="muted small">в день</div></td>'
@@ -499,7 +611,7 @@ __COMMON_JS__
     var body = slice.map(function (n, i) {
       var edge = isNum(n.fmargin) && Math.abs(n.fmargin) < 5;
       return '<tr>' +
-        '<td class="num muted">' + ((state.page - 1) * PAGE + i + 1) + '</td>' +
+        '<td class="num muted">' + ((state.page - 1) * PAGE + i + 1) + ' ' + star('n', n.geo + '|' + n.niche_id) + '</td>' +
         '<td><div class="strong">' + esc(n.concept || n.head) + '</div><div class="pkg">' + esc(n.head) + '</div>' +
           '<div style="margin-top:3px">' + quadBadge(n.quad) +
           (n.qseen > 1 ? ' <span class="muted small">' + n.qdays + ' из ' + n.qseen + ' дней</span>' : '') + '</div></td>' +
@@ -555,7 +667,7 @@ __COMMON_JS__
         '</div>' +
         (slice.length ? '<div class="tbl"><table><thead><tr>' +
           ['#', 'Тема', 'Гео', 'Дверь', 'Дверь в топ-3', 'Цена входа по факту', 'Спрос', 'Доступный спрос', 'Свобода', 'Чистота', 'Разработчиков', 'Рейтинг крупных']
-            .map(function (h, i) { return '<th' + (i >= 3 ? ' class="r"' : '') + '>' + h + '</th>'; }).join('') +
+            .map(function (h, i) { return thCell(h, i >= 3); }).join('') +
           '</tr></thead><tbody>' + body + '</tbody></table></div>' + pager(rows.length, pages) : '<div class="empty">Ничего не нашлось</div>') +
       '</div></section>';
   }
@@ -613,7 +725,7 @@ __COMMON_JS__
       '</div>' +
         (slice.length ? '<div class="tbl"><table><thead><tr>' +
           ['#', 'Приложение', 'Сигнал', 'Тема', 'Гео', 'Установки', 'Жалобы на поломки', 'Импульс ключей', 'Дверь', 'Спрос']
-            .map(function (h, i) { return '<th' + (i >= 5 ? ' class="r"' : '') + '>' + h + '</th>'; }).join('') +
+            .map(function (h, i) { return thCell(h, i >= 5); }).join('') +
           '</tr></thead><tbody>' + body + '</tbody></table></div>' + pager(rows.length, pages)
           : '<div class="empty">Ничего не нашлось</div>') +
       '</div></section>';
@@ -765,14 +877,18 @@ __COMMON_JS__
 
   // ---------------- события ----------------
   function render() {
+    installTips();
     renderNav(); renderHead();
-    if (state.view === 'opp') renderOpp();
+    if (state.view === 'fav') renderFav();
+    else if (state.view === 'opp') renderOpp();
     else if (state.view === 'niches') renderNiches();
     else if (state.view === 'rejected') renderRejected();
     else if (state.view === 'how') renderHow();
     else renderCand();
   }
   document.addEventListener('click', function (e) {
+    var fav = e.target.closest('[data-act="fav"]');
+    if (fav) { toggleFav(fav.getAttribute('data-kind'), fav.getAttribute('data-id')); render(); return; }
     var t = e.target.closest('[data-view]');
     if (t) { state.view = t.getAttribute('data-view'); state.page = 1; render(); window.scrollTo(0, 0); return; }
     if (e.target.closest('[data-close]')) { $('drawer-root').innerHTML = ''; return; }
