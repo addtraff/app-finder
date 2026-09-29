@@ -315,29 +315,6 @@ export async function run({ geo, date }) {
   }
 
   const hist = one(d, `SELECT MIN(snapshot_date) lo, MAX(snapshot_date) hi, COUNT(DISTINCT snapshot_date) n FROM raw_app_page`);
-  const data = {
-    meta: {
-      generated_at: new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC',
-      date, rows_per_geo: ROWS_PER_GEO,
-      history: { from: hist.lo, to: hist.hi, days: hist.n },
-      // Сколько ждать до первых меток: 30 дней от начала наблюдений.
-      labels30: new Date(Date.parse(hist.lo) + 30 * 864e5).toISOString().slice(0, 10),
-      labels90: new Date(Date.parse(hist.lo) + 90 * 864e5).toISOString().slice(0, 10),
-    },
-    geos, rows, niches, studios, studioBase,
-    // Отсеянные воронкой по трём причинам, которые на деле являются признаками.
-    // Отсечка по каждой причине отдельно: при общей крупные («якоря спроса») вытесняли
-    // из списка недовольный спрос и заброшенных, а именно они и интересны.
-    rejected: (() => {
-      const byKind = new Map();
-      for (const r of rejected.sort((a, b) => ((b.k50 - b.k50p) || 0) - ((a.k50 - a.k50p) || 0))) {
-        const list = byKind.get(r.reason) || [];
-        if (list.length < 400) { list.push(r); byKind.set(r.reason, list); }
-      }
-      return [...byKind.values()].flat();
-    })(),
-  };
-
   // ---------- органические студии ----------
   // Разработчики, у которых НИ У ОДНОГО приложения не нашлось признаков закупки, и при этом
   // они невелики. Это не «доказанная органика»: ступень «признаков нет» означает «не нашли»,
@@ -428,6 +405,29 @@ export async function run({ geo, date }) {
       })(),
     };
   })();
+
+  const data = {
+    meta: {
+      generated_at: new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC',
+      date, rows_per_geo: ROWS_PER_GEO,
+      history: { from: hist.lo, to: hist.hi, days: hist.n },
+      // Сколько ждать до первых меток: 30 дней от начала наблюдений.
+      labels30: new Date(Date.parse(hist.lo) + 30 * 864e5).toISOString().slice(0, 10),
+      labels90: new Date(Date.parse(hist.lo) + 90 * 864e5).toISOString().slice(0, 10),
+    },
+    geos, rows, niches, studios, studioBase,
+    // Отсеянные воронкой по трём причинам, которые на деле являются признаками.
+    // Отсечка по каждой причине отдельно: при общей крупные («якоря спроса») вытесняли
+    // из списка недовольный спрос и заброшенных, а именно они и интересны.
+    rejected: (() => {
+      const byKind = new Map();
+      for (const r of rejected.sort((a, b) => ((b.k50 - b.k50p) || 0) - ((a.k50 - a.k50p) || 0))) {
+        const list = byKind.get(r.reason) || [];
+        if (list.length < 400) { list.push(r); byKind.set(r.reason, list); }
+      }
+      return [...byKind.values()].flat();
+    })(),
+  };
 
   const tpl = fs.readFileSync(path.join(ROOT, 'src', 'report', 'appradar3.html'), 'utf8');
   const json = JSON.stringify(packRows(data));   // экранирование '<' берёт на себя base64 в packData
