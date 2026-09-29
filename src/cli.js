@@ -195,7 +195,7 @@ async function runPipeline(plan, { geo, date, cycle, only = null, force = false 
   const steps = plan.filter(([name]) => !only || name === only);
   startCycle({ runId, cycle, geo, date, stagesTotal: steps.length });
   log(`=== ${cycle} ${geo} ${date}${force ? ' --force' : ''} (run ${runId}) ===`);
-  let ok = 0, failed = 0, stopped = null;
+  let ok = 0, failed = 0, skipped = 0, stopped = null;
   try {
     for (const [name, opts] of steps) {
       const stage = STAGES[name];
@@ -204,7 +204,7 @@ async function runPipeline(plan, { geo, date, cycle, only = null, force = false 
       // Общий файл собирает кто-то один. Если собирает — эту стадию пропускаем, а не ждём:
       // обход не должен стоять из-за отчёта, который всё равно соберут заново.
       const gl = GLOBAL_STAGES.has(name) ? acquireLock(`report:${name}`, { runId, cycle, force }) : { ok: true };
-      if (!gl.ok) { warn(`${name} уже собирает ${holderText(gl.holder)} — пропускаю`); continue; }
+      if (!gl.ok) { warn(`${name} уже собирает ${holderText(gl.holder)} — пропускаю`); skipped++; continue; }
       try {
         await stage.run({ geo, date, runId, cycle, force, ...opts });
         ok++;
@@ -222,13 +222,13 @@ async function runPipeline(plan, { geo, date, cycle, only = null, force = false 
         if (GLOBAL_STAGES.has(name)) releaseLock(`report:${name}`);
       }
       beat(lock);
-      progressCycle({ runId, geo, stagesOk: ok, stagesFailed: failed });
+      progressCycle({ runId, geo, stagesOk: ok, stagesFailed: failed, stagesSkipped: skipped });
     }
     // Обход считается пройденным, только если дошёл до конца и ни одна стадия не упала.
     // «Почти прошёл» — это не прошёл: именно на такой формулировке 26.09 оборванный обход
     // выглядел успешным.
     const status = stopped ? 'interrupted' : failed ? 'failed' : 'ok';
-    finishCycle({ runId, geo, status, stagesOk: ok, stagesFailed: failed, notes: stopped });
+    finishCycle({ runId, geo, status, stagesOk: ok, stagesFailed: failed, stagesSkipped: skipped, notes: stopped });
   } finally {
     releaseLock(lock);
   }

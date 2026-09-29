@@ -55,18 +55,18 @@ export function startCycle({ runId, cycle, geo, date, stagesTotal }) {
 // Прогресс пишется по ходу, а не только в конце. Оборванный обход иначе показывает 0 из 20
 // независимо от того, успел он одну стадию или девятнадцать — 28.09 три гео так и выглядели
 // «ничего не сделали», хотя по журналу стадий доходили до середины.
-export function progressCycle({ runId, geo, stagesOk, stagesFailed }) {
+export function progressCycle({ runId, geo, stagesOk, stagesFailed, stagesSkipped = 0 }) {
   try {
-    db().prepare(`UPDATE cycles SET stages_ok=?, stages_failed=? WHERE run_id=? AND geo=?`)
-      .run(stagesOk, stagesFailed, runId, geo);
+    db().prepare(`UPDATE cycles SET stages_ok=?, stages_failed=?, stages_skipped=? WHERE run_id=? AND geo=?`)
+      .run(stagesOk, stagesFailed, stagesSkipped, runId, geo);
   } catch { /* учёт прогресса не критичен: итог всё равно запишется в finishCycle */ }
 }
 
-export function finishCycle({ runId, geo, status = 'ok', stagesOk = 0, stagesFailed = 0, notes = null }) {
+export function finishCycle({ runId, geo, status = 'ok', stagesOk = 0, stagesFailed = 0, stagesSkipped = 0, notes = null }) {
   const d = db();
   retryBusy(() => d.prepare(
-    `UPDATE cycles SET finished_at=?, status=?, stages_ok=?, stages_failed=?, notes=? WHERE run_id=? AND geo=?`
-  ).run(new Date().toISOString(), status, stagesOk, stagesFailed, notes, runId, geo));
+    `UPDATE cycles SET finished_at=?, status=?, stages_ok=?, stages_failed=?, stages_skipped=?, notes=? WHERE run_id=? AND geo=?`
+  ).run(new Date().toISOString(), status, stagesOk, stagesFailed, stagesSkipped, notes, runId, geo));
 }
 
 // Уборка после смерти: проходы и стадии, чей процесс больше не существует, помечаются
