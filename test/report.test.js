@@ -6,9 +6,10 @@
 // руками в браузере. Вторая: в собранный файл попала незаполненная метка шаблона, и отчёт
 // перестал открываться целиком — при том что весил правильно и выглядел нормальным файлом.
 import test from 'node:test';
+import zlib from 'node:zlib';
 import assert from 'node:assert/strict';
 import { read } from './helpers.js';
-import { fillTemplate, COMMON_JS } from '../src/lib/report-common.js';
+import { fillTemplate, COMMON_JS, packData } from '../src/lib/report-common.js';
 import { UNPACK_JS } from '../src/lib/pack.js';
 
 const TEMPLATES = ['src/report/appradar2.html', 'src/report/appradar3.html'];
@@ -145,3 +146,21 @@ test('общий слой одинаков для обоих отчётов и �
   }
   assert.ok(COMMON_JS.includes('function short'), 'в общем слое нет short');
 });
+
+// Данные в странице сжаты, и это единственное место, где отчёт может потерять всё сразу:
+// битый base64 или не тот формат — и страница не нарисуется вообще. Проверяем оба конца.
+test('данные страницы переживают сжатие и распаковку', () => {
+  const src = JSON.stringify({ geos: ['US'], apps: [[1, 'a<b', null]], text: 'апостроф ' + String.fromCharCode(39) + ' и <script>' });
+  const packed = packData(src);
+  assert.match(packed, /^[A-Za-z0-9+/=]+$/, 'в base64 попали посторонние символы');
+  assert.ok(!packed.includes('<'), "'<' в данных страницы сломал бы </script>");
+  assert.equal(zlib.gunzipSync(Buffer.from(packed, 'base64')).toString('utf8'), src);
+  assert.ok(packed.length < src.length * 4, 'сжатие не дало ничего даже на мелком куске');
+});
+
+test('в шаблоне данные подставлены сжатыми, а не как есть', () => {
+  const filled = fillTemplate(read(TEMPLATES[0]), { json: '{"marker":"несжато"}', unpackJs: UNPACK_JS });
+  assert.ok(!filled.includes('"marker"'), 'JSON лёг в страницу без сжатия');
+  assert.match(filled, /id="radar-data" type="application\/gzip-base64"/);
+});
+

@@ -161,12 +161,12 @@
   </main>
 </div>
 <div id="drawer-root"></div>
-<script id="radar-data" type="application/json">__RADAR_DATA__</script>
+<script id="radar-data" type="application/gzip-base64">__RADAR_DATA__</script>
 <script>
 __UNPACK_JS__
-(function () {
+(async function () {
   'use strict';
-  var D = unpackRows(JSON.parse(document.getElementById('radar-data').textContent));
+  var D = unpackRows(await readReportData());
   var M = D.meta, WW = 'WW';
   var PAGE = 50;
   var state = { view: 'cand', geo: WW, page: 1, q: '', risk: 'all', paid: 'all', mom: 'all', sort: 'risk',

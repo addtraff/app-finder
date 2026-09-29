@@ -337,7 +337,7 @@ export async function run({ geo, date }) {
   };
 
   const tpl = fs.readFileSync(path.join(ROOT, 'src', 'report', 'appradar3.html'), 'utf8');
-  const json = JSON.stringify(packRows(data)).replace(/</g, '\\u003c');
+  const json = JSON.stringify(packRows(data));   // экранирование '<' берёт на себя base64 в packData
   const html = fillTemplate(tpl, { json, unpackJs: UNPACK_JS });
   const out = path.join(ROOT, 'out', 'appradar3.html');
   fs.mkdirSync(path.dirname(out), { recursive: true });

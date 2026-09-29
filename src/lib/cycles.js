@@ -73,15 +73,27 @@ export function finishCycle({ runId, geo, status = 'ok', stagesOk = 0, stagesFai
 // прерванными. Делается при каждом старте — так следующий запуск чинит учёт за предыдущий.
 export function reapDead() {
   const d = db();
-  const open = d.prepare(`SELECT run_id, geo, pid, host, started_at FROM cycles WHERE status='running'`).all();
-  const dead = open.filter((r) => !alive(r.pid, r.host));
+  const open = d.prepare(`SELECT run_id, geo, pid, host, started_at, stages_ok FROM cycles WHERE status='running'`).all();
+  // Стучащая блокировка — прямое свидетельство жизни, и оно сильнее опроса pid. 28.09 в 21:50
+  // жнец похоронил обходы JP, AT и NL по «процесс не найден», а те же pid 33128, 27008 и 17632
+  // через 49 минут держали замки GB, SE и FR со свежим стуком. Почему опрос pid соврал —
+  // не установлено (Windows переиспользует номера, и daily запускается не в одном экземпляре),
+  // поэтому здесь не догадка о причине, а отказ хоронить того, кто на наших глазах подаёт признаки.
+  const beating = new Map(d.prepare(`SELECT name, heartbeat_at, acquired_at FROM locks`).all()
+    .map((l) => [l.name, Date.parse(l.heartbeat_at || l.acquired_at)]));
+  const fresh = (geo) => (beating.get(`geo:${geo}`) || 0) > Date.now() - STALE_MINUTES * 60000;
+  const dead = open.filter((r) => !alive(r.pid, r.host) && !fresh(r.geo));
   if (!dead.length) return { cycles: 0, runs: 0 };
   let runs = 0;
   retryBusy(() => d.transaction(() => {
-    const upC = d.prepare(`UPDATE cycles SET status='interrupted', finished_at=?, notes=COALESCE(notes,'') || ' процесс не найден' WHERE run_id=? AND geo=?`);
+    // В заметке остаётся то, что жнец видел: кто судил, сколько стадий обход успел и держал ли
+    // замок. Без этого запись «процесс не найден» не отличить от «обход и не начинался».
+    const upC = d.prepare(`UPDATE cycles SET status='interrupted', finished_at=?,
+        notes=COALESCE(notes,'') || ' процесс не найден (судил pid ' || ? || ', стадий ' || stages_ok || '/' || stages_total || ', замок ' || ? || ')'
+      WHERE run_id=? AND geo=?`);
     const upR = d.prepare(`UPDATE runs SET status='interrupted', finished_at=? WHERE run_id=? AND geo=? AND finished_at IS NULL`);
     const now = new Date().toISOString();
-    for (const r of dead) { upC.run(now, r.run_id, r.geo); runs += upR.run(now, r.run_id, r.geo).changes; }
+    for (const r of dead) { upC.run(now, process.pid, beating.has(`geo:${r.geo}`) ? 'протух' : 'не взят', r.run_id, r.geo); runs += upR.run(now, r.run_id, r.geo).changes; }
   })());
   warn(`учёт: помечено прерванными обходов ${dead.length}, стадий ${runs}`);
   return { cycles: dead.length, runs };

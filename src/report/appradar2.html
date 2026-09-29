@@ -346,11 +346,11 @@
 </div>
 <div id="drawer-root"></div>
 
-<script id="radar-data" type="application/json">__RADAR_DATA__</script>
+<script id="radar-data" type="application/gzip-base64">__RADAR_DATA__</script>
 <script>
-(function () {
+(async function () {
   __UNPACK_JS__
-  var D = unpackRows(JSON.parse(document.getElementById('radar-data').textContent));
+  var D = unpackRows(await readReportData());
   // Списки ниш приходят кортежами — имена полей в JSON весили больше самих чисел, а страница
   // артефакта ограничена 16 МБ. Разворачиваем один раз при загрузке, дальше код работает с
   // обычными объектами.

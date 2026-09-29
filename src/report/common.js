@@ -148,3 +148,23 @@ function starBtnHtml(kind, id, on) {
     + '<svg width="14" height="14" viewBox="0 0 24 24" fill="' + (on ? 'currentColor' : 'none') + '" stroke="currentColor" stroke-width="2" stroke-linejoin="round">'
     + '<path d="M12 3l2.7 5.7 6.3.8-4.6 4.3 1.2 6.2L12 17l-5.6 3 1.2-6.2L3 9.5l6.3-.8z"/></svg></button>';
 }
+
+// Данные страницы лежат сжатыми и в base64. Распакованный JSON отчёта — больше двадцати
+// мегабайт, это 98,7 % файла, и именно он упирался в потолок артефакта в 16 МБ. Резать
+// строки дальше значило бы выбрасывать то, ради чего отчёт и собирают, поэтому сжимается
+// представление, а не содержание. Распаковка в браузере асинхронная — из-за неё тело
+// отчёта объявлено async-функцией; все остальные функции остались обычными.
+async function readReportData() {
+  var el = document.getElementById('radar-data');
+  var raw = el.textContent.trim();
+  if (el.type.indexOf('base64') < 0) return JSON.parse(raw);   // несжатый — так собирают тесты
+  if (typeof DecompressionStream !== 'function') {
+    document.body.innerHTML = '<p style="font:16px/1.5 system-ui;padding:32px;max-width:40em">'
+      + 'Этот браузер не умеет распаковывать данные отчёта: нет <code>DecompressionStream</code>. '
+      + 'Откройте файл в свежем Chrome, Firefox или Safari.</p>';
+    throw new Error('нет DecompressionStream');
+  }
+  var bin = Uint8Array.from(atob(raw), function (c) { return c.charCodeAt(0); });
+  var stream = new Blob([bin]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return JSON.parse(await new Response(stream).text());
+}

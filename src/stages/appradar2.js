@@ -643,7 +643,7 @@ export async function run() {
   const d = db();
   const data = collect(d);
   const tpl = fs.readFileSync(path.join(ROOT, 'src', 'report', 'appradar2.html'), 'utf8');
-  const json = JSON.stringify(packRows(data)).replace(/</g, '\\u003c');
+  const json = JSON.stringify(packRows(data));   // экранирование '<' берёт на себя base64 в packData
   const fragment = fillTemplate(tpl, { json, unpackJs: UNPACK_JS });
   // RADAR_REPORT_FULL=1 — полная версия без отсечки строк, в out/full: для просмотра локально
   // (http://localhost:8777/full/…), в артефакт такой файл не помещается.

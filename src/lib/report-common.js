@@ -4,6 +4,7 @@
 // <script src> общий код быть не может. Читается один раз на процесс; стадии подставляют
 // его вместо метки __COMMON_JS__.
 import fs from 'node:fs';
+import zlib from 'node:zlib';
 import path from 'node:path';
 import { ROOT } from './db.js';
 
@@ -28,5 +29,14 @@ export function fillTemplate(tpl, { json, unpackJs }) {
   return tpl
     .replace('__COMMON_JS__', () => COMMON_JS)
     .replace('__UNPACK_JS__', () => unpackJs)
-    .replace('__RADAR_DATA__', () => json);
+    .replace('__RADAR_DATA__', () => packData(json));
+}
+
+// Данные кладутся в страницу сжатыми. JSON отчёта — больше двадцати мегабайт, 98,7 % файла:
+// именно он, а не разметка, упирался в потолок артефакта в 16 МБ. Отсечка строк по гео к тому
+// моменту уже не спасала — она резала содержание, а весило представление. Gzip даёт примерно
+// восьмикратный выигрыш, base64 забирает треть назад. Побочно отпадает экранирование '<':
+// в алфавите base64 его нет, а значит и '</script>' внутри данных возникнуть не может.
+export function packData(json) {
+  return zlib.gzipSync(Buffer.from(json, 'utf8'), { level: 9 }).toString('base64');
 }
