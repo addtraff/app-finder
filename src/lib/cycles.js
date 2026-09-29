@@ -151,3 +151,12 @@ export function holderText(h) {
   const age = Math.round((Date.now() - Date.parse(h.acquired_at)) / 60000);
   return `${h.cycle || 'процесс'} pid ${h.pid} на ${h.host}, держит ${age} мин.`;
 }
+
+// Когда по каждому гео последний раз завершился успешный обход. Нужно порядку суточного
+// прохода: он идёт больше суток, а запускается ежедневно, поэтому фиксированный порядок
+// оставляет хвост списка необойдённым навсегда. Гео без единого успешного обхода получает
+// ноль и идёт первым — это ровно тот случай, ради которого всё и делается.
+export function lastOkCycle() {
+  const rows = db().prepare(`SELECT geo, MAX(finished_at) f FROM cycles WHERE status='ok' GROUP BY geo`).all();
+  return new Map(rows.map((r) => [r.geo, r.f ? Date.parse(r.f) : 0]));
+}

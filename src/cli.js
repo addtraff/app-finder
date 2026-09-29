@@ -7,7 +7,7 @@ import { syncRegistry, activeGeos, config } from './lib/config.js';
 import { setRpm, stats, CaptchaStop } from './lib/play.js';
 import { todayUTC, md5, log, warn } from './lib/util.js';
 import { planForDays, dueToday, maturity, pendingWork } from './lib/schedule.js';
-import { startCycle, finishCycle, progressCycle, reapDead, reapOrphanRuns, acquireLock, releaseLock, beat, holderText } from './lib/cycles.js';
+import { startCycle, finishCycle, progressCycle, reapDead, reapOrphanRuns, acquireLock, releaseLock, beat, holderText, lastOkCycle } from './lib/cycles.js';
 
 import * as collectCharts from './stages/collect-charts.js';
 import * as harvestKeywords from './stages/harvest-keywords.js';
@@ -269,7 +269,16 @@ async function main() {
       // Дата берётся в момент старта каждого гео, а не один раз на весь прогон: проход по
       // 30 гео идёт больше суток, и гео, снятое 20-го, записывалось снимком 15-го — это
       // сдвигало окна 7/14/30 дней и прирост установок.
-      for (const geo of geos) await runPipeline(DAILY, { geo, date: args.date || todayUTC(), cycle: 'daily', only: args.stage || null, force: !!args.force });
+      // Порядок — от самого давно обойдённого к свежему. Проход по 30 гео идёт больше суток,
+      // а запускают его ежедневно, поэтому при фиксированном порядке хвост списка не наступает
+      // никогда: на 29.09 у TR и TW не было ни одной записи об обходе, а у MX, PL и SA — ни
+      // одного успешного, притом что все тридцать в конфиге и включены. Сортировка по давности
+      // сама выравнивает это без расписания: кто дольше всех ждал, тот идёт первым.
+      const staleness = args.geo ? new Map() : lastOkCycle();
+      const queue = args.geo ? geos
+        : geos.slice().sort((a, b) => (staleness.get(a) || 0) - (staleness.get(b) || 0));
+      if (!args.geo) log(`порядок обхода по давности: ${queue.slice(0, 6).join(' ')} … ${queue.slice(-3).join(' ')}`);
+      for (const geo of queue) await runPipeline(DAILY, { geo, date: args.date || todayUTC(), cycle: 'daily', only: args.stage || null, force: !!args.force });
       break;
 
     case 'stage': {
