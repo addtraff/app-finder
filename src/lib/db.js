@@ -545,6 +545,13 @@ const MIGRATIONS = [
   ['metrics_niche_v2', 'inc_rating_low', 'REAL'],
   ['metrics_niche_v2', 'inc_pain_top', 'TEXT'],
   ['metrics_niche_v2', 'inc_n', 'INTEGER'],
+  // Плотность рыночных дыр: доля отзывов у приложений темы со словами «не хватает». Свобода
+  // говорит о слабости выдачи, а это — о незакрытой потребности; вещи разные и могут не
+  // совпадать. gap_cov обязателен рядом: доля по приложению с восемью отзывами — шум.
+  ['metrics_niche_v2', 'gap_missing', 'REAL'],
+  ['metrics_niche_v2', 'gap_lang', 'REAL'],
+  ['metrics_niche_v2', 'gap_apps', 'INTEGER'],
+  ['metrics_niche_v2', 'gap_cov', 'REAL'],
   // Входы и удержание: единственный наблюдаемый исход, какой у нас есть.
   ['metrics_niche_v2', 'entries_n', 'INTEGER'],
   ['metrics_niche_v2', 'entries_judged', 'INTEGER'],

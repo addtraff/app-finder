@@ -907,6 +907,41 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     if (r.pain) e.pains.set(r.pain, (e.pains.get(r.pain) || 0) + 1);
   }
 
+  // ---------- плотность рыночных дыр ----------
+  // Свобода говорит о слабости выдачи, а это — о незакрытой потребности, и совпадают они не
+  // всегда: тема бывает свободной и при этом полностью закрывающей запрос, а бывает плотно
+  // занятой, но с толпой недовольных. Улика прямая: доля отзывов, где пользователь пишет, что
+  // ему чего-то не хватает.
+  //
+  // Считается только по приложениям с достаточным числом размеченных отзывов. Доля — это
+  // дробь, и у карточки с восемью отзывами она меняется на двенадцать процентов от одного
+  // отзыва; такие строки не «нулевые», их просто не по чему судить, поэтому они идут не в
+  // числитель, а в знаменатель покрытия. Берётся медиана по приложениям, а не общая доля по
+  // всем отзывам: иначе одно приложение с сотней тысяч отзывов решало бы за всю тему.
+  const GAP_MIN_REVIEWS = 30;
+  const GAP_MIN_APPS = 3;
+  const gaps = new Map();
+  for (const r of d.prepare(
+    `SELECT v.niche_id nid, m.pain_missing miss, m.missing_language_pct lang, m.reviews_labeled n
+       FROM metrics_app_v2 v
+       JOIN metrics_app_geo m ON m.app_id=v.app_id AND m.geo=v.geo AND m.snapshot_date=v.snapshot_date
+      WHERE v.geo=? AND v.snapshot_date=? AND v.niche_id IS NOT NULL`
+  ).all(geo, D)) {
+    let e = gaps.get(r.nid);
+    if (!e) gaps.set(r.nid, e = { miss: [], lang: [], apps: 0, judged: 0 });
+    e.apps++;
+    if (r.n == null || r.n < GAP_MIN_REVIEWS) continue;
+    e.judged++;
+    if (r.miss != null) e.miss.push(r.miss);
+    if (r.lang != null) e.lang.push(r.lang);
+  }
+  const gapOf = (nid) => {
+    const e = gaps.get(nid);
+    if (!e || e.judged < GAP_MIN_APPS) return null;
+    return { miss: e.miss.length ? median(e.miss) : null, lang: e.lang.length ? median(e.lang) : null,
+             apps: e.judged, cov: e.apps ? e.judged / e.apps : null };
+  };
+
   // ---------- цена входа по факту ----------
   // Не модель, а наблюдение: медиана установок тех, кто действительно вошёл в топ-10 этой
   // ниши. Сверка 27–28.09 показала, что обе двери как абсолютный порог не работают — запас
@@ -1278,7 +1313,8 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
     'entry_price_med', 'entry_price_p25', 'entry_price_p75', 'entry_price_min', 'entry_price_n', 'entry_price_days',
     'demand_acc_10k', 'demand_acc_100k', 'demand_acc_1m', 'demand_acc_cov',
     'entries_n', 'entries_judged', 'entries_held',
-    'repl_devs', 'repl_young', 'repl_big', 'inc_rating', 'inc_rating_low', 'inc_pain_top', 'inc_n'];
+    'repl_devs', 'repl_young', 'repl_big', 'inc_rating', 'inc_rating_low', 'inc_pain_top', 'inc_n',
+    'gap_missing', 'gap_lang', 'gap_apps', 'gap_cov'];
   const insNiche = d.prepare(`INSERT OR REPLACE INTO metrics_niche_v2 (${nicheCols.join(',')}) VALUES (${nicheCols.map((c) => '@' + c).join(',')})`);
   const appCols = Object.keys(appOut[0] || { app_id: 1 });
   const insApp = appOut.length ? d.prepare(`INSERT OR REPLACE INTO metrics_app_v2 (geo, snapshot_date, ${appCols.join(',')})
@@ -1325,6 +1361,10 @@ export async function run({ geo, date, runId, cycle = 'daily' }) {
         // Самая частая жалоба у крупных — одна метка, а не смесь: смесь читается как «всё плохо».
         inc_pain_top: (() => { const e = incum.get(r.n.niche_id); if (!e || !e.pains.size) return null; return [...e.pains].sort((a, b) => b[1] - a[1])[0][0]; })(),
         inc_n: incum.get(r.n.niche_id)?.n ?? null,
+        gap_missing: round(gapOf(r.n.niche_id)?.miss ?? null),
+        gap_lang: round(gapOf(r.n.niche_id)?.lang ?? null),
+        gap_apps: gapOf(r.n.niche_id)?.apps ?? null,
+        gap_cov: round(gapOf(r.n.niche_id)?.cov ?? null),
         free_keys_count: r.freeKeysCount, free_demand_share: round(r.freeDemandShare), door_head: r.doorHead == null ? null : Math.round(r.doorHead),
         door_tail: r.doorTail == null ? null : Math.round(r.doorTail), door_velocity: round(r.doorVelocity), demand_per_app: round(r.demandPerApp),
         aso_saturation: round(r.asoSaturation), relevance_gap_pct: round(r.n.relevance_gap_pct),

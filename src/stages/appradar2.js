@@ -469,6 +469,7 @@ export function collect(d) {
         acc10k: n.demand_acc_10k, acc100k: n.demand_acc_100k, acc1m: n.demand_acc_1m, acc_cov: r4(n.demand_acc_cov),
         rp_devs: n.repl_devs, rp_young: n.repl_young, rp_big: n.repl_big,
         inc_rating: r4(n.inc_rating), inc_low: r4(n.inc_rating_low), inc_pain: n.inc_pain_top, inc_n: n.inc_n,
+        gap: r4(n.gap_missing), gap_n: n.gap_apps, gap_cov: r4(n.gap_cov),
         ep: n.entry_price_med, ep_p25: n.entry_price_p25, ep_p75: n.entry_price_p75,
         ep_min: n.entry_price_min, ep_n: n.entry_price_n, ep_days: n.entry_price_days,
         free_keys: n.free_keys_count, fds: r4(n.free_demand_share), demand_per_app: r4(n.demand_per_app),
