@@ -324,7 +324,7 @@ export async function run({ geo, date }) {
       labels30: new Date(Date.parse(hist.lo) + 30 * 864e5).toISOString().slice(0, 10),
       labels90: new Date(Date.parse(hist.lo) + 90 * 864e5).toISOString().slice(0, 10),
     },
-    geos, rows, niches,
+    geos, rows, niches, studios, studioBase,
     // Отсеянные воронкой по трём причинам, которые на деле являются признаками.
     // Отсечка по каждой причине отдельно: при общей крупные («якоря спроса») вытесняли
     // из списка недовольный спрос и заброшенных, а именно они и интересны.
@@ -338,12 +338,103 @@ export async function run({ geo, date }) {
     })(),
   };
 
+  // ---------- органические студии ----------
+  // Разработчики, у которых НИ У ОДНОГО приложения не нашлось признаков закупки, и при этом
+  // они невелики. Это не «доказанная органика»: ступень «признаков нет» означает «не нашли»,
+  // и вне проверки остаются TikTok, Unity, ironSource, AppLovin и инфлюенсеры. Поэтому рядом
+  // с каждой студией стоит, сколько её приложений проверено, а сколько нет.
+  //
+  // Вердикт берётся худший по гео: найдена реклама хоть в одной стране — значит найдена.
+  // Потолок размера в отчёте задаётся фильтром, здесь берём самый мягкий, чтобы фильтр было
+  // из чего строить.
+  const STUDIO_MAX_INSTALLS = 1e6;
+  const studios = (() => {
+    const app = new Map();
+    for (const r of all(d,
+      `SELECT v.app_id,
+              MAX(CASE WHEN v.organic_level='found' THEN 2 WHEN v.organic_level='no_signs' THEN 1 ELSE 0 END) lvl,
+              MAX(v.installs) inst, MIN(v.age_months) age, MAX(v.kw_top50_cmp) kw
+         FROM metrics_app_v2 v GROUP BY v.app_id`)) app.set(r.app_id, r);
+
+    const byDev = new Map();
+    for (const a of all(d,
+      `SELECT a.app_id, a.developer_id did, a.developer name, a.title, a.genre_id genre, n.concept
+         FROM apps a LEFT JOIN niches n ON n.niche_id = a.niche_id
+        WHERE a.developer_id IS NOT NULL`)) {
+      const w = app.get(a.app_id);
+      if (!w) continue;
+      let e = byDev.get(a.did);
+      if (!e) byDev.set(a.did, e = { did: a.did, name: a.name, apps: [], paid: 0, clean: 0, unchecked: 0 });
+      if (w.lvl === 2) e.paid++; else if (w.lvl === 1) e.clean++; else e.unchecked++;
+      e.apps.push({ id: a.app_id, t: a.title, g: a.genre, c: a.concept, i: w.inst, a: r4(w.age), kw: w.kw, lvl: w.lvl });
+    }
+
+    const out = [];
+    for (const e of byDev.values()) {
+      if (e.paid > 0 || e.clean === 0) continue;
+      const maxInst = Math.max(...e.apps.map((x) => x.i ?? 0));
+      if (maxInst > STUDIO_MAX_INSTALLS) continue;
+      const ages = e.apps.map((x) => x.a).filter((x) => x != null);
+      e.apps.sort((a, b) => (b.i ?? -1) - (a.i ?? -1));
+      out.push({
+        did: e.did, name: e.name, n: e.apps.length, clean: e.clean, unchecked: e.unchecked,
+        max: maxInst, sum: e.apps.reduce((s, x) => s + (x.i ?? 0), 0),
+        young: ages.length ? Math.min(...ages) : null,
+        // Концепты студии без повторов: по ним видно, держится она одной темы или разбрасывается.
+        cons: [...new Set(e.apps.map((x) => x.c).filter(Boolean))],
+        genres: [...new Set(e.apps.map((x) => x.g).filter(Boolean))],
+        apps: e.apps.slice(0, 8),
+      });
+    }
+    return out.sort((a, b) => (a.young ?? 999) - (b.young ?? 999) || b.max - a.max);
+  })();
+
+  // База сравнения для статистики: разработчики, у которых закупка НАЙДЕНА. Без неё «часто
+  // встречается» не отличить от «отличает эту когорту» — инструменты у всех на первом месте.
+  const studioBase = (() => {
+    const app = new Map();
+    for (const r of all(d,
+      `SELECT v.app_id, MAX(CASE WHEN v.organic_level='found' THEN 2 ELSE 0 END) lvl,
+              MAX(v.installs) inst, MIN(v.age_months) age FROM metrics_app_v2 v GROUP BY v.app_id`)) app.set(r.app_id, r);
+    const devPaid = new Set();
+    const rows = [];
+    for (const a of all(d,
+      `SELECT a.app_id, a.developer_id did, a.genre_id genre, n.concept
+         FROM apps a LEFT JOIN niches n ON n.niche_id = a.niche_id WHERE a.developer_id IS NOT NULL`)) {
+      const w = app.get(a.app_id);
+      if (!w) continue;
+      if (w.lvl === 2) devPaid.add(a.did);
+      rows.push({ did: a.did, g: a.genre, c: a.concept, age: w.age, inst: w.inst });
+    }
+    const mine = rows.filter((r) => devPaid.has(r.did));
+    const tally = (key) => {
+      const m = new Map();
+      for (const r of mine) { const k = r[key]; if (k) m.set(k, (m.get(k) || 0) + 1); }
+      return [...m].map(([k, v]) => [k, v]);
+    };
+    const ages = mine.map((r) => r.age).filter((x) => x != null).sort((a, b) => a - b);
+    const insts = mine.map((r) => r.inst).filter((x) => x != null).sort((a, b) => a - b);
+    return {
+      devs: devPaid.size, apps: mine.length,
+      genres: tally('g'), cons: tally('c'),
+      age_med: ages.length ? r4(ages[Math.floor(ages.length / 2)]) : null,
+      age_young: ages.length ? r4(ages.filter((x) => x < 12).length / ages.length) : null,
+      inst_med: insts.length ? insts[Math.floor(insts.length / 2)] : null,
+      one_app: (() => {
+        const c = new Map();
+        for (const r of mine) c.set(r.did, (c.get(r.did) || 0) + 1);
+        const v = [...c.values()];
+        return v.length ? r4(v.filter((x) => x === 1).length / v.length) : null;
+      })(),
+    };
+  })();
+
   const tpl = fs.readFileSync(path.join(ROOT, 'src', 'report', 'appradar3.html'), 'utf8');
   const json = JSON.stringify(packRows(data));   // экранирование '<' берёт на себя base64 в packData
   const html = fillTemplate(tpl, { json, unpackJs: UNPACK_JS });
   const out = path.join(ROOT, 'out', 'appradar3.html');
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, html);
-  log(`  AppRadar 3: out/appradar3.html (${(Buffer.byteLength(html) / 1048576).toFixed(1)} МБ), гео ${geos.filter((g) => g.date).length}, кандидатов ${rows.length}, ниш ${niches.length}, отсеянных с сигналом ${data.rejected.length}`);
+  log(`  AppRadar 3: out/appradar3.html (${(Buffer.byteLength(html) / 1048576).toFixed(1)} МБ), гео ${geos.filter((g) => g.date).length}, кандидатов ${rows.length}, ниш ${niches.length}, отсеянных с сигналом ${data.rejected.length}, органических студий ${studios.length}`);
   return { rows: rows.length, niches: niches.length };
 }

@@ -79,9 +79,14 @@ export function reapDead() {
   // через 49 минут держали замки GB, SE и FR со свежим стуком. Почему опрос pid соврал —
   // не установлено (Windows переиспользует номера, и daily запускается не в одном экземпляре),
   // поэтому здесь не догадка о причине, а отказ хоронить того, кто на наших глазах подаёт признаки.
+  // Отсрочка короткая намеренно. Живой обход стучит каждые несколько минут, поэтому стук
+  // свежее пятнадцати минут — свидетельство жизни. Порог блокировки в 90 минут здесь не
+  // годится: мёртвый процесс оставляет стук, который ещё час с лишним выглядит свежим, и
+  // 29.09 из-за этого три оборванных обхода висели незакрытыми — тест это и поймал.
+  const BEAT_GRACE_MINUTES = 15;
   const beating = new Map(d.prepare(`SELECT name, heartbeat_at, acquired_at FROM locks`).all()
     .map((l) => [l.name, Date.parse(l.heartbeat_at || l.acquired_at)]));
-  const fresh = (geo) => (beating.get(`geo:${geo}`) || 0) > Date.now() - STALE_MINUTES * 60000;
+  const fresh = (geo) => (beating.get(`geo:${geo}`) || 0) > Date.now() - BEAT_GRACE_MINUTES * 60000;
   const dead = open.filter((r) => !alive(r.pid, r.host) && !fresh(r.geo));
   if (!dead.length) return { cycles: 0, runs: 0 };
   let runs = 0;

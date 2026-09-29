@@ -171,7 +171,7 @@ __UNPACK_JS__
   var PAGE = 50;
   var state = { view: 'cand', geo: WW, page: 1, q: '', risk: 'all', paid: 'all', mom: 'all', sort: 'risk',
     inst: 0, instMax: 0, age: 'all', flow: 0, freedom: 0, quad: 'all', concept: 'all', meas: 'all', ubt: 'all',
-    spread: 'all', cpy: 'all', dem: 0, door3: 0, nDem: 0, nDoor3: 0, nDoor: 0, nFlow: 0, nFreedom: 0, nPurity: 0, nKeys: 0, nQuad: 'all', nStab: 0, nDevs: 0, nYoung: 0, nRating: 0, nSort: 'freedom', oSort: 'acc', oPrice: 0,
+    spread: 'all', cpy: 'all', dem: 0, door3: 0, nDem: 0, nDoor3: 0, nDoor: 0, nFlow: 0, nFreedom: 0, nPurity: 0, nKeys: 0, nQuad: 'all', nStab: 0, nDevs: 0, nYoung: 0, nRating: 0, nSort: 'freedom', oSort: 'acc', oPrice: 0, sMax: 1000000, sSort: 'young', sFresh: 0,
     favs: load('appradar3-favs', []), nfavs: load('appradar3-nfavs', []) };
 
   // Звезда для приложения ('a') и для темы ('n'). Разметка общая с AppRadar 2.
@@ -236,6 +236,7 @@ __COMMON_JS__
     { id: 'cand', title: 'Кандидаты', count: function () { return D.rows.length; } },
     { id: 'niches', title: 'Ниши', count: function () { return D.niches.length; } },
     { id: 'rejected', title: 'Отсеянные', count: function () { return (D.rejected || []).length; } },
+    { id: 'studios', title: 'Органические студии', count: function () { return studioRows(true).length; } },
     { id: 'fav', title: 'Избранное', count: function () { return state.favs.length + state.nfavs.length; } },
     { id: 'how', title: 'Как читать', count: function () { return null; } }
   ];
@@ -546,6 +547,152 @@ __COMMON_JS__
           + '</tr></thead><tbody>' + aBody + '</tbody></table></div>'
           : '<p class="sub">Ни одного приложения не отмечено. Звезда стоит в первой колонке таблицы «Кандидаты».</p>')
       + '</div>'
+    + '</section>';
+  }
+
+  // ---------- органические студии ----------
+  // Когорта: разработчик, у которого ни у одного приложения не нашлось признаков закупки,
+  // и при этом он невелик. Важная оговорка стоит прямо на странице, а не в примечании:
+  // «признаков нет» означает «не нашли», и часть студий тут наверняка растёт через то,
+  // чего мы не проверяем, — TikTok, инфлюенсеров, кросс-промо.
+  function studioRows(countOnly) {
+    var rows = (D.studios || []).filter(function (s) { return s.max <= state.sMax; });
+    if (state.sFresh) rows = rows.filter(function (s) { return isNum(s.young) && s.young <= state.sFresh; });
+    if (countOnly) return rows;
+    if (state.q) rows = rows.filter(function (s) {
+      var hay = (s.name || '') + ' ' + (s.cons || []).join(' ') + ' ' + (s.apps || []).map(function (a) { return a.t; }).join(' ');
+      return hay.toLowerCase().indexOf(state.q.toLowerCase()) >= 0;
+    });
+    var by = {
+      young: function (a, b) { return (a.young == null ? 999 : a.young) - (b.young == null ? 999 : b.young); },
+      max: function (a, b) { return b.max - a.max; },
+      sum: function (a, b) { return b.sum - a.sum; },
+      apps: function (a, b) { return b.n - a.n; }
+    };
+    return rows.slice().sort(by[state.sSort] || by.young);
+  }
+
+  // Перевес: доля признака в когорте, делённая на его долю у тех, у кого закупка найдена.
+  // Без базы сравнения «часто встречается» не отличить от «отличает когорту»: инструменты
+  // стоят на первом месте и там, и там.
+  function studioLift(rows, key, minN) {
+    var mine = new Map(), total = 0;
+    rows.forEach(function (s) {
+      (s.apps || []).forEach(function (a) {
+        var v = a[key];
+        if (!v) return;
+        mine.set(v, (mine.get(v) || 0) + 1);
+        total++;
+      });
+    });
+    var base = new Map(), btotal = 0;
+    ((D.studioBase || {})[key === 'g' ? 'genres' : 'cons'] || []).forEach(function (p) {
+      base.set(p[0], p[1]);
+      btotal += p[1];
+    });
+    var out = [];
+    mine.forEach(function (n, k) {
+      if (n < minN) return;
+      var b = base.get(k) || 0.5;
+      out.push({ k: k, n: n, b: base.get(k) || 0, lift: (n / total) / (b / (btotal || 1)) });
+    });
+    return out.sort(function (a, b) { return b.lift - a.lift; });
+  }
+
+  function renderStudios() {
+    var all = studioRows(true), rows = studioRows(false);
+    var B = D.studioBase || {};
+    var ages = [], insts = [], one = 0;
+    rows.forEach(function (s) {
+      one += s.n === 1 ? 1 : 0;
+      (s.apps || []).forEach(function (a) {
+        if (isNum(a.a)) ages.push(a.a);
+        if (isNum(a.i)) insts.push(a.i);
+      });
+    });
+    var med = function (v) {
+      if (!v.length) return null;
+      var s = v.slice().sort(function (x, y) { return x - y; });
+      return s[Math.floor(s.length / 2)];
+    };
+    var youngShare = ages.length ? ages.filter(function (x) { return x < 12; }).length / ages.length : null;
+
+    var cmp = function (label, mineVal, baseVal, fmt) {
+      return '<tr><td>' + label + '</td><td class="r"><span class="num strong">' + (mineVal == null ? '—' : fmt(mineVal)) + '</span></td>'
+        + '<td class="r muted">' + (baseVal == null ? '—' : fmt(baseVal)) + '</td></tr>';
+    };
+    var liftRow = function (x) {
+      return '<tr><td>' + esc(x.k) + '</td><td class="r"><span class="num">' + int(x.n) + '</span></td>'
+        + '<td class="r muted">' + int(x.b) + '</td><td class="r"><span class="num strong">×' + fix(x.lift, 2) + '</span></td></tr>';
+    };
+    var cons = studioLift(rows, 'c', 8).slice(0, 12);
+    var gens = studioLift(rows, 'g', 15).slice(0, 8);
+
+    var pages = Math.max(1, Math.ceil(rows.length / PAGE));
+    if (state.page > pages) state.page = pages;
+    var slice = rows.slice((state.page - 1) * PAGE, state.page * PAGE);
+
+    $('view').innerHTML = '<section class="page">'
+      + '<div class="page-head"><h1>Органические студии</h1><p class="lead">Разработчики, у которых <b>ни у одного</b> приложения не нашлось признаков закупки трафика, и которые при этом невелики. Рядом — чем эта когорта отличается от тех, у кого закупка найдена.</p></div>'
+
+      + '<div class="card block manual" style="margin-bottom:14px">'
+        + '<p class="sub"><b>«Признаков закупки нет» значит «не нашли», а не «выросло органически».</b> '
+        + 'Проверяются Google Ads Transparency, Meta Ad Library и трекер атрибуции в тексте карточки. Вне проверки остаются TikTok, Unity, ironSource, AppLovin, инфлюенсеры и кросс-промо, '
+        + 'поэтому часть студий здесь почти наверняка растёт через то, чего мы не видим. В колонке «проверено» стоит, сколько приложений студии реально проверено: студия с одним проверенным приложением из пяти — это гипотеза, а не факт.</p>'
+        + '<p class="sub">Показано ' + int(all.length) + ' студий при текущем потолке размера. Когорта строится по всем странам сразу, и вердикт берётся худший: реклама, найденная хоть в одной стране, закрывает студию целиком.</p>'
+      + '</div>'
+
+      + '<div class="card" style="margin-bottom:12px"><div class="toolbar">'
+        + sel('sMax', 'Крупнейшее приложение до', state.sMax, [[100000, '100 тыс.'], [500000, '500 тыс.'], [1000000, '1 млн']])
+        + sel('sFresh', 'Свежий релиз', state.sFresh, [[0, 'любой'], [3, 'младше 3 мес'], [6, 'младше 6 мес'], [12, 'младше года']])
+        + sel('sSort', 'Сортировка', state.sSort, [['young', 'Сначала свежие'], ['max', 'Крупнейшее приложение'], ['sum', 'Всего установок'], ['apps', 'Больше приложений']])
+      + '</div></div>'
+
+      + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;margin-bottom:14px">'
+        + '<div class="card block manual"><h3>Чем когорта отличается</h3>'
+          + '<div class="tbl"><table><thead><tr><th>Признак</th><th class="r">Когорта</th><th class="r">У кого закупка найдена</th></tr></thead><tbody>'
+          + cmp('студий с одним приложением', rows.length ? one / rows.length : null, B.one_app, function (v) { return pct(v); })
+          + cmp('медианный возраст приложения', med(ages), B.age_med, function (v) { return fix(v, 0) + ' мес'; })
+          + cmp('доля приложений моложе года', youngShare, B.age_young, function (v) { return pct(v); })
+          + cmp('медиана установок', med(insts), B.inst_med, function (v) { return short(v); })
+          + '</tbody></table></div>'
+          + '<p class="sub">База сравнения — ' + int(B.devs || 0) + ' разработчиков, у которых закупка найдена, и ' + int(B.apps || 0) + ' их приложений.</p>'
+        + '</div>'
+        + '<div class="card block manual"><h3>Категории с перевесом</h3>'
+          + (gens.length ? '<div class="tbl"><table><thead><tr><th>Категория</th><th class="r">Когорта</th><th class="r">База</th><th class="r">Перевес</th></tr></thead><tbody>'
+            + gens.map(liftRow).join('') + '</tbody></table></div>'
+            : '<p class="sub">При этом фильтре данных для сравнения не хватает.</p>')
+        + '</div>'
+      + '</div>'
+
+      + '<div class="card block manual" style="margin-bottom:14px"><h3>Темы, в которых когорта перевешивает</h3>'
+        + '<p class="sub">Перевес — доля темы среди приложений когорты, делённая на её долю у тех, у кого закупка найдена. Единица означает «как у всех», выше единицы — тему делают преимущественно без закупки.</p>'
+        + (cons.length ? '<div class="tbl"><table><thead><tr><th>Тема</th><th class="r">В когорте</th><th class="r">У покупающих</th><th class="r">Перевес</th></tr></thead><tbody>'
+          + cons.map(liftRow).join('') + '</tbody></table></div>'
+          : '<p class="sub">При этом фильтре тем с достаточным числом приложений нет.</p>')
+      + '</div>'
+
+      + (slice.length ? '<div class="tbl"><table><thead><tr>'
+        + ['#', 'Студия', 'Приложений', 'Проверено', 'Крупнейшее', 'Всего установок', 'Свежий релиз', 'Темы', 'Что выложили']
+          .map(function (h, i) { return '<th' + (i >= 2 && i <= 6 ? ' class="r"' : '') + '>' + h + '</th>'; }).join('')
+        + '</tr></thead><tbody>'
+        + slice.map(function (s, i) {
+          return '<tr>'
+            + '<td class="num muted">' + ((state.page - 1) * PAGE + i + 1) + '</td>'
+            + '<td><div class="strong">' + esc(s.name || s.did) + '</div></td>'
+            + '<td class="r"><span class="num">' + int(s.n) + '</span></td>'
+            + '<td class="r"><span class="num">' + int(s.clean) + '</span><div class="muted small">' + (s.unchecked ? int(s.unchecked) + ' не проверено' : 'все') + '</div></td>'
+            + '<td class="r"><span class="num">' + short(s.max) + '</span></td>'
+            + '<td class="r"><span class="num">' + short(s.sum) + '</span></td>'
+            + '<td class="r">' + (isNum(s.young) ? '<span class="num">' + fix(s.young, 1) + '</span><div class="muted small">мес</div>' : dash('возраст неизвестен')) + '</td>'
+            + '<td class="muted small">' + esc((s.cons || []).slice(0, 3).join(' · ') || '—') + '</td>'
+            + '<td class="muted small">' + (s.apps || []).slice(0, 3).map(function (a) {
+                return esc(String(a.t || a.id).slice(0, 38)) + ' <span class="num">' + (isNum(a.i) ? short(a.i) : '—') + '</span>';
+              }).join('<br>') + '</td>'
+            + '</tr>';
+        }).join('')
+        + '</tbody></table></div>' + pager(rows.length, pages)
+        : '<div class="empty">При этих условиях студий нет</div>')
     + '</section>';
   }
 
@@ -901,6 +1048,7 @@ __COMMON_JS__
     else if (state.view === 'opp') renderOpp();
     else if (state.view === 'niches') renderNiches();
     else if (state.view === 'rejected') renderRejected();
+    else if (state.view === 'studios') renderStudios();
     else if (state.view === 'how') renderHow();
     else renderCand();
   }
