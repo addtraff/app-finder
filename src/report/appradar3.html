@@ -1180,7 +1180,10 @@ __COMMON_JS__
     var k = e.target.getAttribute('data-key');
     if (k) {
       var numeric = ['inst', 'instMax', 'flow', 'freedom', 'nDoor', 'nFlow', 'nFreedom', 'nPurity', 'nKeys', 'nStab', 'nDevs', 'nYoung', 'nRating',
-        'dem', 'nDem', 'door3', 'nDoor3', 'oPrice'];
+        'dem', 'nDem', 'door3', 'nDoor3', 'oPrice',
+        // Числовые фильтры обязаны быть здесь: '0' — строка, а строка истинна, и выключенный
+        // фильтр продолжал бы отсекать по порогу ноль. Так страница продаж показывала ноль лотов.
+        'sMax', 'sFresh', 'fPrice', 'fOrg'];
       state[k] = numeric.indexOf(k) >= 0 ? Number(e.target.value) : e.target.value;
       state.page = 1; render();
     }
