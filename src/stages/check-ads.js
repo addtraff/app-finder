@@ -33,9 +33,38 @@ import { db, ROOT, startRun, finishRun, logEvent } from '../lib/db.js';
 import { qv } from './quantiles.js';
 import { sleep, log, warn } from '../lib/util.js';
 import { screenAsOf } from '../lib/snapshots.js';
+import { acquireLock, releaseLock } from '../lib/cycles.js';
 
-const PROFILE_DIR = process.env.RADAR_BROWSER_PROFILE ||
-  path.join(process.env.LOCALAPPDATA || process.env.HOME || ROOT, 'play-radar', 'browser-profile');
+// Профиль браузера. Chromium не пускает два процесса в один каталог профиля, и при
+// параллельных полосах стадия падала с «Opening in existing browser session» — 30.09 так
+// пропало четыре проверки рекламы из пяти. Планировщик разводит свои полосы переменной
+// RADAR_BROWSER_PROFILE, но любой ручной запуск про неё не знает, и полагаться на то, что
+// вызывающий её выставит, — и есть источник ошибки.
+//
+// Поэтому профиль выбирается сам: небольшой пул каталогов, каждый под своей блокировкой.
+// Пул, а не каталог на процесс, потому что профиль хранит сессию и согласия — терять их на
+// каждом запуске значит проходить их заново.
+const PROFILE_BASE = path.join(process.env.LOCALAPPDATA || process.env.HOME || ROOT, 'play-radar');
+const PROFILE_POOL = 4;
+
+function takeProfile({ runId, cycle }) {
+  if (process.env.RADAR_BROWSER_PROFILE) {
+    return { dir: process.env.RADAR_BROWSER_PROFILE, release: () => {} };
+  }
+  for (let i = 1; i <= PROFILE_POOL; i++) {
+    const lock = `browser:${i}`;
+    if (acquireLock(lock, { runId, cycle, waitMs: 0 }).ok) {
+      return { dir: path.join(PROFILE_BASE, `browser-${i}`), release: () => releaseLock(lock) };
+    }
+  }
+  // Все заняты — ждём первый освободившийся, но не бесконечно: проверка рекламы не должна
+  // задерживать обход, её улика живёт три недели и переживёт пропуск одного дня.
+  const lock = 'browser:1';
+  if (acquireLock(lock, { runId, cycle, waitMs: 5 * 60000 }).ok) {
+    return { dir: path.join(PROFILE_BASE, 'browser-1'), release: () => releaseLock(lock) };
+  }
+  return null;
+}
 
 function cfg() {
   return JSON.parse(fs.readFileSync(path.join(ROOT, 'config', 'ads-transparency.json'), 'utf8'));
@@ -785,8 +814,14 @@ export async function run({ geo, date, runId, cycle = 'daily', useBrowser = true
     if (!queue.length) { finishRun(runId, 'check-ads', geo, { status: 'ok', notes: 'по имени: очередь пуста' }); return { queued: 0, checked: 0 }; }
     const chromium = useBrowser ? await loadPlaywright() : null;
     if (!chromium) { finishRun(runId, 'check-ads', geo, { status: 'manual', notes: 'playwright не установлен' }); return { queued: queue.length, checked: 0 }; }
-    fs.mkdirSync(PROFILE_DIR, { recursive: true });
-    const ctx = await chromium.launchPersistentContext(PROFILE_DIR, { headless, locale: 'en-US', viewport: { width: 1280, height: 860 } });
+    const prof = takeProfile({ runId, cycle });
+    if (!prof) {
+      finishRun(runId, 'check-ads', geo, { status: 'skipped', notes: 'все профили браузера заняты' });
+      warn(`  ${geo}: все профили браузера заняты — проверка рекламы пропущена`);
+      return { queued: queue.length, checked: 0 };
+    }
+    fs.mkdirSync(prof.dir, { recursive: true });
+    const ctx = await chromium.launchPersistentContext(prof.dir, { headless, locale: 'en-US', viewport: { width: 1280, height: 860 } });
     let res = { checked: 0, found: 0, failed: 0 };
     try {
       const page = await ctx.newPage();
@@ -794,7 +829,7 @@ export async function run({ geo, date, runId, cycle = 'daily', useBrowser = true
       await page.waitForTimeout(2000);
       res = await googleByName(page, queue, date, c);
       await page.close();
-    } finally { await ctx.close(); }
+    } finally { await ctx.close(); prof.release(); }
     finishRun(runId, 'check-ads', geo, { status: 'ok', requests: res.checked, errors: res.failed,
       notes: `google по имени ${res.checked} разработчиков, реклама у ${res.found}, не удалось ${res.failed}` });
     log(`  ${geo}: Google по имени — ${res.checked} разработчиков, реклама у ${res.found}, не удалось ${res.failed}`);
@@ -839,8 +874,14 @@ export async function run({ geo, date, runId, cycle = 'daily', useBrowser = true
     return { queued: queue.length, checked: 0, automated: false };
   }
 
-  fs.mkdirSync(PROFILE_DIR, { recursive: true });
-  const ctx = await chromium.launchPersistentContext(PROFILE_DIR, {
+  const prof = takeProfile({ runId, cycle });
+  if (!prof) {
+    finishRun(runId, 'check-ads', geo, { status: 'skipped', notes: 'все профили браузера заняты' });
+    warn(`  ${geo}: все профили браузера заняты — проверка рекламы пропущена, улика переживёт один день`);
+    return { queued: queue.length, checked: 0, automated: false };
+  }
+  fs.mkdirSync(prof.dir, { recursive: true });
+  const ctx = await chromium.launchPersistentContext(prof.dir, {
     headless, locale: 'en-US', viewport: { width: 1280, height: 860 },
   });
 
@@ -891,6 +932,7 @@ export async function run({ geo, date, runId, cycle = 'daily', useBrowser = true
     await page.close();
   } finally {
     await ctx.close();
+    prof.release();
   }
 
   finishRun(runId, 'check-ads', geo, {
