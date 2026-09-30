@@ -315,6 +315,24 @@ export async function run({ geo, date }) {
   }
 
   const hist = one(d, `SELECT MIN(snapshot_date) lo, MAX(snapshot_date) hi, COUNT(DISTINCT snapshot_date) n FROM raw_app_page`);
+  // ---------- витрина продаж ----------
+  // Внешний список объявлений, импортируется tools/import-for-sale.js. Берётся последний
+  // снятый день: объявления живут неделями, и мешать снимки разных дат нельзя — цена
+  // меняется, лот уходит. Заявление продавца об органике кладётся как заявление: сверить
+  // его с нашими данными невозможно, две трети лотов на iOS, которого мы не собираем.
+  const forSale = (() => {
+    const day = one(d, `SELECT MAX(snapshot_date) m FROM apps_for_sale`)?.m || null;
+    if (!day) return { date: null, rows: [] };
+    return {
+      date: day,
+      rows: all(d, `SELECT section, pos, title, platform, niche, revenue_month rev, profit_month prof,
+                           price, price_to_year_profit mult, organic_claim org, subs_claim subs,
+                           verified, note, url, score
+                      FROM apps_for_sale WHERE snapshot_date=? ORDER BY section, pos`, day)
+        .map((r) => ({ ...r, mult: r4(r.mult) })),
+    };
+  })();
+
   // ---------- органические студии ----------
   // Разработчики, у которых НИ У ОДНОГО приложения не нашлось признаков закупки, и при этом
   // они невелики. Это не «доказанная органика»: ступень «признаков нет» означает «не нашли»,
@@ -415,7 +433,7 @@ export async function run({ geo, date }) {
       labels30: new Date(Date.parse(hist.lo) + 30 * 864e5).toISOString().slice(0, 10),
       labels90: new Date(Date.parse(hist.lo) + 90 * 864e5).toISOString().slice(0, 10),
     },
-    geos, rows, niches, studios, studioBase,
+    geos, rows, niches, studios, studioBase, forSale,
     // Отсеянные воронкой по трём причинам, которые на деле являются признаками.
     // Отсечка по каждой причине отдельно: при общей крупные («якоря спроса») вытесняли
     // из списка недовольный спрос и заброшенных, а именно они и интересны.

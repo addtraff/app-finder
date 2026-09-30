@@ -171,7 +171,7 @@ __UNPACK_JS__
   var PAGE = 50;
   var state = { view: 'cand', geo: WW, page: 1, q: '', risk: 'all', paid: 'all', mom: 'all', sort: 'risk',
     inst: 0, instMax: 0, age: 'all', flow: 0, freedom: 0, quad: 'all', concept: 'all', meas: 'all', ubt: 'all',
-    spread: 'all', cpy: 'all', dem: 0, door3: 0, nDem: 0, nDoor3: 0, nDoor: 0, nFlow: 0, nFreedom: 0, nPurity: 0, nKeys: 0, nQuad: 'all', nStab: 0, nDevs: 0, nYoung: 0, nRating: 0, nSort: 'freedom', oSort: 'acc', oPrice: 0, sMax: 1000000, sSort: 'young', sFresh: 0,
+    spread: 'all', cpy: 'all', dem: 0, door3: 0, nDem: 0, nDoor3: 0, nDoor: 0, nFlow: 0, nFreedom: 0, nPurity: 0, nKeys: 0, nQuad: 'all', nStab: 0, nDevs: 0, nYoung: 0, nRating: 0, nSort: 'freedom', oSort: 'acc', oPrice: 0, sMax: 1000000, sSort: 'young', sFresh: 0, fPlat: 'all', fOrg: 0, fPrice: 0, fSort: 'mult',
     favs: load('appradar3-favs', []), nfavs: load('appradar3-nfavs', []) };
 
   // Звезда для приложения ('a') и для темы ('n'). Разметка общая с AppRadar 2.
@@ -237,6 +237,7 @@ __COMMON_JS__
     { id: 'niches', title: 'Ниши', count: function () { return D.niches.length; } },
     { id: 'rejected', title: 'Отсеянные', count: function () { return (D.rejected || []).length; } },
     { id: 'studios', title: 'Органические студии', count: function () { return studioRows(true).length; } },
+    { id: 'sale', title: 'На продажу', count: function () { return saleRows(true).length; } },
     { id: 'fav', title: 'Избранное', count: function () { return state.favs.length + state.nfavs.length; } },
     { id: 'how', title: 'Как читать', count: function () { return null; } }
   ];
@@ -547,6 +548,110 @@ __COMMON_JS__
           + '</tr></thead><tbody>' + aBody + '</tbody></table></div>'
           : '<p class="sub">Ни одного приложения не отмечено. Звезда стоит в первой колонке таблицы «Кандидаты».</p>')
       + '</div>'
+    + '</section>';
+  }
+
+  // ---------- витрина продаж ----------
+  // Чужой список объявлений, а не наши измерения. Поэтому страница устроена иначе, чем
+  // остальные: здесь нет ни одной посчитанной нами величины о приложении, только то, что
+  // написал продавец, плюс арифметика по его же числам. Сверить заявление об органике с
+  // нашей базой нельзя — две трети лотов на iOS, которого мы не собираем, а совпадение
+  // названий даёт однофамильцев: проверка 30.09 дала 11 «совпадений» из 45, и все
+  // одиннадцать оказались чужими приложениями с похожим именем.
+  function saleRows(countOnly) {
+    var rows = ((D.forSale || {}).rows || []).slice();
+    if (state.fPlat !== 'all') rows = rows.filter(function (r) { return (r.platform || '—') === state.fPlat; });
+    if (state.fOrg) rows = rows.filter(function (r) { return !!r.org; });
+    if (state.fPrice) rows = rows.filter(function (r) { return isNum(r.price) && r.price <= state.fPrice; });
+    if (countOnly) return rows;
+    if (state.q) rows = rows.filter(function (r) {
+      var hay = (r.title || '') + ' ' + (r.niche || '') + ' ' + (r.note || '');
+      return hay.toLowerCase().indexOf(state.q.toLowerCase()) >= 0;
+    });
+    var by = {
+      mult: function (a, b) { return (isNum(a.mult) ? a.mult : 99) - (isNum(b.mult) ? b.mult : 99); },
+      price: function (a, b) { return (a.price || 0) - (b.price || 0); },
+      profit: function (a, b) { return (b.prof || 0) - (a.prof || 0); },
+      score: function (a, b) { return (b.score || 0) - (a.score || 0); }
+    };
+    return rows.sort(by[state.fSort] || by.mult);
+  }
+
+  function renderSale() {
+    var F = D.forSale || { rows: [] };
+    var all = saleRows(true), rows = saleRows(false);
+    var plats = {};
+    (F.rows || []).forEach(function (r) { var p = r.platform || '—'; plats[p] = (plats[p] || 0) + 1; });
+    var platOpts = [['all', 'любая']].concat(Object.keys(plats).sort().map(function (p) { return [p, p + ' (' + plats[p] + ')']; }));
+
+    var med = function (v) {
+      var s = v.filter(isNum).sort(function (a, b) { return a - b; });
+      return s.length ? s[Math.floor(s.length / 2)] : null;
+    };
+    var money = function (v) { return isNum(v) ? '$' + short(v) : dash('не указано'); };
+
+    // Сводка по разделам исходного списка: они заданы продавцом списка, а не нами, и
+    // отличаются смыслом — в разделе B органика не заявлена вовсе.
+    var bySec = {};
+    (F.rows || []).forEach(function (r) {
+      var s = r.section || '—';
+      if (!bySec[s]) bySec[s] = { n: 0, org: 0, price: [], mult: [], prof: [] };
+      var e = bySec[s];
+      e.n++; if (r.org) e.org++;
+      e.price.push(r.price); e.mult.push(r.mult); e.prof.push(r.prof);
+    });
+
+    $('view').innerHTML = '<section class="page">'
+      + '<div class="page-head"><h1>Приложения на продажу</h1><p class="lead">Витрина объявлений от ' + esc(F.date || '—') + '. Лоты, где продавец заявляет органический трафик, и те, где он про трафик молчит.</p></div>'
+
+      + '<div class="card block manual" style="margin-bottom:14px">'
+        + '<p class="sub"><b>Это чужие слова, а не наши измерения.</b> Колонка «органика» — заявление продавца. Мы его не проверяли и проверить не можем: '
+        + int(plats['iOS'] || 0) + ' из ' + int((F.rows || []).length) + ' лотов на iOS, которого мы не собираем вовсе, а сверка по названию даёт однофамильцев — '
+        + 'на этом списке она нашла 11 «совпадений», и все одиннадцать оказались другими приложениями с похожим именем. Поэтому на этой странице нет ни одной нашей величины о приложении: только то, что написал продавец, и арифметика по его же числам.</p>'
+        + '<p class="sub">Мультипликатор — цена, делённая на годовую прибыль. Чем он ниже, тем быстрее лот окупается <i>если</i> заявленная прибыль реальна. Выручка и прибыль указаны продавцом и в разделе C это выручка, а не прибыль — сравнивать мультипликаторы между разделами нельзя.</p>'
+      + '</div>'
+
+      + '<div class="card block manual" style="margin-bottom:14px"><h3>Разделы исходного списка</h3>'
+        + '<div class="tbl"><table><thead><tr><th>Раздел</th><th class="r">Лотов</th><th class="r">С заявленной органикой</th><th class="r">Медиана цены</th><th class="r">Медиана прибыли</th><th class="r">Медиана мультипликатора</th></tr></thead><tbody>'
+        + Object.keys(bySec).sort().map(function (s) {
+          var e = bySec[s];
+          return '<tr><td class="muted small">' + esc(s) + '</td>'
+            + '<td class="r"><span class="num">' + int(e.n) + '</span></td>'
+            + '<td class="r"><span class="num">' + int(e.org) + '</span></td>'
+            + '<td class="r"><span class="num">' + money(med(e.price)) + '</span></td>'
+            + '<td class="r"><span class="num">' + money(med(e.prof)) + '</span></td>'
+            + '<td class="r"><span class="num strong">' + (isNum(med(e.mult)) ? fix(med(e.mult), 2) + 'x' : dash('не указано')) + '</span></td></tr>';
+        }).join('')
+        + '</tbody></table></div></div>'
+
+      + '<div class="card" style="margin-bottom:12px"><div class="toolbar">'
+        + sel('fPlat', 'Платформа', state.fPlat, platOpts)
+        + sel('fOrg', 'Органика', state.fOrg, [[0, 'любая'], [1, 'только заявленная']])
+        + sel('fPrice', 'Цена до', state.fPrice, [[0, 'любая'], [50000, '$50 тыс.'], [150000, '$150 тыс.'], [500000, '$500 тыс.']])
+        + sel('fSort', 'Сортировка', state.fSort, [['mult', 'Дешевле мультипликатор'], ['price', 'Дешевле лот'], ['profit', 'Больше прибыль'], ['score', 'Выше балл списка']])
+      + '</div></div>'
+
+      + (rows.length ? '<div class="tbl"><table><thead><tr>'
+        + ['#', 'Приложение', 'Платформа', 'Ниша', 'Выручка/мес', 'Прибыль/мес', 'Цена', 'Мультипл.', 'Органика', 'Заметка продавца']
+          .map(function (h, i) { return '<th' + (i >= 4 && i <= 7 ? ' class="r"' : '') + '>' + h + '</th>'; }).join('')
+        + '</tr></thead><tbody>'
+        + rows.map(function (r, i) {
+          return '<tr>'
+            + '<td class="num muted">' + (i + 1) + '</td>'
+            + '<td>' + (r.url ? '<a href="' + esc(r.url) + '" target="_blank" rel="noopener">' + esc(r.title) + '</a>' : '<div class="strong">' + esc(r.title) + '</div>')
+              + (isNum(r.score) ? '<div class="muted small">балл списка ' + int(r.score) + '</div>' : '') + '</td>'
+            + '<td class="muted small">' + esc(r.platform || '—') + '</td>'
+            + '<td class="muted small">' + esc(r.niche || '—') + '</td>'
+            + '<td class="r"><span class="num">' + money(r.rev) + '</span></td>'
+            + '<td class="r"><span class="num">' + money(r.prof) + '</span></td>'
+            + '<td class="r"><span class="num strong">' + money(r.price) + '</span></td>'
+            + '<td class="r">' + (isNum(r.mult) ? '<span class="num strong">' + fix(r.mult, 2) + 'x</span>' : dash('прибыль не указана')) + '</td>'
+            + '<td>' + (r.org ? '<span class="badge b-green">' + esc(r.org) + '</span>' : '<span class="muted small">не заявлена</span>') + '</td>'
+            + '<td class="muted small">' + esc(r.note || '') + '</td>'
+            + '</tr>';
+        }).join('')
+        + '</tbody></table></div><div class="pager muted small">всего ' + int(rows.length) + ' из ' + int((F.rows || []).length) + '</div>'
+        : '<div class="empty">При этих условиях лотов нет</div>')
     + '</section>';
   }
 
@@ -1049,6 +1154,7 @@ __COMMON_JS__
     else if (state.view === 'niches') renderNiches();
     else if (state.view === 'rejected') renderRejected();
     else if (state.view === 'studios') renderStudios();
+    else if (state.view === 'sale') renderSale();
     else if (state.view === 'how') renderHow();
     else renderCand();
   }

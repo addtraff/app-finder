@@ -203,6 +203,18 @@ CREATE TABLE IF NOT EXISTS raw_external_keyword_hist (
   PRIMARY KEY (geo, keyword, snapshot_date, source)
 );
 CREATE INDEX IF NOT EXISTS ix_ext_kw_hist ON raw_external_keyword_hist(geo, snapshot_date);
+-- Снимок витрины объявлений о продаже приложений. Источник внешний и непроверяемый: колонка
+-- organic_claim — это СЛОВА ПРОДАВЦА, а не наш вердикт. Снимки датированы, потому что
+-- объявления живут неделями: цена меняется, лот уходит, и сравнивать надо с той датой,
+-- когда список сняли.
+CREATE TABLE IF NOT EXISTS apps_for_sale (
+  snapshot_date TEXT, section TEXT, pos INTEGER,
+  title TEXT, platform TEXT, niche TEXT,
+  revenue_month REAL, profit_month REAL, price REAL, price_to_year_profit REAL,
+  organic_claim TEXT, subs_claim TEXT, verified TEXT, note TEXT, url TEXT, score INTEGER,
+  imported_at TEXT,
+  PRIMARY KEY (snapshot_date, section, pos)
+);
 CREATE TABLE IF NOT EXISTS raw_external_trends (
   geo TEXT, keyword TEXT, point_date TEXT, value REAL, imported_at TEXT,
   PRIMARY KEY (geo, keyword, point_date)
