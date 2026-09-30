@@ -125,21 +125,58 @@ export function reapOrphanRuns(hours = 24) {
 
 // ---------- блокировки ----------
 
-export function acquireLock(name, { runId, cycle, force = false }) {
+// Пауза без таймеров: acquireLock зовут из синхронного кода, а ждать всё равно нужно.
+// Тот же приём, что в retryBusy.
+const sleep = (ms) => { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); };
+const POLL_MS = 15000;
+
+// Захват замка с ожиданием.
+//
+// Ждать, а не отказывать сразу, пришлось после 29.09: двое суток шли ручные пересчёты по
+// всем тридцати гео, они держали замки, и штатный обход раз за разом получал отказ. Замки
+// уберегли от гонки записи и при этом заморили регулярный сбор — семнадцать стран отстали,
+// одна на четыре дня. Проигрывал всегда обход, потому что ручная работа длиннее.
+//
+// Захват сделан атомарным. Раньше между чтением строки и записью был зазор, и две полосы,
+// проснувшись одновременно, обе решали, что замок свободен. Теперь свободный замок берётся
+// через ON CONFLICT DO NOTHING, а мёртвый перехватывается UPDATE с условием на pid прежнего
+// держателя: кто успел, того и замок, второй увидит changes = 0 и продолжит ждать.
+export function acquireLock(name, { runId, cycle, force = false, waitMs = 0 }) {
   const d = db();
-  const cur = d.prepare(`SELECT * FROM locks WHERE name=?`).get(name);
-  if (cur) {
+  const now = () => new Date().toISOString();
+  const deadline = Date.now() + waitMs;
+  let announced = false;
+
+  for (;;) {
+    const cur = d.prepare(`SELECT * FROM locks WHERE name=?`).get(name);
+
+    if (!cur) {
+      const r = retryBusy(() => d.prepare(
+        `INSERT INTO locks (name, run_id, cycle, pid, host, acquired_at, heartbeat_at)
+         VALUES (?,?,?,?,?,?,?) ON CONFLICT(name) DO NOTHING`
+      ).run(name, runId, cycle, process.pid, HOST, now(), now()));
+      if (r.changes) return { ok: true, holder: null };
+      continue;                                   // успел кто-то другой — смотрим заново
+    }
+
     const fresh = Date.parse(cur.heartbeat_at || cur.acquired_at) > Date.now() - STALE_MINUTES * 60000;
     const live = alive(cur.pid, cur.host);
-    if (live && fresh && !force) {
-      return { ok: false, holder: cur };
+    if (!live || !fresh || force) {
+      const r = retryBusy(() => d.prepare(
+        `UPDATE locks SET run_id=?, cycle=?, pid=?, host=?, acquired_at=?, heartbeat_at=? WHERE name=? AND pid=?`
+      ).run(runId, cycle, process.pid, HOST, now(), now(), name, cur.pid));
+      if (r.changes) {
+        if (!force) log(`  блокировка ${name} снята: держатель ${cur.pid} не отвечает`);
+        return { ok: true, holder: null };
+      }
+      continue;                                   // держатель успел смениться — пересматриваем
     }
-    if (!live || !fresh) log(`  блокировка ${name} снята: держатель ${cur.pid} не отвечает`);
+
+    const left = deadline - Date.now();
+    if (left <= 0) return { ok: false, holder: cur };
+    if (!announced) { log(`  жду освобождения ${name}: держит ${holderText(cur)}`); announced = true; }
+    sleep(Math.min(POLL_MS, left));
   }
-  retryBusy(() => d.prepare(
-    `INSERT OR REPLACE INTO locks (name, run_id, cycle, pid, host, acquired_at, heartbeat_at) VALUES (?,?,?,?,?,?,?)`
-  ).run(name, runId, cycle, process.pid, HOST, new Date().toISOString(), new Date().toISOString()));
-  return { ok: true, holder: null };
 }
 
 export function beat(name) {

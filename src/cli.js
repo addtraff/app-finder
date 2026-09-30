@@ -187,7 +187,12 @@ async function runPipeline(plan, { geo, date, cycle, only = null, force = false 
   const lock = `geo:${geo}`;
   // Блокировка гео: два прохода по одной стране одновременно затирают результаты друг
   // друга, причём выигрывает не последний по времени, а тот, кто позже запишет.
-  const got = acquireLock(lock, { runId, cycle, force });
+  // Обход ЖДЁТ освобождения гео, а не отказывается сразу. Двадцати минут хватает, чтобы
+  // переждать ручную операцию — именно они 29.09 заморили сбор: семнадцать стран отстали,
+  // одна на четыре дня, потому что каждый отказ выбрасывал гео из прохода целиком. Дольше
+  // ждать смысла нет: если гео держит другой такой же обход, он делает ту же работу, и
+  // второму достаточно пропустить.
+  const got = acquireLock(lock, { runId, cycle, force, waitMs: 20 * 60000 });
   if (!got.ok) {
     warn(`гео ${geo} занято: ${holderText(got.holder)}. Пропускаю; чтобы всё равно запустить — --force`);
     return null;
@@ -290,7 +295,9 @@ async function main() {
         // дневной обход дважды затёр ручной пересчёт — и затёр более старым кодом, потому
         // что его процесс стартовал до правки.
         const lock = lockFor(name, geo);
-        const got = acquireLock(lock, { runId, cycle: `manual:${name}`, force: !!args.force });
+        // Ручной запуск ждёт меньше: за терминалом сидит человек, и висеть двадцать минут
+        // молча — хуже, чем честно сказать, кто держит гео.
+        const got = acquireLock(lock, { runId, cycle: `manual:${name}`, force: !!args.force, waitMs: 2 * 60000 });
         if (!got.ok) { warn(`${lock.startsWith('report:') ? 'сборка ' + name : 'гео ' + geo} занято: ${holderText(got.holder)}. Пропускаю; чтобы всё равно запустить — --force`); continue; }
         log(`-> ${name} (${geo})`);
         try {
